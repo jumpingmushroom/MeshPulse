@@ -71,3 +71,13 @@ export function flushDevices(db: Db, state: AppState, dirty: Set<string>): void 
 	});
 	dirty.clear();
 }
+
+export const FOREVER = 253402300799000; // 9999-12-31
+const H = 3_600_000;
+const MUTE = new Map<string, number | null>([['1h', H], ['24h', 24 * H], ['7d', 168 * H], ['forever', FOREVER], ['unmute', null]]);
+
+/** UI mute duration → devices.muted_until; undefined for an unknown duration. */
+export function muteUntil(duration: string, now: number): number | null | undefined {
+	const ms = MUTE.get(duration);
+	return ms === undefined || ms === null || ms === FOREVER ? ms : now + ms;
+}

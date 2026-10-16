@@ -1,5 +1,6 @@
 import type { IssueRow, NotifyKind } from '../issues/lifecycle';
 import type { DeviceState, Severity } from '../types';
+import { formatDuration } from '../../views';
 
 export interface Message {
 	severity: Severity | 'resolved';
@@ -25,14 +26,6 @@ export interface Channel {
 }
 
 export const SEVERITY_LABEL: Record<Severity, string> = { info: 'Info', warning: 'Warning', critical: 'Critical' };
-
-/** "3 h 12 min", "2 d 4 h", "5 min" */
-export function formatDuration(ms: number): string {
-	const min = Math.round(ms / 60_000);
-	const [d, h, m] = [Math.floor(min / 1440), Math.floor(min / 60) % 24, min % 60];
-	const parts = d ? [`${d} d`, h && `${h} h`] : h ? [`${h} h`, m && `${m} min`] : [`${m} min`];
-	return parts.filter(Boolean).join(' ');
-}
 
 export function toMessage(issue: IssueRow, kind: NotifyKind, device: DeviceState | null, publicUrl?: string, tz?: string): Message {
 	const fields: Message['fields'] = [];

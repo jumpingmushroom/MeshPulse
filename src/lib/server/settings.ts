@@ -40,3 +40,37 @@ export function saveSettings(db: Db, patch: Partial<Settings>): void {
 	for (const [key, value] of Object.entries(patch))
 		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
+
+const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct'];
+const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
+
+/** Validates the Settings form; all-or-nothing, unknown keys ignored. */
+export function parseSettingsForm(form: FormData): { settings: Settings } | { error: string } {
+	const out: Record<string, unknown> = {};
+	for (const [key, def] of Object.entries(DEFAULT_SETTINGS)) {
+		const raw = String(form.get(key) ?? '').trim();
+		if (typeof def === 'boolean') out[key] = form.get(key) === 'on';
+		else if (typeof def === 'number') {
+			const n = raw === '' ? NaN : Number(raw);
+			const max = PCT.includes(key) ? 100 : VOLTS.includes(key) ? 10 : Infinity;
+			if (!Number.isFinite(n) || n < 0 || n > max) return { error: max === Infinity ? `${key} must be a number of 0 or more` : `${key} must be a number from 0 to ${max}` };
+			out[key] = n;
+		} else if (key === 'heartbeatUrl') {
+			if (raw && !/^https?:\/\/[^\s/]+\S*$/.test(raw)) return { error: 'heartbeatUrl must be an http(s) URL or empty' };
+			out[key] = raw;
+		} else {
+			if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) return { error: `${key} must be a time as HH:MM` };
+			out[key] = raw;
+		}
+	}
+	const v = out as Settings;
+	const order: [boolean, string][] = [
+		[v.batteryCriticalPct < v.batteryLowPct && v.batteryLowPct < v.batteryClearPct, 'Battery thresholds must be critical < low < OK again'],
+		[v.voltageCritical < v.voltageLow && v.voltageLow < v.voltageClear, 'Coin cell thresholds must be critical < low < OK again'],
+		[v.flappingClearBelow < v.flappingCount, 'Flapping must clear below the count that raises it'],
+		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum'],
+		[v.silenceMultiplier > 0 && v.flappingWindowH > 0, 'Silence multiplier and flapping window must be above 0']
+	];
+	const bad = order.find(([ok]) => !ok);
+	return bad ? { error: bad[1] } : { settings: v };
+}

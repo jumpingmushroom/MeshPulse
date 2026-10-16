@@ -1,3 +1,4 @@
+import { ensureAdmin, getAuth } from './auth';
 import { loadConfig, type Config } from './config';
 import { getDb, type Db } from './db';
 import { startEngine } from './engine';
@@ -18,6 +19,12 @@ export function startRuntime(): Runtime {
 	const db = getDb();
 	const state = createState(Date.now());
 	loadDevices(db, state);
+	ensureAdmin(getAuth(), config.adminEmail, config.adminPassword)
+		.then((r) => {
+			if (r === 'skipped') console.warn('auth: ADMIN_EMAIL or ADMIN_PASSWORD not set, nobody can log in');
+			else console.log(`auth: admin account ${r}`);
+		})
+		.catch((e) => console.error('auth: admin seeding failed', e));
 	const dirty = new Set<string>();
 	const counters: Counters = { seen: new Map(), missing: new Map() };
 	startCollector({ config, state, onEffects: (effects) => applyEffects(db, effects, dirty) });
