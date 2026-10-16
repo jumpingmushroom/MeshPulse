@@ -1,4 +1,4 @@
-import type { Finding, RuleContext } from './index';
+import type { Finding, RuleContext } from './types';
 
 export function permitJoinOpen(ctx: RuleContext): Finding[] {
 	const b = ctx.state.bridge;

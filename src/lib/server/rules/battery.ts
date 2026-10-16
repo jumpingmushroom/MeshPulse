@@ -1,4 +1,4 @@
-import { issueKey, type Finding, type RuleContext } from './index';
+import { issueKey, type Finding, type RuleContext } from './types';
 
 export function batteryLow(ctx: RuleContext): Finding[] {
 	const s = ctx.settings;

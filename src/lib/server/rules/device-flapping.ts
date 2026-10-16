@@ -1,4 +1,4 @@
-import { inGrace, issueKey, type Finding, type RuleContext } from './index';
+import { inGrace, issueKey, type Finding, type RuleContext } from './types';
 
 export function deviceFlapping(ctx: RuleContext): Finding[] {
 	const { now, settings: s, events } = ctx;

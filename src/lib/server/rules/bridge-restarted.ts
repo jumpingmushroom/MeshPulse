@@ -1,4 +1,4 @@
-import type { Finding, RuleContext } from './index';
+import type { Finding, RuleContext } from './types';
 
 const H = 3_600_000;
 

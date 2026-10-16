@@ -1,4 +1,4 @@
-import type { Finding, RuleContext } from './index';
+import type { Finding, RuleContext } from './types';
 
 export function mqttLost(ctx: RuleContext): Finding[] {
 	const m = ctx.state.monitor;

@@ -1,4 +1,4 @@
-import { inGrace, issueKey, type Finding, type RuleContext } from './index';
+import { inGrace, issueKey, type Finding, type RuleContext } from './types';
 
 const H = 3_600_000;
 

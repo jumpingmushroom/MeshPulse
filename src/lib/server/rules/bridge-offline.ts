@@ -1,21 +1,28 @@
-import { inGrace, issueKey, type Finding, type RuleContext } from './index';
+import { inGrace, issueKey, type Finding, type RuleContext } from './types';
 
 const CLEAR_MS = 2 * 60_000;
 
 export function bridgeOffline(ctx: RuleContext): Finding[] {
 	const { now, state, settings } = ctx;
 	const b = state.bridge;
-	const lastLive = b.lastLiveAt ?? state.monitor.startedAt;
-	const silentMs = now - lastLive;
-	const bad = ctx.open.has(issueKey('bridge.offline', null))
+	const m = state.monitor;
+	const open = ctx.open.has(issueKey('bridge.offline', null));
+	// disconnected from MQTT: our view of Z2M is stale (mqtt_lost covers it), so only hold an open issue
+	if (!m.connected && !open) return [];
+	const silentMs = now - (b.lastLiveAt ?? m.startedAt);
+	// a new silence finding counts from reconnect too; clearing an open one needs real live messages
+	const newSilentMs = now - Math.max(b.lastLiveAt ?? m.startedAt, m.connectedAt ?? 0);
+	const bad = !m.connected || (open
 		? !(b.state === 'online' && b.onlineSince !== null && now - b.onlineSince >= CLEAR_MS && silentMs < CLEAR_MS)
-		: b.state === 'offline' || (!inGrace(ctx) && silentMs >= settings.bridgeSilenceMin * 60_000);
+		: b.state === 'offline' || (!inGrace(ctx) && newSilentMs >= settings.bridgeSilenceMin * 60_000));
 	if (!bad) return [];
 	return [{
 		rule: 'bridge.offline',
 		ieee: null,
 		severity: 'critical',
-		summary: b.state === 'offline'
+		summary: !m.connected
+			? 'Zigbee2MQTT status unknown while MeshPulse is disconnected from MQTT'
+			: b.state === 'offline'
 			? 'Zigbee2MQTT is offline'
 			: `No messages from Zigbee2MQTT for ${Math.round(silentMs / 60_000)} min`,
 		action: 'Check that Zigbee2MQTT and the coordinator are running',
