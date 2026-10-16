@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
-		"test": "vitest"
+		"test": "vitest",
+		"capture": "node scripts/capture.ts"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^6.0.0",
@@ -33,6 +34,7 @@
 	"dependencies": {
 		"better-auth": "^1.7.10",
 		"better-sqlite3": "^13.0.3",
-		"drizzle-orm": "^0.45.4"
+		"drizzle-orm": "^0.45.4",
+		"mqtt": "^5.16.1"
 	}
 }
