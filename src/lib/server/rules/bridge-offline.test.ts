@@ -77,4 +77,14 @@ describe('bridge.offline', () => {
 		c.state.monitor.connectedAt = NOW - 1 * MIN;
 		expect(bridgeOffline(c)).toHaveLength(1);
 	});
+
+	it('clears an open issue without a retained bridge/state once live for 2 min', () => {
+		const c = ctx();
+		c.open.add(issueKey('bridge.offline', null));
+		Object.assign(c.state.bridge, { state: null, onlineSince: null, lastLiveAt: NOW });
+		c.state.monitor.connectedAt = NOW - 1 * MIN;
+		expect(bridgeOffline(c)).toHaveLength(1);
+		c.state.monitor.connectedAt = NOW - 10 * MIN;
+		expect(bridgeOffline(c)).toEqual([]);
+	});
 });

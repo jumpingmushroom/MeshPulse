@@ -12,8 +12,10 @@ export function bridgeOffline(ctx: RuleContext): Finding[] {
 	const silentMs = now - (b.lastLiveAt ?? m.startedAt);
 	// a new silence finding counts from reconnect too; clearing an open one needs real live messages
 	const newSilentMs = now - Math.max(b.lastLiveAt ?? m.startedAt, m.connectedAt ?? 0);
+	// no retained bridge/state: count "online" from when we (re)connected
+	const upSince = b.onlineSince ?? Math.max(m.connectedAt ?? 0, m.startedAt);
 	const bad = !m.connected || (open
-		? !(b.state === 'online' && b.onlineSince !== null && now - b.onlineSince >= CLEAR_MS && silentMs < CLEAR_MS)
+		? !(b.state !== 'offline' && now - upSince >= CLEAR_MS && silentMs < CLEAR_MS)
 		: b.state === 'offline' || (!inGrace(ctx) && newSilentMs >= settings.bridgeSilenceMin * 60_000));
 	if (!bad) return [];
 	return [{

@@ -12,8 +12,11 @@ export function deviceOffline(ctx: RuleContext): Finding[] {
 		const threshold = d.typicalGapMs === null ? null
 			: Math.min(Math.max(s.silenceMultiplier * d.typicalGapMs, s.silenceMinH * H), s.silenceMaxH * H);
 		// grace only blocks new silence findings; an open one stops when the device is seen again
-		const silent = d.type !== 'Router' && threshold !== null && d.lastSeenAt !== null &&
-			now - d.lastSeenAt > threshold && (open || !grace);
+		// a new finding counts from reconnect / Z2M restart too: device state isn't replayed after an outage
+		const since = open ? d.lastSeenAt
+			: d.lastSeenAt === null ? null
+			: Math.max(d.lastSeenAt, ctx.state.monitor.connectedAt ?? 0, ctx.state.bridge.restartedAt ?? 0);
+		const silent = d.type !== 'Router' && threshold !== null && since !== null && now - since > threshold && (open || !grace);
 		const offline = d.availability === 'offline';
 		if (!offline && !silent) continue;
 		const last = ctx.events.findLast((e) => e.kind === 'availability' && e.ieee === d.ieee);

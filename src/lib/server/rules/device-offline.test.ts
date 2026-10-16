@@ -80,4 +80,24 @@ describe('device.offline', () => {
 		dev(c, DOOR).lastSeenAt = NOW - MIN;
 		expect(deviceOffline(c)).toEqual([]);
 	});
+
+	it('does not start silence from a gap that spans an MQTT outage', () => {
+		const c = silent(H, 4 * H);
+		c.state.monitor.connectedAt = NOW - 10 * MIN;
+		expect(deviceOffline(c)).toEqual([]);
+	});
+
+	it('does not start silence from a gap that spans a Z2M restart (after grace)', () => {
+		const c = silent(30 * MIN, 4 * H);
+		c.state.bridge.restartedAt = NOW - 20 * MIN;
+		expect(deviceOffline(c)).toEqual([]);
+	});
+
+	it('keeps an open silence issue and lastSeenAt evidence after reconnect', () => {
+		const c = silent(H, 4 * H);
+		c.state.monitor.connectedAt = NOW - 10 * MIN;
+		c.open.add(issueKey('device.offline', DOOR));
+		const [f] = deviceOffline(c);
+		expect(f.evidence.offlineSince).toBe(NOW - 4 * H);
+	});
 });
