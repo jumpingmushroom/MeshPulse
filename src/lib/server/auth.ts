@@ -1,17 +1,37 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { sveltekitCookies } from 'better-auth/svelte-kit';
+import { getRequestEvent } from '$app/server';
+import { loadConfig } from './config';
 import { getDb } from './db/index';
+import * as schema from './db/schema';
 
-let auth: ReturnType<typeof create> | undefined;
+export type Auth = ReturnType<typeof create>;
+let auth: Auth | undefined;
 
 // Lazy so imports (builds, tests) never open the database.
 function create() {
+	const config = loadConfig();
 	return betterAuth({
-		database: drizzleAdapter(getDb(), { provider: 'sqlite' }),
-		emailAndPassword: { enabled: true, disableSignUp: true }
+		database: drizzleAdapter(getDb(), { provider: 'sqlite', schema }),
+		secret: config.secretKey,
+		baseURL: config.publicUrl,
+		emailAndPassword: { enabled: true, disableSignUp: true },
+		plugins: [sveltekitCookies(getRequestEvent)]
 	});
 }
 
-export function getAuth() {
+export function getAuth(): Auth {
 	return (auth ??= create());
+}
+
+/** Seeds the single admin account from env (sign-up is disabled). */
+export async function ensureAdmin(auth: Auth, email?: string, password?: string): Promise<'created' | 'exists' | 'skipped'> {
+	if (!email || !password) return 'skipped';
+	const ctx = await auth.$context;
+	if (await ctx.internalAdapter.findUserByEmail(email)) return 'exists';
+	const user = await ctx.internalAdapter.createUser({ email, name: 'Admin', emailVerified: true }, { method: 'admin' });
+	await ctx.internalAdapter.linkAccount({ providerId: 'credential', accountId: user.id, userId: user.id,
+		password: await ctx.password.hash(password) });
+	return 'created';
 }

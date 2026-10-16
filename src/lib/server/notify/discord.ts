@@ -1,6 +1,7 @@
 import { ChannelError, type Channel, type Message } from './channel';
 
 const COLORS: Record<Message['severity'], number> = { critical: 0xe53935, warning: 0xffb300, info: 0x1e88e5, resolved: 0x43a047 };
+export const WEBHOOK_RE = /^https:\/\/(discord|discordapp)\.com\/api\/webhooks\/\S+$/;
 export const MENTION_KINDS: readonly string[] = ['open', 'escalate', 'reminder'];
 
 export function toDiscordPayload(m: Message, cfg: { mentionCritical: boolean }) {

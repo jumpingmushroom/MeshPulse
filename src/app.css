@@ -1,0 +1,52 @@
+:root {
+	--critical: #e53935;
+	--warning: #ffb300;
+	--info: #1e88e5;
+	--ok: #43a047;
+	--border: #ddd;
+	font-family: system-ui, sans-serif;
+	line-height: 1.4;
+	color: #222;
+}
+body { margin: 0; }
+main { max-width: 70rem; margin: 0 auto; padding: 1rem; }
+header nav { display: flex; gap: 1rem; align-items: center; padding: 0.5rem 1rem; border-bottom: 1px solid var(--border); }
+header nav form { margin-left: auto; }
+a[aria-current='page'] { font-weight: bold; text-decoration: none; }
+button { font: inherit; cursor: pointer; }
+pre { background: #f4f4f4; padding: 0.5rem; overflow-x: auto; }
+.muted { color: #666; }
+.error { color: var(--critical); font-weight: bold; }
+.bad { color: var(--critical); }
+
+.banner { border-left: 0.5rem solid; padding: 0.5rem 1rem; margin: 0 0 1rem; background: #fafafa; }
+.banner h1, .banner h2 { margin: 0.25rem 0; }
+.banner.green { border-color: var(--ok); }
+.banner.amber { border-color: var(--warning); }
+.banner.red { border-color: var(--critical); }
+
+.sev { display: inline-block; padding: 0 0.4rem; border-radius: 0.25rem; color: #fff; font-size: 0.85em; text-transform: capitalize; }
+.sev.critical { background: var(--critical); }
+.sev.warning { background: var(--warning); color: #222; }
+.sev.info { background: var(--info); }
+
+.issues { list-style: none; padding: 0; }
+.issues li { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.25rem 0; }
+.counters { display: flex; gap: 2rem; flex-wrap: wrap; }
+.counters dt { color: #666; }
+.counters dd { margin: 0; font-size: 1.5rem; }
+.bridge { color: #666; }
+.evidence { display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 1rem; }
+.evidence dd { margin: 0; }
+.actions { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.tabs { display: flex; gap: 1rem; margin-bottom: 1rem; }
+.filters { border: none; padding: 0; display: flex; gap: 1rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.5rem 1rem; }
+label { display: block; }
+.grid input[type='number'], .grid input[type='time'], input[type='url'] { display: block; width: 100%; max-width: 30rem; box-sizing: border-box; }
+
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border); }
+th button { background: none; border: none; padding: 0; font-weight: bold; }
+.login { max-width: 20rem; margin: 4rem auto; }
+.login input { display: block; width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; }

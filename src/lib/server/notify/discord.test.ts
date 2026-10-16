@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { IssueRow } from '../issues/lifecycle';
 import type { DeviceState } from '../types';
 import { toMessage } from './channel';
-import { toDiscordPayload } from './discord';
+import { toDiscordPayload, WEBHOOK_RE } from './discord';
 
 const T = Date.parse('2026-10-16T10:00:00Z');
 const issue = (p: Partial<IssueRow> = {}): IssueRow => ({
@@ -51,4 +51,11 @@ describe('discord', () => {
 		expect(e.description).toBe('Battery low in Bad sensor\n\n**Suggested action:** Replace the battery');
 		expect(e.color).toBe(0xffb300);
 	});
+});
+
+it('accepts only Discord webhook URLs', () => {
+	expect(WEBHOOK_RE.test('https://discord.com/api/webhooks/1/abc')).toBe(true);
+	expect(WEBHOOK_RE.test('https://discordapp.com/api/webhooks/1/abc')).toBe(true);
+	for (const u of ['http://discord.com/api/webhooks/1/a', 'https://evil.com/api/webhooks/1/a', 'https://discord.com.evil.com/api/webhooks/1', 'https://discord.com/api/webhooks/'])
+		expect(WEBHOOK_RE.test(u)).toBe(false);
 });
