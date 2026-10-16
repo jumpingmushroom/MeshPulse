@@ -11,21 +11,26 @@ export async function heartbeatTick(
 	now: number
 ): Promise<'sent' | 'skipped'> {
 	if (!url || !isHealthy(state.monitor, now)) return 'skipped';
+	// the URL may carry a token, so log only the host
+	const host = URL.canParse(url) ? new URL(url).host : '<invalid url>';
 	try {
 		const res = await fetchFn(url, { signal: AbortSignal.timeout(10_000) });
 		if (res.ok) return 'sent';
-		console.warn(`heartbeat: ${new URL(url).host} returned ${res.status}`);
+		console.warn(`heartbeat: ${host} returned ${res.status}`);
 	} catch (e) {
-		// the URL may carry a token, so log only the host
-		console.warn(`heartbeat: request to ${new URL(url).host} failed`, (e as Error).name);
+		console.warn(`heartbeat: request to ${host} failed`, (e as Error).name);
 	}
 	return 'skipped';
 }
 
 export function startHeartbeat({ state, db, config }: { state: AppState; db: Db; config: Config }): { stop(): void } {
 	const timer = setInterval(() => {
-		const url = getSettings(db).heartbeatUrl || config.heartbeatUrl;
-		void heartbeatTick({ state, url }, Date.now()).catch(() => {});
+		try {
+			const url = getSettings(db).heartbeatUrl || config.heartbeatUrl;
+			void heartbeatTick({ state, url }, Date.now()).catch(() => {});
+		} catch (e) {
+			console.error('heartbeat: tick failed', e);
+		}
 	}, 60_000);
 	return { stop: () => clearInterval(timer) };
 }

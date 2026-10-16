@@ -34,5 +34,6 @@ describe('heartbeat', () => {
 		expect(await heartbeatTick({ state: s, url: 'http://x/y', fetch: bad }, NOW)).toBe('skipped');
 		const boom = vi.fn().mockRejectedValue(new Error('net'));
 		expect(await heartbeatTick({ state: s, url: 'http://x/y', fetch: boom }, NOW)).toBe('skipped');
+		expect(await heartbeatTick({ state: s, url: 'not a url', fetch: boom }, NOW)).toBe('skipped');
 	});
 });
