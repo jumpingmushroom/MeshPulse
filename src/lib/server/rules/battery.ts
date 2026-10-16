@@ -5,10 +5,12 @@ export function batteryLow(ctx: RuleContext): Finding[] {
 	const out: Finding[] = [];
 	for (const d of ctx.state.devices.values()) {
 		const pct = d.battery;
-		const coin = d.maxVoltage !== null && d.maxVoltage <= s.coinCellMaxV;
+		const coin = d.powerSource === 'Battery' && d.maxVoltage !== null && d.maxVoltage <= s.coinCellMaxV;
 		const v = coin ? d.voltage : null; // voltage only means something for coin cells
 		const bad = ctx.open.has(issueKey('battery.low', d.ieee))
-			? d.batteryLow === true || (pct !== null && pct <= s.batteryClearPct) || (v !== null && v <= s.voltageClear)
+			? d.batteryLow === true || (pct !== null && pct <= s.batteryClearPct) || (v !== null && v <= s.voltageClear) ||
+				// batteryLow is not persisted: after a restart hold until the device reports again
+				(d.powerSource === 'Battery' && d.batteryLow === null && pct === null && d.voltage === null)
 			: d.batteryLow === true || (pct !== null && pct <= s.batteryLowPct) || (v !== null && v <= s.voltageLow);
 		if (!bad) continue;
 		const critical = (pct !== null && pct <= s.batteryCriticalPct) || (v !== null && v <= s.voltageCritical);
