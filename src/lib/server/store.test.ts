@@ -3,7 +3,8 @@ import { loadFixture } from '../../../tests/helpers/fixtures';
 import { openDb } from './db';
 import { events, samples } from './db/schema';
 import { route } from './mqtt/route';
-import { applyEffects, FOREVER, flushDevices, loadDevices, muteUntil } from './store';
+import { applyEffects, flushDevices, loadDevices, muteUntil } from './store';
+import { FOREVER } from '../views';
 import { createState } from './types';
 
 const B = 'zigbee2mqtt';
