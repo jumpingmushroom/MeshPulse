@@ -1,10 +1,9 @@
 import { ne } from 'drizzle-orm';
 import { issues } from '../lib/server/db/schema';
-import { formatDuration } from '../lib/server/notify/channel';
 import { checkPrereqs } from '../lib/server/prereqs';
 import { getRuntime } from '../lib/server/runtime';
 import { getSettings } from '../lib/server/settings';
-import { counters, overallStatus, sortIssues } from '../lib/views';
+import { counters, formatDuration, overallStatus, sortIssues } from '../lib/views';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {

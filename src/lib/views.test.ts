@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { counters, deviceRows, formatAgo, overallStatus, sortIssues, sortRows } from './views';
+import { counters, deviceRows, evidenceRows, formatAgo, formatVoltage, overallStatus, sortIssues, sortRows } from './views';
 import type { DeviceState } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -77,5 +77,25 @@ describe('sortRows', () => {
 		expect(names('lastSeenAt', false)).toEqual(['b', 'a', 'c']);
 		expect(names('type', true)).toEqual(['a', 'c', 'b']);
 		expect(names('availability', true)).toEqual(['a', 'b', 'c']);
+	});
+});
+
+describe('evidenceRows', () => {
+	it('hides nulls and formats times, durations and objects', () => {
+		const ts = Date.UTC(2026, 9, 16, 15, 47);
+		expect(evidenceRows({ offlineSince: ts, lastSeenAt: null, typicalGapMs: undefined, thresholdMs: 3 * 3_600_000 + 12 * 60_000,
+			count: 4, rule: 'x', tags: ['a'] }, 'Europe/Oslo')).toEqual([
+			['offlineSince', '16 Oct 2026, 17:47'], ['thresholdMs', '3 h 12 min'], ['count', '4'], ['rule', 'x'], ['tags', '["a"]']
+		]);
+	});
+});
+
+describe('formatVoltage', () => {
+	it('shows one decimal, two when needed', () => {
+		expect(formatVoltage(3)).toBe('3.0');
+		expect(formatVoltage(2.95)).toBe('2.95');
+		expect(formatVoltage(2.8)).toBe('2.8');
+		expect(formatVoltage(0.7)).toBe('0.7');
+		expect(formatVoltage(null)).toBe('—');
 	});
 });

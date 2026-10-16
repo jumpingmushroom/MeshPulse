@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { formatTime } from '../../../lib/views';
+	import { evidenceRows, formatTime } from '../../../lib/views';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	const i = $derived(data.issue);
 	const muted = $derived(data.device?.mutedUntil && data.device.mutedUntil > data.now ? data.device.mutedUntil : null);
-	const show = (v: unknown) => (typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v));
+	const evidence = $derived(evidenceRows(data.issue.evidence ?? {}, data.tz));
 </script>
 
 <p><a href="/issues">← Issues</a></p>
@@ -18,10 +18,10 @@
 
 {#if i.action}<h2>Suggested action</h2><p>{i.action}</p>{/if}
 
-{#if i.evidence && Object.keys(i.evidence).length}
+{#if evidence.length}
 	<h2>Evidence</h2>
 	<dl class="evidence">
-		{#each Object.entries(i.evidence) as [k, v] (k)}<dt>{k}</dt><dd>{show(v)}</dd>{/each}
+		{#each evidence as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}
 	</dl>
 {/if}
 

@@ -30,3 +30,10 @@ it('resets on success', () => {
 	l.reset('ip');
 	expect(l.blocked('ip', 2)).toBe(false);
 });
+
+it('evicts IPs whose failures are all outside the window', () => {
+	const l = createLimiter(2, 15 * MIN);
+	l.fail('old', 0);
+	l.fail('new', 15 * MIN + 1);
+	expect(l.size()).toBe(1);
+});

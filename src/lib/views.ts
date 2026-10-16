@@ -80,3 +80,27 @@ export function formatAgo(ms: number | null, now: number): string {
 	if (min < 48 * 60) return `${Math.floor(min / 60)} h ago`;
 	return `${Math.floor(min / 1440)} d ago`;
 }
+
+/** "3 h 12 min", "2 d 4 h", "5 min" */
+export function formatDuration(ms: number): string {
+	const min = Math.round(ms / 60_000);
+	const [d, h, m] = [Math.floor(min / 1440), Math.floor(min / 60) % 24, min % 60];
+	const parts = d ? [`${d} d`, h && `${h} h`] : h ? [`${h} h`, m && `${m} min`] : [`${m} min`];
+	return parts.filter(Boolean).join(' ');
+}
+
+export function formatVoltage(v: number | null): string {
+	if (v === null) return '—';
+	const two = v.toFixed(2);
+	return two.endsWith('0') ? v.toFixed(1) : two;
+}
+
+/** Issue evidence as readable [key, value] pairs: *At/*Since are times, *Ms are durations, nulls hidden. */
+export function evidenceRows(evidence: Record<string, unknown>, tz: string): [string, string][] {
+	return Object.entries(evidence).flatMap(([k, v]): [string, string][] => {
+		if (v === null || v === undefined) return [];
+		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[k, formatTime(v, tz)]];
+		if (typeof v === 'number' && k.endsWith('Ms')) return [[k, formatDuration(v)]];
+		return [[k, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
+	});
+}

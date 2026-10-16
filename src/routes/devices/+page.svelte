@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatAgo, formatTime, sortRows, type DeviceRow, type SortKey as Key } from '../../lib/views';
+	import { formatAgo, formatTime, formatVoltage, sortRows, type DeviceRow, type SortKey as Key } from '../../lib/views';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -47,7 +47,7 @@
 					<td title={formatTime(r.lastSeenAt, data.tz)}>{formatAgo(r.lastSeenAt, data.now)}</td>
 					<td>{r.lqi ?? '—'}</td>
 					<td>{r.battery ?? '—'}</td>
-					<td>{r.voltage ?? '—'}</td>
+					<td>{formatVoltage(r.voltage)}</td>
 					<td>{r.openIssues || ''}</td>
 				</tr>
 			{/each}
