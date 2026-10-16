@@ -13,7 +13,9 @@ const client = mqtt.connect(process.env.MQTT_URL ?? 'mqtt://localhost:1883', {
 let count = 0;
 
 client.on('connect', () => client.subscribe(`${base}/#`));
-client.on('error', (e) => console.error(e.message));
+// refused connections arrive as an AggregateError with an empty message
+client.on('error', (e) => console.error(e.message || (e as NodeJS.ErrnoException).code || String(e)));
+client.on('reconnect', () => console.error(`Reconnecting to ${process.env.MQTT_URL ?? 'default URL'}...`));
 client.on('message', (topic, buf, packet) => {
 	const raw = buf.toString();
 	let payload: unknown = raw;
@@ -29,9 +31,10 @@ client.on('message', (topic, buf, packet) => {
 
 console.log(`Recording ${base}/# to ${out} (Ctrl+C to stop)`);
 setInterval(() => console.log(`${count} messages captured`), 60_000);
-process.on('SIGINT', () => {
+const stop = () =>
 	client.end(false, () => {
 		console.log(`Stopped after ${count} messages`);
 		process.exit(0);
 	});
-});
+process.on('SIGINT', stop);
+process.on('SIGTERM', stop);
