@@ -66,6 +66,27 @@ The container reports `healthy` about 60 to 90 seconds after start, once the fir
 4. Add a domain and set `PUBLIC_URL` to the exact URL you open, for example `https://meshpulse.example.com`. Use `https` there so session cookies are marked Secure, and always open MeshPulse through that URL. Opening `http://host:3000` instead makes login fail silently, because the browser drops the Secure cookie.
 5. Behind the proxy, set `ADDRESS_HEADER=x-forwarded-for` and `XFF_DEPTH=1`. Otherwise the login rate limiter sees every user as the proxy's IP. The image already sets `PROTOCOL_HEADER=x-forwarded-proto`; add `HOST_HEADER=x-forwarded-host` if the proxy rewrites the host.
 
+## Deploy on Unraid
+
+1. Build the image on the server (there is no published image yet; the repo is private, so clone with a GitHub token or copy the source over):
+
+   ```sh
+   git clone https://github.com/jumpingmushroom/MeshPulse /tmp/meshpulse
+   docker build -t meshpulse:latest /tmp/meshpulse
+   ```
+
+1. Copy the template and generate a secret key:
+
+   ```sh
+   T=/boot/config/plugins/dockerMan/templates-user/my-MeshPulse.xml
+   cp /tmp/meshpulse/unraid/meshpulse.xml "$T"
+   sed -i "s#\(Target=\"SECRET_KEY\"[^>]*\)/>#\1>$(openssl rand -base64 32)</Config>#" "$T"
+   ```
+
+1. In **Docker > Add Container**, select **MeshPulse**, fill in the MQTT URL, broker user and admin login, and click **Apply**.
+
+The container stores its database in `/mnt/user/appdata/meshpulse`. It starts as root only to take ownership of that folder, then runs as `PUID:PGID` (default `99:100`). To update, rebuild the image and restart the container.
+
 ## Discord notifications
 
 1. In Discord, open the channel's **Edit Channel > Integrations > Webhooks** and create a webhook. Copy its URL.
