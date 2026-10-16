@@ -9,6 +9,7 @@ Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issu
 - `npm run check` - svelte-check / tsc
 - `npx drizzle-kit generate` - generate SQL migrations after schema changes
 - `npm run capture` - record `zigbee2mqtt/#` traffic to JSONL (`scripts/capture.ts`)
+- `docker compose up -d --build` - build and run the container (needs `.env`, see `.env.example`)
 
 ## Architecture
 
@@ -49,7 +50,7 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 - Read-only on MQTT: the app never publishes.
 - All storage keyed by IEEE address. `devices.instance_id` defaults to `'default'`.
 - Timestamps are UTC epoch ms in the DB; display in `TZ` (default `Europe/Oslo`).
-- TypeScript `strict: true`. Import via the `#lib/*` alias (package.json `imports`).
+- TypeScript `strict: true`. Server code uses relative imports (`#lib/*` without extensions does not type-check).
 - SvelteKit 3: use `$app/env`, not `$app/environment`. adapter-node has no `ORIGIN` env; origin comes from the `Host` header or `PROTOCOL_HEADER`/`HOST_HEADER`.
 - No dependency beyond the stack (SvelteKit 3, Svelte 5, TS, Vite, Drizzle, better-sqlite3, mqtt, better-auth, vitest, adapter-node) without asking.
 - Severity values: `'info' | 'warning' | 'critical'`.

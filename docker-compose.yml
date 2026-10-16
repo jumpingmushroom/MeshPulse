@@ -1,0 +1,9 @@
+services:
+  meshpulse:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data
+    ports:
+      - '3000:3000'
