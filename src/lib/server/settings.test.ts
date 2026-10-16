@@ -31,3 +31,20 @@ describe('parseSettingsForm', () => {
 		expect(parseSettingsForm(form({ heartbeatUrl: ' https://hc.example/ping ' }))).toEqual({ settings: { ...DEFAULT_SETTINGS, heartbeatUrl: 'https://hc.example/ping' } });
 	});
 });
+
+describe('parseSettingsForm ordering', () => {
+	it.each([
+		[{ batteryCriticalPct: '30' }], [{ batteryClearPct: '20' }], [{ voltageCritical: '2.9' }], [{ voltageClear: '2.7' }],
+		[{ flappingClearBelow: '4' }], [{ silenceMinH: '30' }]
+	])('rejects out-of-order thresholds %o', (o) => {
+		expect(parseSettingsForm(form(o))).toHaveProperty('error');
+	});
+
+	it.each([['silenceMultiplier'], ['flappingWindowH']])('rejects zero %s', (key) => {
+		expect(parseSettingsForm(form({ [key]: '0' }))).toHaveProperty('error');
+	});
+
+	it('allows silenceMinH equal to silenceMaxH', () => {
+		expect(parseSettingsForm(form({ silenceMinH: '25' }))).toHaveProperty('settings');
+	});
+});

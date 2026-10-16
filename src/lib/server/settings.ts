@@ -63,5 +63,14 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 			out[key] = raw;
 		}
 	}
-	return { settings: out as Settings };
+	const v = out as Settings;
+	const order: [boolean, string][] = [
+		[v.batteryCriticalPct < v.batteryLowPct && v.batteryLowPct < v.batteryClearPct, 'Battery thresholds must be critical < low < OK again'],
+		[v.voltageCritical < v.voltageLow && v.voltageLow < v.voltageClear, 'Coin cell thresholds must be critical < low < OK again'],
+		[v.flappingClearBelow < v.flappingCount, 'Flapping must clear below the count that raises it'],
+		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum'],
+		[v.silenceMultiplier > 0 && v.flappingWindowH > 0, 'Silence multiplier and flapping window must be above 0']
+	];
+	const bad = order.find(([ok]) => !ok);
+	return bad ? { error: bad[1] } : { settings: v };
 }

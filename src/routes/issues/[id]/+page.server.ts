@@ -2,11 +2,8 @@ import { error, fail } from '@sveltejs/kit';
 import { and, desc, eq } from 'drizzle-orm';
 import { devices, events, issues } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
+import { muteUntil } from '../../../lib/server/store';
 import type { Actions, PageServerLoad } from './$types';
-
-const H = 3_600_000;
-const FOREVER = 253402300799000; // 9999-12-31
-const MUTE: Record<string, number | null> = { '1h': H, '24h': 24 * H, '7d': 168 * H, forever: FOREVER, unmute: null };
 
 function getIssue(id: string) {
 	const issue = getRuntime().db.select().from(issues).where(eq(issues.id, Number(id))).get();
@@ -36,9 +33,8 @@ export const actions: Actions = {
 		const issue = getIssue(params.id);
 		const duration = String((await request.formData()).get('duration'));
 		const device = issue.ieee ? state.devices.get(issue.ieee) : undefined;
-		if (!device || !(duration in MUTE)) return fail(400, { error: 'Cannot mute: unknown device or duration.' });
-		const ms = MUTE[duration];
-		const mutedUntil = ms === null ? null : ms === FOREVER ? FOREVER : Date.now() + ms;
+		const mutedUntil = muteUntil(duration, Date.now());
+		if (!device || mutedUntil === undefined) return fail(400, { error: 'Cannot mute: unknown device or duration.' });
 		db.update(devices).set({ mutedUntil }).where(eq(devices.ieee, device.ieee)).run();
 		device.mutedUntil = mutedUntil; // the lifecycle reads memory, not the DB
 	}

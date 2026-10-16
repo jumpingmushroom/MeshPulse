@@ -3,7 +3,7 @@ import { loadFixture } from '../../../tests/helpers/fixtures';
 import { openDb } from './db';
 import { events, samples } from './db/schema';
 import { route } from './mqtt/route';
-import { applyEffects, flushDevices, loadDevices } from './store';
+import { applyEffects, FOREVER, flushDevices, loadDevices, muteUntil } from './store';
 import { createState } from './types';
 
 const B = 'zigbee2mqtt';
@@ -43,5 +43,16 @@ describe('store', () => {
 		const { db } = run();
 		expect(db.select().from(events).all().length).toBeGreaterThan(0);
 		expect(db.select().from(samples).all().length).toBeGreaterThan(0);
+	});
+});
+
+describe('muteUntil', () => {
+	it('maps durations and rejects anything else, including prototype keys', () => {
+		expect(muteUntil('1h', 1000)).toBe(1000 + 3_600_000);
+		expect(muteUntil('7d', 0)).toBe(7 * 24 * 3_600_000);
+		expect(muteUntil('forever', 5)).toBe(FOREVER);
+		expect(muteUntil('unmute', 5)).toBeNull();
+		for (const bad of ['toString', 'constructor', '__proto__', 'hasOwnProperty', '2h', ''])
+			expect(muteUntil(bad, 5)).toBeUndefined();
 	});
 });
