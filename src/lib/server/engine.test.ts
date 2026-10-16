@@ -1,0 +1,41 @@
+import { describe, expect, it } from 'vitest';
+import { loadFixture } from '../../../tests/helpers/fixtures';
+import { loadConfig } from './config';
+import { openDb } from './db';
+import { devices, issues } from './db/schema';
+import { runOnce } from './engine';
+import type { IssueRow, Notify } from './issues/lifecycle';
+import { route } from './mqtt/route';
+import { applyEffects } from './store';
+import { createState } from './types';
+
+const T = 1760000000000;
+const HALL = '0x00124b0000000003';
+
+describe('engine', () => {
+	it('runOnce persists opens and updates in one transaction', () => {
+		const db = openDb(':memory:');
+		const state = createState(T);
+		Object.assign(state.monitor, { connected: true, connectedAt: T });
+		const dirty = new Set<string>();
+		// startup.jsonl has hall_plug (a router) offline
+		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		const sent: { issue: IssueRow; n: Notify; inTx: boolean }[] = [];
+		const deps = {
+			db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() },
+			notify: (issue: IssueRow, n: Notify) => sent.push({ issue, n, inTx: db.$client.inTransaction })
+		};
+
+		runOnce(deps, T + 60_000);
+		expect(db.select().from(issues).all()).toEqual([]);
+		expect(db.select().from(devices).all().length).toBeGreaterThan(0); // flushed
+		runOnce(deps, T + 120_000);
+		const rows = db.select().from(issues).all();
+		expect(rows).toMatchObject([{ rule: 'device.offline', ieee: HALL, state: 'open', lastNotifiedAt: T + 120_000 }]);
+		expect(sent).toEqual([{ issue: expect.objectContaining({ id: rows[0].id }), n: { key: `device.offline|${HALL}`, kind: 'open', severity: 'warning' }, inTx: true }]);
+		expect(state.monitor.lastRulesRunAt).toBe(T + 120_000);
+
+		runOnce(deps, T + 180_000);
+		expect(db.select().from(issues).all()).toMatchObject([{ id: rows[0].id, state: 'open', updatedAt: T + 180_000 }]);
+	});
+});
