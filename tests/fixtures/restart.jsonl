@@ -1,0 +1,5 @@
+{"ts":1760000000000,"topic":"zigbee2mqtt/bridge/state","payload":{"state":"online"},"retain":true}
+{"ts":1760000001000,"topic":"zigbee2mqtt/bridge/health","payload":{"process":{"uptime_sec":5000},"mqtt":{"queued":0},"devices":{}},"retain":false}
+{"ts":1760000002000,"topic":"zigbee2mqtt/bridge/state","payload":{"state":"offline"},"retain":true}
+{"ts":1760000003000,"topic":"zigbee2mqtt/bridge/state","payload":{"state":"online"},"retain":true}
+{"ts":1760000004000,"topic":"zigbee2mqtt/bridge/health","payload":{"process":{"uptime_sec":10},"mqtt":{"queued":0},"devices":{}},"retain":false}

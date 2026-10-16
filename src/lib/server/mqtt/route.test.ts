@@ -1,0 +1,251 @@
+import { describe, expect, it } from 'vitest';
+import { loadFixture } from '../../../../tests/helpers/fixtures';
+import { createState, type AppState, type Effect, type MqttMsg } from '../types';
+import { route } from './route';
+
+const B = 'zigbee2mqtt';
+const MIN = 60_000;
+const T = 1760000000000;
+const LAMP = '0x00124b0000000002';
+const HALL = '0x00124b0000000003';
+const DOOR = '0x00124b0000000004';
+const TEMP = '0x00124b0000000005';
+
+const feed = (s: AppState, msgs: MqttMsg[]): Effect[] => msgs.flatMap((m) => route(s, m, B));
+const load = (name: string) => {
+	const s = createState(T);
+	feed(s, loadFixture(name));
+	return s;
+};
+const msg = (ts: number, topic: string, payload: unknown, retain = false): MqttMsg => ({
+	ts,
+	topic: `${B}/${topic}`,
+	payload,
+	retain
+});
+const events = (fx: Effect[]) => fx.flatMap((e) => (e.kind === 'event' ? [e.event] : []));
+const withDevices = () => load('devices');
+
+describe('route', () => {
+	it('builds inventory from bridge/devices', () => {
+		const s = withDevices();
+		expect(s.devices.size).toBe(6);
+		expect(s.byName.get('living/lamp')).toBe(LAMP);
+		expect(s.devices.get(LAMP)!.type).toBe('Router');
+		expect(s.devices.get(DOOR)!.type).toBe('EndDevice');
+		expect(s.devices.get(TEMP)!.model).toBe('WSDCGQ11LM');
+		expect(s.devicesLoaded).toBe(true);
+	});
+
+	it('buffers messages for unknown names until bridge/devices', () => {
+		const s = createState(T);
+		const msgs = loadFixture('startup');
+		const before = msgs.findIndex((m) => m.topic.endsWith('/bridge/devices'));
+		feed(s, msgs.slice(0, before));
+		expect(s.pending.length).toBe(3);
+		feed(s, msgs.slice(before));
+		expect(s.pending.length).toBe(0);
+		expect(s.devices.get(HALL)!.availability).toBe('offline');
+		expect(s.devices.get(LAMP)!.availability).toBe('online');
+	});
+
+	it('caps pending at 5000, dropping the oldest', () => {
+		const s = createState(T);
+		for (let i = 0; i < 5002; i++) route(s, msg(T + i, 'ghost', { a: i }), B);
+		expect(s.pending.length).toBe(5000);
+		expect((s.pending[0].payload as { a: number }).a).toBe(2);
+	});
+
+	it('marks devices missing from bridge/devices as removed and clears on return', () => {
+		const s = withDevices();
+		const all = loadFixture('devices')[0];
+		const list = all.payload as { ieee_address: string }[];
+		route(s, { ...all, ts: T + 1000, payload: list.filter((d) => d.ieee_address !== DOOR) }, B);
+		expect(s.devices.get(DOOR)!.removedAt).toBe(T + 1000);
+		expect(s.devices.get(LAMP)!.removedAt).toBeNull();
+		route(s, { ...all, ts: T + 2000 }, B);
+		expect(s.devices.get(DOOR)!.removedAt).toBeNull();
+	});
+
+	it('rename keeps history keyed by IEEE', () => {
+		const s = createState(T);
+		const msgs = loadFixture('rename');
+		feed(s, msgs.slice(0, 2));
+		expect(s.devices.get(DOOR)!.recentSeen.length).toBe(1);
+		const fx = feed(s, msgs.slice(2, 3));
+		expect(fx).toContainEqual({ kind: 'dirty', ieee: DOOR });
+		expect(s.byName.has('door_sensor')).toBe(false);
+		expect(s.byName.get('front_door')).toBe(DOOR);
+		feed(s, msgs.slice(3, 4));
+		expect(s.devices.size).toBe(6);
+		expect(s.devices.get(DOOR)!.recentSeen.length).toBe(2);
+		expect(s.devices.get(DOOR)!.lqi).toBe(85);
+		expect(feed(s, msgs.slice(4))).toEqual([]);
+	});
+
+	it('ignores /set, /get, groups and bridge/logging', () => {
+		const s = withDevices();
+		const snap = JSON.stringify([...s.devices]);
+		const fx = feed(s, [
+			msg(T + 1000, 'living/lamp/set', { state: 'ON' }),
+			msg(T + 1000, 'living/lamp/get', { state: '' }),
+			msg(T + 1000, 'living/lamp/set/brightness', 5),
+			msg(T + 1000, 'bridge/request/permit_join', { time: 10 }),
+			msg(T, 'some_group', { state: 'ON' }),
+			msg(T, 'bridge/logging', { level: 'info', message: 'x' }),
+			msg(T, 'bridge/response/device/rename', { status: 'ok' })
+		]);
+		expect(fx).toEqual([]);
+		expect(JSON.stringify([...s.devices])).toBe(snap);
+		// /set, /get and bridge/request (T+1000) are not live; groups, logging, response (T) are
+		expect(s.bridge.lastLiveAt).toBe(T);
+	});
+
+	it('ignores malformed payloads', () => {
+		const s = withDevices();
+		for (const p of ['ON', '', '{"a":', null, 5]) {
+			expect(route(s, msg(T, 'living/lamp', p), B)).toEqual([]);
+		}
+		expect(route(s, msg(T, 'bridge/devices', 'garbage'), B)).toEqual([]);
+		expect(s.devices.size).toBe(6);
+		expect(route(s, msg(T, 'bridge/info', 'x'), B)).toEqual([]);
+		expect(route(s, { ts: T, topic: 'other/topic', payload: {}, retain: false }, B)).toEqual([]);
+	});
+
+	it('retained device state is not live', () => {
+		const s = withDevices();
+		route(s, msg(T, 'temp_sensor', { battery: 80 }, true), B);
+		const d = s.devices.get(TEMP)!;
+		expect(d.battery).toBe(80);
+		expect(d.lastSeenAt).toBeNull();
+		expect(d.recentSeen).toEqual([]);
+		expect(s.bridge.lastLiveAt).toBeNull();
+		route(s, msg(T, 'temp_sensor', { battery: 80, last_seen: '2026-10-16T10:00:00.000Z' }, true), B);
+		expect(d.lastSeenAt).toBe(Date.parse('2026-10-16T10:00:00.000Z'));
+	});
+
+	it('retained garbage last_seen leaves lastSeenAt untouched', () => {
+		const s = withDevices();
+		route(s, msg(T, 'temp_sensor', { battery: 80, last_seen: 'garbage' }, true), B);
+		expect(s.devices.get(TEMP)!.lastSeenAt).toBeNull();
+	});
+
+	it('live message updates seen, gaps and samples at most every 5 min', () => {
+		const s = withDevices();
+		const fx = feed(s, [
+			msg(T, 'temp_sensor', { battery: 90, linkquality: 100 }),
+			msg(T + MIN, 'temp_sensor', { battery: 90 }),
+			msg(T + 6 * MIN, 'temp_sensor', { battery: 89 })
+		]);
+		const samples = fx.filter((e) => e.kind === 'sample');
+		expect(samples.map((e) => e.ts)).toEqual([T, T + 6 * MIN]);
+		expect(samples[1]).toMatchObject({ ieee: TEMP, lqi: 100, battery: 89 });
+		const d = s.devices.get(TEMP)!;
+		expect(d.recentSeen.length).toBe(3);
+		expect(d.lastSeenAt).toBe(T + 6 * MIN);
+		expect(s.bridge.lastLiveAt).toBe(T + 6 * MIN);
+	});
+
+	it('keeps only the last 21 live timestamps', () => {
+		const s = withDevices();
+		for (let i = 0; i < 30; i++) route(s, msg(T + i * 1000, 'button', { action: 'x' }), B);
+		expect(s.devices.get('0x00124b0000000006')!.recentSeen.length).toBe(21);
+	});
+
+	it('learns typical gap as median of last 20 gaps once 5 gaps exist', () => {
+		const run = (n: number) => {
+			const s = withDevices();
+			for (let i = 0; i < n; i++) route(s, msg(T + i * 10 * MIN, 'button', { a: 1 }), B);
+			return s.devices.get('0x00124b0000000006')!.typicalGapMs;
+		};
+		expect(run(6)).toBe(600000);
+		expect(run(5)).toBeNull();
+		// even count: mean of the middle two, rounded
+		const s = withDevices();
+		[0, 1000, 3001, 6002, 10003, 15004].forEach((t) => route(s, msg(T + t, 'button', { a: 1 }), B));
+		// gaps 1000,2001,3001,4001,5001 -> odd; add one more for even
+		route(s, msg(T + 15004 + 6002, 'button', { a: 1 }), B);
+		// gaps sorted: 1000,2001,3001,4001,5001,6002 -> (3001+4001)/2
+		expect(s.devices.get('0x00124b0000000006')!.typicalGapMs).toBe(3501);
+	});
+
+	it('availability change emits one event', () => {
+		const s = withDevices();
+		const a = route(s, msg(T, 'hall_plug/availability', { state: 'offline' }), B);
+		expect(events(a)).toHaveLength(1);
+		expect(s.devices.get(HALL)!.offlineSince).toBe(T);
+		expect(route(s, msg(T + 1000, 'hall_plug/availability', 'offline'), B)).toEqual([]);
+		expect(s.devices.get(HALL)!.offlineSince).toBe(T);
+		const b = route(s, msg(T + 2000, 'hall_plug/availability', 'online'), B);
+		expect(events(b)).toMatchObject([{ kind: 'availability', ieee: HALL, detail: { from: 'offline', to: 'online' } }]);
+		expect(s.devices.get(HALL)!.offlineSince).toBeNull();
+		expect(b).toContainEqual({ kind: 'dirty', ieee: HALL });
+	});
+
+	it('bridge offline→online is a restart', () => {
+		const s = createState(T);
+		const fx = feed(s, loadFixture('restart').slice(0, 4));
+		expect(events(fx).filter((e) => e.kind === 'bridge_restart')).toHaveLength(1);
+		expect(s.bridge.restartedAt).toBe(T + 3000);
+		expect(s.bridge.state).toBe('online');
+		// the health sample right after a state restart does not double count
+		expect(events(feed(s, loadFixture('restart').slice(4))).filter((e) => e.kind === 'bridge_restart')).toEqual([]);
+	});
+
+	it('uptime drop is a restart', () => {
+		const s = createState(T);
+		const h = (ts: number, up: number) => msg(ts, 'bridge/health', { process: { uptime_sec: up } });
+		expect(route(s, h(T, 100), B)).toEqual([]);
+		expect(route(s, h(T + 1000, 200), B)).toEqual([]);
+		const fx = route(s, h(T + 2000, 5), B);
+		expect(events(fx)).toMatchObject([{ kind: 'bridge_restart' }]);
+		expect(s.bridge.restartedAt).toBe(T + 2000);
+		expect(s.bridge.lastUptimeSec).toBe(5);
+	});
+
+	it('bridge/info tracks permit_join since and version changes', () => {
+		const s = createState(T);
+		const info = (ts: number, version: string, permit_join: boolean) => msg(ts, 'bridge/info', { version, permit_join });
+		expect(route(s, info(T, '2.1.0', false), B)).toEqual([]);
+		expect(s.bridge.version).toBe('2.1.0');
+		route(s, info(T + 1000, '2.1.0', true), B);
+		expect(s.bridge.permitJoin).toBe(true);
+		expect(s.bridge.permitJoinSince).toBe(T + 1000);
+		route(s, info(T + 2000, '2.1.0', true), B);
+		expect(s.bridge.permitJoinSince).toBe(T + 1000);
+		const fx = route(s, info(T + 3000, '2.2.0', false), B);
+		expect(s.bridge.permitJoinSince).toBeNull();
+		expect(events(fx)).toMatchObject([{ kind: 'bridge_version', detail: { from: '2.1.0', to: '2.2.0' } }]);
+	});
+
+	it('battery jump > 30 points is a swap', () => {
+		const s = createState(T);
+		const fx = feed(s, loadFixture('battery-swap'));
+		expect(events(fx)).toMatchObject([{ kind: 'battery_swap', ieee: TEMP, detail: { from: 15, to: 100 } }]);
+		expect(s.devices.get(TEMP)!.maxVoltage).toBe(3);
+
+		const t = withDevices();
+		route(t, msg(T, 'temp_sensor', { battery: 15 }), B);
+		expect(events(route(t, msg(T + 1000, 'temp_sensor', { battery: 40 }), B))).toEqual([]);
+	});
+
+	it('bridge/event kinds become events', () => {
+		const s = withDevices();
+		const ev = (type: string, status?: string) =>
+			events(route(s, msg(T, 'bridge/event', { type, data: { friendly_name: 'door_sensor', ieee_address: DOOR, status } }), B));
+		expect(ev('device_announce')).toMatchObject([{ kind: 'device_announce', ieee: DOOR }]);
+		expect(ev('device_leave')[0].kind).toBe('device_leave');
+		expect(ev('device_joined')[0].kind).toBe('device_joined');
+		expect(ev('device_interview', 'successful')).toMatchObject([
+			{ kind: 'device_interview', detail: { status: 'successful', friendly_name: 'door_sensor' } }
+		]);
+		expect(ev('something_else')).toEqual([]);
+	});
+
+	it('emits dirty once per device per message and not when unchanged', () => {
+		const s = withDevices();
+		const fx = route(s, msg(T, 'temp_sensor', { battery: 90, voltage: 3000 }), B);
+		expect(fx.filter((e) => e.kind === 'dirty')).toEqual([{ kind: 'dirty', ieee: TEMP }]);
+		expect(route(s, msg(T, 'bridge/devices', loadFixture('devices')[0].payload), B)).toEqual([]);
+	});
+});
