@@ -4,6 +4,7 @@ import type { Db } from './db/index';
 import { events, issues } from './db/schema';
 import { evaluate, newIssue, type Counters, type IssueRow, type Notify } from './issues/lifecycle';
 import { isQuietHours, quietHoursEnded } from './issues/quiet';
+import { enqueue, foldHeld } from './notify/outbox';
 import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
 import { getSettings } from './settings';
@@ -19,13 +20,15 @@ export interface EngineDeps {
 	counters: Counters;
 	config: Config;
 	dirty: Set<string>;
-	// real implementations arrive with the outbox (Task 9)
+	// overridable for tests; default to the outbox
 	notify?: (issue: IssueRow, n: Notify, quiet: boolean) => void;
 	foldHeld?: (now: number) => void;
 }
 
 const toRow = ({ ieeeKey: _k, parentIssueId: _p, ...r }: typeof issues.$inferSelect): IssueRow =>
 	({ ...r, rule: r.rule as RuleId, evidence: r.evidence ?? {} });
+
+const fold = (deps: EngineDeps, now: number) => (deps.foldHeld ?? ((t: number) => foldHeld(deps.db, t)))(now);
 
 export function runOnce(deps: EngineDeps, now: number): void {
 	const { db, state, counters, config } = deps;
@@ -51,8 +54,10 @@ export function runOnce(deps: EngineDeps, now: number): void {
 			tx.update(issues).set(patch).where(eq(issues.id, id)).run();
 			Object.assign(byId.get(id)!, patch);
 		}
-		for (const n of r.notify) deps.notify?.(byKey.get(n.key)!, n, quiet);
-		if (prev !== null && quietHoursEnded(prev, now, settings, config.tz)) deps.foldHeld?.(now);
+		const notify = deps.notify ?? ((issue: IssueRow, n: Notify, quiet: boolean) => enqueue(db, issue, n,
+			{ now, quiet, publicUrl: config.publicUrl, tz: config.tz, device: (issue.ieee && state.devices.get(issue.ieee)) || null }));
+		for (const n of r.notify) notify(byKey.get(n.key)!, n, quiet);
+		if (prev !== null && quietHoursEnded(prev, now, settings, config.tz)) fold(deps, now);
 	});
 	// only after commit: a failed run (or fold) is retried against the same previous run time
 	state.monitor.lastRulesRunAt = now;
@@ -61,6 +66,13 @@ export function runOnce(deps: EngineDeps, now: number): void {
 
 export function startEngine(deps: EngineDeps): { stop(): void } {
 	let prunedAt = 0;
+	try {
+		// a restart across the end of quiet hours never sees the transition, so fold here
+		const now = Date.now();
+		if (!isQuietHours(now, getSettings(deps.db), deps.config.tz)) fold(deps, now);
+	} catch (e) {
+		console.error('engine: startup fold failed', e);
+	}
 	const timer = setInterval(() => {
 		const now = Date.now();
 		try {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { loadFixture } from '../../../tests/helpers/fixtures';
 import { loadConfig } from './config';
 import { openDb } from './db';
-import { devices, issues } from './db/schema';
+import { channels, devices, issues, outbox } from './db/schema';
 import { runOnce } from './engine';
 import type { IssueRow, Notify } from './issues/lifecycle';
 import { route } from './mqtt/route';
@@ -37,6 +37,21 @@ describe('engine', () => {
 
 		runOnce(deps, T + 180_000);
 		expect(db.select().from(issues).all()).toMatchObject([{ id: rows[0].id, state: 'open', updatedAt: T + 180_000 }]);
+	});
+
+	it('enqueues notifications to the outbox by default', () => {
+		const db = openDb(':memory:');
+		db.insert(channels).values({ kind: 'discord', name: 'd', config: {} }).run();
+		const state = createState(T);
+		Object.assign(state.monitor, { connected: true, connectedAt: T });
+		const dirty = new Set<string>();
+		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		const deps = { db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() } };
+		runOnce(deps, T + 60_000);
+		runOnce(deps, T + 120_000);
+		const name = state.devices.get(HALL)!.friendlyName;
+		expect(db.select().from(outbox).all()).toMatchObject([{ kind: 'open', severity: 'warning', status: 'pending',
+			message: { fields: expect.arrayContaining([{ name: 'Device', value: name }]) } }]);
 	});
 
 	it('folds held messages inside the run transaction when quiet hours end, retrying a failed fold', () => {

@@ -45,7 +45,7 @@ export interface LifecycleResult {
 	notify: Notify[];
 }
 
-const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
+export const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
 const H = 3_600_000;
 const GUARD_RULES: readonly string[] = ['bridge.offline', 'monitor.mqtt_lost'];
 
