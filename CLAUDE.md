@@ -28,6 +28,7 @@ src/lib/server/mqtt/parse.ts         parseJson, parseAvailability, parseLastSeen
 src/lib/server/mqtt/collector.ts     startCollector(deps) - mqtt.js + effect persistence
 src/lib/server/prereqs.ts            checkPrereqs(config) -> Prereq[]
 src/lib/server/rules/*.ts            one file per rule + index.ts (RULES, RULE_DEFAULTS)
+src/lib/server/rules/types.ts        RuleId, RuleContext, Finding, issueKey, inGrace
 src/lib/server/issues/lifecycle.ts   evaluate(input) -> LifecycleResult
 src/lib/server/issues/quiet.ts       isQuietHours(now, settings, tz)
 src/lib/server/engine.ts             runOnce(deps, now); startEngine(deps)
@@ -36,6 +37,9 @@ src/lib/server/crypto.ts             encrypt, decrypt
 src/lib/server/retention.ts          prune(db, now)
 src/lib/server/heartbeat.ts          heartbeatTick(deps, now); startHeartbeat(deps)
 src/lib/server/auth.ts               getAuth(), ensureAdmin()
+src/lib/server/login-limit.ts        createLimiter, loginLimiter (login rate limit)
+src/lib/server/store.ts              loadDevices, applyEffects, flushDevices, muteUntil (DB <-> AppState)
+src/lib/views.ts                     pure view helpers for pages (status, formatTime, FOREVER)
 src/lib/server/runtime.ts            startRuntime(), runtime singleton (state, db, config)
 src/routes/...                       pages, api/health
 scripts/capture.ts                   record zigbee2mqtt/# to JSONL

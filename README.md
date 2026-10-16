@@ -1,6 +1,6 @@
 # MeshPulse
 
-MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traffic of your Zigbee mesh, raises issues such as offline devices, weak links, low batteries and route failures, and notifies you on Discord. It never publishes to MQTT, so it can't change anything on your network.
+MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traffic of your Zigbee mesh, raises issues such as offline or silent devices, flapping devices, low batteries, an offline or restarting bridge, a lost MQTT connection and an open network, and notifies you on Discord. It never publishes to MQTT, so it can't change anything on your network.
 
 ![Overview with no open issues](docs/screenshots/overview-healthy.png)
 
@@ -27,7 +27,7 @@ advanced:
   log_level: info
 ```
 
-`log_output` with `mqtt` makes route and delivery errors visible on `bridge/logging`. Without it, the route-failure rules are disabled.
+`log_output` with `mqtt` publishes the Zigbee2MQTT log on `bridge/logging`. MeshPulse checks that it is enabled so that future route-failure rules can use it.
 
 ## Set up
 
@@ -48,7 +48,15 @@ advanced:
 
 3. Open `http://<host>:3000` and sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD`. The account is created on first start. Sign-up is disabled.
 
-The database lives in the named Docker volume `meshpulse-data`. To back it up, run `docker compose cp meshpulse:/data/meshpulse.db ./backup.db`. The container reports `healthy` about 60 to 90 seconds after start, once the first rules run.
+The database lives in the named Docker volume `meshpulse-data`, which Docker lists as `<project>_meshpulse-data` (for example `meshpulse_meshpulse-data`). SQLite runs in WAL mode, so recent writes may sit in `meshpulse.db-wal` until the app stops. To back up, stop the container first, copy the database, then start it again:
+
+```sh
+docker compose stop meshpulse
+docker compose cp meshpulse:/data/meshpulse.db ./backup.db
+docker compose start meshpulse
+```
+
+The container reports `healthy` about 60 to 90 seconds after start, once the first rules run.
 
 ## Deploy with Dokploy
 
