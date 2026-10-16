@@ -95,7 +95,7 @@ export async function outboxTick({ db, secretKey, fetch: fetchFn = fetch }: { db
 		const batch = rows.length > 3 ? rows : [rows[0]];
 		const msgs = batch.map((r) => r.message as Message);
 		const message: Message = batch.length === 1 ? msgs[0] : {
-			kind: 'digest', title: `${batch.length} new issues`, summary: 'Several notifications were due at once.',
+			kind: 'digest', title: `${batch.length} notifications`, summary: 'Several notifications were due at once.',
 			severity: msgs.some((m) => m.severity !== 'resolved') ? maxSeverity(msgs.flatMap((m) => (m.severity === 'resolved' ? [] : [m.severity]))) : 'resolved',
 			// 25 fields x 150 chars stays under Discord's 6000-char embed total
 			fields: [...msgs.slice(0, msgs.length > 25 ? 24 : 25).map((m) => ({ name: m.title.slice(0, 100), value: m.summary.slice(0, 150) })),

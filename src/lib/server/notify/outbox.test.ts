@@ -142,7 +142,7 @@ describe('outbox', () => {
 		const f = fakeFetch();
 		await tick(db, f.fn, T);
 		expect(f.calls).toHaveLength(1);
-		expect(f.calls[0].body.embeds[0].title).toBe('4 new issues');
+		expect(f.calls[0].body.embeds[0].title).toBe('4 notifications');
 		expect(f.calls[0].body.embeds[0].fields.map((x) => x.name)).toEqual([1, 2, 3, 4].map((i) => `Warning: Issue ${i}`));
 		expect(rows(db).every((r) => r.status === 'sent')).toBe(true);
 	});
