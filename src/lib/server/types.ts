@@ -42,6 +42,7 @@ export interface BridgeState {
 export interface MonitorState {
 	connected: boolean;
 	downSince: number | null;
+	connectedAt: number | null;
 	startedAt: number;
 	lastRulesRunAt: number | null;
 }
@@ -102,6 +103,6 @@ export function createState(now: number): AppState {
 			lastLiveAt: null,
 			restartedAt: null
 		},
-		monitor: { connected: false, downSince: null, startedAt: now, lastRulesRunAt: null }
+		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null }
 	};
 }

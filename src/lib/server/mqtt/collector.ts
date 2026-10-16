@@ -20,6 +20,7 @@ export function startCollector({ config, state, onEffects }: {
 	client.on('connect', () => {
 		state.monitor.connected = true;
 		state.monitor.downSince = null;
+		state.monitor.connectedAt = Date.now();
 		client.subscribe(`${config.baseTopic}/#`);
 	});
 	client.on('close', down);
