@@ -241,8 +241,9 @@ need a session.
 
 Environment variables: `MQTT_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD`,
 `Z2M_BASE_TOPIC`, `DATABASE_PATH` (default `/data/meshpulse.db`), `PUBLIC_URL`,
-`TZ`, `SECRET_KEY` (required), `HEARTBEAT_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
-`ORIGIN` (adapter-node).
+`TZ`, `SECRET_KEY` (required), `HEARTBEAT_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
+Behind a reverse proxy: `PROTOCOL_HEADER` and `HOST_HEADER` (SvelteKit 3's
+adapter-node no longer reads `ORIGIN`).
 
 ## Deployment
 
