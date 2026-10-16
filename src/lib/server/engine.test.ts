@@ -38,4 +38,30 @@ describe('engine', () => {
 		runOnce(deps, T + 180_000);
 		expect(db.select().from(issues).all()).toMatchObject([{ id: rows[0].id, state: 'open', updatedAt: T + 180_000 }]);
 	});
+
+	it('folds held messages inside the run transaction when quiet hours end, retrying a failed fold', () => {
+		const db = openDb(':memory:');
+		const state = createState(T);
+		Object.assign(state.monitor, { connected: true, connectedAt: T });
+		const folds: boolean[] = [];
+		let fail = true;
+		const deps = {
+			db, state, dirty: new Set<string>(), config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() },
+			foldHeld: () => {
+				folds.push(db.$client.inTransaction);
+				if (fail) throw new Error('boom');
+			}
+		};
+		const quiet = Date.parse('2026-10-25T05:59:00Z'); // 06:59 CET
+		const end = Date.parse('2026-10-25T06:00:00Z'); // 07:00 CET
+		state.monitor.lastRulesRunAt = quiet;
+		expect(() => runOnce(deps, end)).toThrow('boom');
+		expect(state.monitor.lastRulesRunAt).toBe(quiet);
+		fail = false;
+		runOnce(deps, end);
+		expect(folds).toEqual([true, true]);
+		expect(state.monitor.lastRulesRunAt).toBe(end);
+		runOnce(deps, end + 60_000);
+		expect(folds).toHaveLength(2);
+	});
 });

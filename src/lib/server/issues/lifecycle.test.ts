@@ -112,7 +112,25 @@ describe('lifecycle', () => {
 		expect(res.updates[0].patch.state).toBe('resolved');
 		expect(res.notify).toEqual([]);
 		// a mute that has expired no longer silences
-		expect(run([f('critical')], [i], counters(), T + 30 * H, T).notify.map((n) => n.kind)).toEqual(['escalate']);
+		const ack = issue({ state: 'acknowledged' });
+		expect(run([f('critical')], [ack], counters(), T + 30 * H, T).notify.map((n) => n.kind)).toEqual(['escalate']);
+	});
+
+	it('announces an issue opened while muted once the mute expires', () => {
+		const i = issue({ lastNotifiedAt: null });
+		const r = run([f('critical')], [i], counters(), T + 30 * H, T);
+		expect(r.notify).toEqual([{ key: 'battery.low|0xdev', kind: 'open', severity: 'critical' }]);
+		expect(r.updates[0].patch.lastNotifiedAt).toBe(T + 30 * H);
+	});
+
+	it('resolves an issue opened while muted silently after the mute expires', () => {
+		const c = counters();
+		const i = issue({ lastNotifiedAt: null });
+		run([], [i], c, T + 30 * H, T);
+		const r = run([], [i], c, T + 31 * H, T);
+		expect(r.updates[0].patch.state).toBe('resolved');
+		expect(r.updates[0].patch.lastNotifiedAt).toBeUndefined();
+		expect(r.notify).toEqual([]);
 	});
 
 	it('flood guard blocks new device issues but keeps updating open ones', () => {

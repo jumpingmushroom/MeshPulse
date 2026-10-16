@@ -75,14 +75,15 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		const patch: Partial<IssueRow> = {};
 		let kind: NotifyKind | null = null;
 		let severity = i.severity;
+		const unannounced = i.lastNotifiedAt === null; // opened while muted
 		if (f) {
 			Object.assign(patch, { summary: f.summary, evidence: f.evidence, updatedAt: now });
-			if (f.severity !== i.severity) {
-				patch.severity = severity = f.severity;
-				if (RANK[f.severity] > RANK[i.severity]) kind = 'escalate';
-			} else if (i.state !== 'acknowledged' && i.severity !== 'info') {
+			if (f.severity !== i.severity) patch.severity = severity = f.severity;
+			if (unannounced) kind = 'open'; // late announcement once the mute has expired
+			else if (RANK[f.severity] > RANK[i.severity]) kind = 'escalate';
+			else if (f.severity === i.severity && i.state !== 'acknowledged' && i.severity !== 'info') {
 				const every = (i.severity === 'critical' ? settings.reminderCriticalH : settings.reminderWarningH) * H;
-				if (now - (i.lastNotifiedAt ?? i.openedAt) >= every) kind = 'reminder';
+				if (now - i.lastNotifiedAt! >= every) kind = 'reminder';
 			}
 		} else {
 			const missing = (counters.missing.get(key) ?? 0) + 1;
@@ -91,7 +92,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 			counters.missing.delete(key);
 			Object.assign(patch, { state: 'resolved', resolvedAt: now, updatedAt: now,
 				evidence: { ...i.evidence, durationMs: now - i.openedAt } });
-			kind = 'resolved';
+			if (!unannounced) kind = 'resolved'; // never announced: resolve silently
 		}
 		if (kind && !muted(i.ieee)) {
 			patch.lastNotifiedAt = now;

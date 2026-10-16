@@ -52,10 +52,11 @@ export function runOnce(deps: EngineDeps, now: number): void {
 			Object.assign(byId.get(id)!, patch);
 		}
 		for (const n of r.notify) deps.notify?.(byKey.get(n.key)!, n, quiet);
-		state.monitor.lastRulesRunAt = now;
+		if (prev !== null && quietHoursEnded(prev, now, settings, config.tz)) deps.foldHeld?.(now);
 	});
+	// only after commit: a failed run (or fold) is retried against the same previous run time
+	state.monitor.lastRulesRunAt = now;
 	flushDevices(db, state, deps.dirty);
-	if (prev !== null && quietHoursEnded(prev, now, settings, config.tz)) deps.foldHeld?.(now);
 }
 
 export function startEngine(deps: EngineDeps): { stop(): void } {
@@ -64,12 +65,16 @@ export function startEngine(deps: EngineDeps): { stop(): void } {
 		const now = Date.now();
 		try {
 			runOnce(deps, now);
+		} catch (e) {
+			console.error('engine: run failed', e); // keep the loop alive; the next run retries
+		}
+		try {
 			if (now - prunedAt >= H) {
 				prune(deps.db, now);
 				prunedAt = now;
 			}
 		} catch (e) {
-			console.error('engine: run failed', e); // keep the loop alive; the next run retries
+			console.error('engine: prune failed', e);
 		}
 	}, MIN);
 	return { stop: () => clearInterval(timer) };

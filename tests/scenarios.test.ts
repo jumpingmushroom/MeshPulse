@@ -67,6 +67,13 @@ describe('scenarios', () => {
 		const r = massReconnect();
 		expect(rules(r).filter((x) => DEVICE_RULES.includes(x))).toEqual([]);
 		expect(r.notifies.filter((n) => n.key.startsWith('device.'))).toEqual([]);
+		// control: the same flaps without the Z2M restart (no state flip, monotonic uptime) do open flapping
+		const noRestart = loadFixture('mass-reconnect')
+			.filter((m) => !m.topic.endsWith('bridge/state') || m.ts === T)
+			.map((m) => (m.topic.endsWith('bridge/health') ? { ...m, payload: { process: { uptime_sec: (m.ts - T) / S + 5000 } } } : m));
+		const control = simulate(noRestart, { until: T + 90 * MIN });
+		expect(rules(control).filter((x) => x === 'device.flapping')).toHaveLength(20);
+		expect(rules(control).filter((x) => x !== 'device.flapping')).toEqual([]);
 	});
 
 	it('battery swap', () => {
