@@ -27,10 +27,16 @@ export function startRuntime(): Runtime {
 		.catch((e) => console.error('auth: admin seeding failed', e));
 	const dirty = new Set<string>();
 	const counters: Counters = { seen: new Map(), missing: new Map() };
-	startCollector({ config, state, onEffects: (effects) => applyEffects(db, effects, dirty) });
-	startEngine({ db, state, counters, config, dirty });
-	startOutbox({ db, secretKey: config.secretKey });
-	startHeartbeat({ state, db, config });
+	const stops = [
+		startCollector({ config, state, onEffects: (effects) => applyEffects(db, effects, dirty) }).stop,
+		startEngine({ db, state, counters, config, dirty }).stop,
+		startOutbox({ db, secretKey: config.secretKey }).stop,
+		startHeartbeat({ state, db, config }).stop
+	];
+	// adapter-node closes the HTTP server on SIGTERM, then emits this; timers and MQTT would keep the process alive
+	process.once('sveltekit:shutdown', () => {
+		for (const stop of stops) void stop();
+	});
 	return (g.__meshpulse = { config, db, state });
 }
 
