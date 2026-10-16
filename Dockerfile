@@ -14,9 +14,10 @@ COPY --from=build /app/build ./build
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/drizzle ./drizzle
 COPY --from=build /app/package.json ./
-COPY --from=build /app/scripts/default-proto.mjs ./scripts/default-proto.mjs
-RUN mkdir /data && chown node:node /data
-USER node
+COPY --from=build /app/scripts/default-proto.mjs /app/scripts/docker-entrypoint.sh ./scripts/
+RUN mkdir /data
+# Starts as root only to chown /data, then runs as PUID:PGID (default 99:100, Unraid's nobody:users).
+ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
 VOLUME /data
 EXPOSE 3000
 # Rules first run after 60 s, so /api/health needs about that long to turn 200.
