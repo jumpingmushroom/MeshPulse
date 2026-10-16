@@ -48,14 +48,14 @@ advanced:
 
 3. Open `http://<host>:3000` and sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD`. The account is created on first start. Sign-up is disabled.
 
-The database lives in `./data`. The container reports `healthy` about 60 to 90 seconds after start, once the first rules run.
+The database lives in the named Docker volume `meshpulse-data`. To back it up, run `docker compose cp meshpulse:/data/meshpulse.db ./backup.db`. The container reports `healthy` about 60 to 90 seconds after start, once the first rules run.
 
 ## Deploy with Dokploy
 
 1. Create a Compose application from this repository. Dokploy builds the image from the `Dockerfile`.
 2. Add the variables from `.env.example` in the environment tab.
-3. Keep a persistent volume mounted at `/data`.
-4. Add a domain and set `PUBLIC_URL` to the exact URL you open, for example `https://meshpulse.example.com`. Use `https` there so session cookies are marked Secure.
+3. The named volume `meshpulse-data` (declared in `docker-compose.yml`) keeps the database across redeploys. Do not remove it.
+4. Add a domain and set `PUBLIC_URL` to the exact URL you open, for example `https://meshpulse.example.com`. Use `https` there so session cookies are marked Secure, and always open MeshPulse through that URL. Opening `http://host:3000` instead makes login fail silently, because the browser drops the Secure cookie.
 5. Behind the proxy, set `ADDRESS_HEADER=x-forwarded-for` and `XFF_DEPTH=1`. Otherwise the login rate limiter sees every user as the proxy's IP. The image already sets `PROTOCOL_HEADER=x-forwarded-proto`; add `HOST_HEADER=x-forwarded-host` if the proxy rewrites the host.
 
 ## Discord notifications
@@ -73,7 +73,6 @@ To get alerted when MeshPulse itself stops, create a **Push** monitor in Uptime 
 - A Zigbee2MQTT restart that takes longer than 1 to 2 minutes raises `bridge.offline`. This is expected.
 
 ## Recording traffic
-
 
 Record real `zigbee2mqtt/#` traffic to a JSONL file (one `{ts, topic, payload, retain}` object per line), usable later as test fixtures.
 
