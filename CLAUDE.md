@@ -9,6 +9,7 @@ Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issu
 - `npm run check` - svelte-check / tsc
 - `npx drizzle-kit generate` - generate SQL migrations after schema changes
 - `npm run capture` - record `zigbee2mqtt/#` traffic to JSONL (`scripts/capture.ts`)
+- `docker compose up -d --build` - build and run the container (needs `.env`, see `.env.example`)
 
 ## Architecture
 
@@ -27,6 +28,7 @@ src/lib/server/mqtt/parse.ts         parseJson, parseAvailability, parseLastSeen
 src/lib/server/mqtt/collector.ts     startCollector(deps) - mqtt.js + effect persistence
 src/lib/server/prereqs.ts            checkPrereqs(config) -> Prereq[]
 src/lib/server/rules/*.ts            one file per rule + index.ts (RULES, RULE_DEFAULTS)
+src/lib/server/rules/types.ts        RuleId, RuleContext, Finding, issueKey, inGrace
 src/lib/server/issues/lifecycle.ts   evaluate(input) -> LifecycleResult
 src/lib/server/issues/quiet.ts       isQuietHours(now, settings, tz)
 src/lib/server/engine.ts             runOnce(deps, now); startEngine(deps)
@@ -35,6 +37,9 @@ src/lib/server/crypto.ts             encrypt, decrypt
 src/lib/server/retention.ts          prune(db, now)
 src/lib/server/heartbeat.ts          heartbeatTick(deps, now); startHeartbeat(deps)
 src/lib/server/auth.ts               getAuth(), ensureAdmin()
+src/lib/server/login-limit.ts        createLimiter, loginLimiter (login rate limit)
+src/lib/server/store.ts              loadDevices, applyEffects, flushDevices, muteUntil (DB <-> AppState)
+src/lib/views.ts                     pure view helpers for pages (status, formatTime, FOREVER)
 src/lib/server/runtime.ts            startRuntime(), runtime singleton (state, db, config)
 src/routes/...                       pages, api/health
 scripts/capture.ts                   record zigbee2mqtt/# to JSONL
@@ -49,7 +54,7 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 - Read-only on MQTT: the app never publishes.
 - All storage keyed by IEEE address. `devices.instance_id` defaults to `'default'`.
 - Timestamps are UTC epoch ms in the DB; display in `TZ` (default `Europe/Oslo`).
-- TypeScript `strict: true`. Import via the `#lib/*` alias (package.json `imports`).
+- TypeScript `strict: true`. Server code uses relative imports (`#lib/*` without extensions does not type-check).
 - SvelteKit 3: use `$app/env`, not `$app/environment`. adapter-node has no `ORIGIN` env; origin comes from the `Host` header or `PROTOCOL_HEADER`/`HOST_HEADER`.
 - No dependency beyond the stack (SvelteKit 3, Svelte 5, TS, Vite, Drizzle, better-sqlite3, mqtt, better-auth, vitest, adapter-node) without asking.
 - Severity values: `'info' | 'warning' | 'critical'`.

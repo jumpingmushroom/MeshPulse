@@ -40,8 +40,13 @@ describe('parseSettingsForm ordering', () => {
 		expect(parseSettingsForm(form(o))).toHaveProperty('error');
 	});
 
-	it.each([['silenceMultiplier'], ['flappingWindowH']])('rejects zero %s', (key) => {
-		expect(parseSettingsForm(form({ [key]: '0' }))).toHaveProperty('error');
+	it.each([['silenceMultiplier'], ['flappingWindowH'], ['reminderCriticalH'], ['reminderWarningH'], ['bridgeSilenceMin'], ['mqttLostSec']])(
+		'rejects zero %s', (key) => {
+			expect(parseSettingsForm(form({ [key]: '0' }))).toHaveProperty('error');
+		});
+
+	it('allows graceMin 0', () => {
+		expect(parseSettingsForm(form({ graceMin: '0' }))).toHaveProperty('settings');
 	});
 
 	it('allows silenceMinH equal to silenceMaxH', () => {

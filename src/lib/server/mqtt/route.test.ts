@@ -78,7 +78,7 @@ describe('route', () => {
 		expect(s.byName.get('front_door')).toBe(DOOR);
 		feed(s, msgs.slice(3, 4));
 		expect(s.devices.size).toBe(6);
-		expect(s.devices.get(DOOR)!.recentSeen.length).toBe(2);
+		expect(s.devices.get(DOOR)!.lastSeenAt).toBe(T + 3000);
 		expect(s.devices.get(DOOR)!.lqi).toBe(85);
 		expect(feed(s, msgs.slice(4))).toEqual([]);
 	});
@@ -148,7 +148,7 @@ describe('route', () => {
 
 	it('keeps only the last 21 live timestamps', () => {
 		const s = withDevices();
-		for (let i = 0; i < 30; i++) route(s, msg(T + i * 1000, 'button', { action: 'x' }), B);
+		for (let i = 0; i < 30; i++) route(s, msg(T + i * MIN, 'button', { action: 'x' }), B);
 		expect(s.devices.get('0x00124b0000000006')!.recentSeen.length).toBe(21);
 	});
 
@@ -162,11 +162,27 @@ describe('route', () => {
 		expect(run(5)).toBeNull();
 		// even count: mean of the middle two, rounded
 		const s = withDevices();
-		[0, 1000, 3001, 6002, 10003, 15004].forEach((t) => route(s, msg(T + t, 'button', { a: 1 }), B));
-		// gaps 1000,2001,3001,4001,5001 -> odd; add one more for even
-		route(s, msg(T + 15004 + 6002, 'button', { a: 1 }), B);
-		// gaps sorted: 1000,2001,3001,4001,5001,6002 -> (3001+4001)/2
-		expect(s.devices.get('0x00124b0000000006')!.typicalGapMs).toBe(3501);
+		[0, 1, 3, 6, 10, 15].forEach((m) => route(s, msg(T + m * MIN, 'button', { a: 1 }), B));
+		// gaps 1,2,3,4,5 min -> odd; add one more for even
+		route(s, msg(T + 21 * MIN + 1, 'button', { a: 1 }), B);
+		// gaps sorted: 1,2,3,4,5,6 min (+1 ms) -> (3+4)/2 min, rounded
+		expect(s.devices.get('0x00124b0000000006')!.typicalGapMs).toBe(3.5 * MIN);
+	});
+
+	it('bursts within a minute count once towards the typical gap', () => {
+		const s = withDevices();
+		for (let k = 0; k < 8; k++) for (let i = 0; i < 5; i++) route(s, msg(T + k * 30 * MIN + i * 400, 'button', { action: 'x' }), B);
+		const d = s.devices.get('0x00124b0000000006')!;
+		expect(d.typicalGapMs).toBe(30 * MIN);
+		expect(d.lastSeenAt).toBe(T + 7 * 30 * MIN + 1600);
+	});
+
+	it('mains devices ignore voltage (metering plugs report volts)', () => {
+		const s = withDevices();
+		route(s, msg(T, 'hall_plug', { voltage: 230, power: 5 }), B);
+		const d = s.devices.get(HALL)!;
+		expect(d.voltage).toBeNull();
+		expect(d.maxVoltage).toBeNull();
 	});
 
 	it('availability change emits one event', () => {

@@ -4,6 +4,7 @@ import { loadConfig } from './config';
 import { openDb } from './db';
 import { channels, devices, issues, outbox } from './db/schema';
 import { runOnce } from './engine';
+import { saveSettings } from './settings';
 import type { IssueRow, Notify } from './issues/lifecycle';
 import { route } from './mqtt/route';
 import { applyEffects } from './store';
@@ -54,29 +55,51 @@ describe('engine', () => {
 			message: { fields: expect.arrayContaining([{ name: 'Device', value: name }]) } }]);
 	});
 
-	it('folds held messages inside the run transaction when quiet hours end, retrying a failed fold', () => {
+	const heldSetup = () => {
 		const db = openDb(':memory:');
+		db.insert(channels).values({ kind: 'discord', name: 'd', config: {} }).run();
+		db.insert(outbox).values({ channelId: 1, issueId: null, kind: 'open', severity: 'warning', message: {}, dedupeKey: 'h1',
+			status: 'held', createdAt: T }).run();
 		const state = createState(T);
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
+		const deps = { db, state, dirty: new Set<string>(), config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() } };
+		const digests = () => db.select().from(outbox).all().filter((r) => r.kind === 'digest').length;
+		const held = () => db.select().from(outbox).all().filter((r) => r.status === 'held').length;
+		return { db, deps, digests, held };
+	};
+	const quiet = Date.parse('2026-10-25T05:59:00Z'); // 06:59 CET
+	const end = Date.parse('2026-10-25T06:00:00Z'); // 07:00 CET
+
+	it('folds held messages once when quiet hours end', () => {
+		const { deps, digests, held } = heldSetup();
+		runOnce(deps, quiet);
+		expect([held(), digests()]).toEqual([1, 0]);
+		runOnce(deps, end);
+		expect([held(), digests()]).toEqual([0, 1]);
+		runOnce(deps, end + 60_000);
+		expect(digests()).toBe(1);
+	});
+
+	it('folds held messages on the next run when quiet hours are disabled at night', () => {
+		const { db, deps, digests, held } = heldSetup();
+		saveSettings(db, { quietEnabled: false });
+		runOnce(deps, quiet);
+		expect([held(), digests()]).toEqual([0, 1]);
+	});
+
+	it('folds inside the run transaction and retries a failed fold', () => {
+		const { deps } = heldSetup();
 		const folds: boolean[] = [];
 		let fail = true;
-		const deps = {
-			db, state, dirty: new Set<string>(), config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() },
-			foldHeld: () => {
-				folds.push(db.$client.inTransaction);
-				if (fail) throw new Error('boom');
-			}
-		};
-		const quiet = Date.parse('2026-10-25T05:59:00Z'); // 06:59 CET
-		const end = Date.parse('2026-10-25T06:00:00Z'); // 07:00 CET
-		state.monitor.lastRulesRunAt = quiet;
-		expect(() => runOnce(deps, end)).toThrow('boom');
-		expect(state.monitor.lastRulesRunAt).toBe(quiet);
+		const d = { ...deps, foldHeld: () => {
+			folds.push(deps.db.$client.inTransaction);
+			if (fail) throw new Error('boom');
+		} };
+		expect(() => runOnce(d, end)).toThrow('boom');
+		expect(deps.state.monitor.lastRulesRunAt).toBeNull();
 		fail = false;
-		runOnce(deps, end);
+		runOnce(d, end);
 		expect(folds).toEqual([true, true]);
-		expect(state.monitor.lastRulesRunAt).toBe(end);
-		runOnce(deps, end + 60_000);
-		expect(folds).toHaveLength(2);
+		expect(deps.state.monitor.lastRulesRunAt).toBe(end);
 	});
 });

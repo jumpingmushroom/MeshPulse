@@ -2,6 +2,7 @@ import { desc, eq } from 'drizzle-orm';
 import type { Db } from './db';
 import { devices, events, samples } from './db/schema';
 import type { AppState, DeviceState, Effect } from './types';
+import { FOREVER } from '../views';
 
 // DeviceState.tags is string[]; the column is a { tag: true } object.
 const tagsToDb = (tags: string[]) => Object.fromEntries(tags.map((t) => [t, true]));
@@ -72,7 +73,6 @@ export function flushDevices(db: Db, state: AppState, dirty: Set<string>): void 
 	dirty.clear();
 }
 
-export const FOREVER = 253402300799000; // 9999-12-31
 const H = 3_600_000;
 const MUTE = new Map<string, number | null>([['1h', H], ['24h', 24 * H], ['7d', 168 * H], ['forever', FOREVER], ['unmute', null]]);
 

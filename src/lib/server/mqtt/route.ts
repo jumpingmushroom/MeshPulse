@@ -4,6 +4,7 @@ import { normaliseVoltage, parseAvailability, parseJson, parseLastSeen } from '.
 const PENDING_CAP = 5000;
 const SAMPLE_EVERY_MS = 5 * 60_000;
 const SEEN_KEEP = 21; // 20 gaps
+const SEEN_MIN_GAP_MS = 60_000; // a burst (button presses, multi-report) counts as one sighting
 const MIN_GAPS = 5;
 const SWAP_JUMP = 30;
 const BRIDGE_EVENTS: readonly EventKind[] = ['device_joined', 'device_leave', 'device_announce', 'device_interview'];
@@ -201,7 +202,8 @@ function onDevice(
 		if (d.battery !== null && battery - d.battery > SWAP_JUMP) event('battery_swap', d.ieee, { from: d.battery, to: battery });
 		d.battery = battery;
 	}
-	const voltage = normaliseVoltage(p.voltage);
+	// mains plugs with metering report line volts (230), which would read as a 0.23 V coin cell
+	const voltage = d.powerSource === 'Battery' ? normaliseVoltage(p.voltage) : null;
 	if (voltage !== null) {
 		d.voltage = voltage;
 		d.maxVoltage = Math.max(d.maxVoltage ?? 0, voltage);
@@ -215,7 +217,8 @@ function onDevice(
 		return;
 	}
 	d.lastSeenAt = parseLastSeen(p.last_seen, msg.ts);
-	d.recentSeen = [...d.recentSeen, msg.ts].slice(-SEEN_KEEP);
+	const prevSeen = d.recentSeen.at(-1);
+	if (prevSeen === undefined || msg.ts - prevSeen >= SEEN_MIN_GAP_MS) d.recentSeen = [...d.recentSeen, msg.ts].slice(-SEEN_KEEP);
 	if (d.recentSeen.length > MIN_GAPS) {
 		d.typicalGapMs = median(d.recentSeen.slice(1).map((t, i) => t - d.recentSeen[i]));
 	}

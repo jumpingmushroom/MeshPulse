@@ -3,7 +3,7 @@ import type { Config } from './config';
 import type { Db } from './db/index';
 import { events, issues } from './db/schema';
 import { evaluate, newIssue, type Counters, type IssueRow, type Notify } from './issues/lifecycle';
-import { isQuietHours, quietHoursEnded } from './issues/quiet';
+import { isQuietHours } from './issues/quiet';
 import { enqueue, foldHeld } from './notify/outbox';
 import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
@@ -40,7 +40,6 @@ export function runOnce(deps: EngineDeps, now: number): void {
 	const r = evaluate({ findings, issues: open, counters, settings, now,
 		mutedUntil: (ieee) => state.devices.get(ieee)?.mutedUntil ?? null });
 	const quiet = isQuietHours(now, settings, config.tz);
-	const prev = state.monitor.lastRulesRunAt;
 
 	db.transaction((tx) => {
 		const byKey = new Map(open.map((i) => [issueKey(i.rule, i.ieee), i]));
@@ -57,22 +56,15 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		const notify = deps.notify ?? ((issue: IssueRow, n: Notify, quiet: boolean) => enqueue(db, issue, n,
 			{ now, quiet, publicUrl: config.publicUrl, tz: config.tz, device: (issue.ieee && state.devices.get(issue.ieee)) || null }));
 		for (const n of r.notify) notify(byKey.get(n.key)!, n, quiet);
-		if (prev !== null && quietHoursEnded(prev, now, settings, config.tz)) fold(deps, now);
+		// every non-quiet run: covers quiet hours ending, being disabled or moved, and restarts (no-op when nothing is held)
+		if (!quiet) fold(deps, now);
 	});
-	// only after commit: a failed run (or fold) is retried against the same previous run time
 	state.monitor.lastRulesRunAt = now;
 	flushDevices(db, state, deps.dirty);
 }
 
 export function startEngine(deps: EngineDeps): { stop(): void } {
 	let prunedAt = 0;
-	try {
-		// a restart across the end of quiet hours never sees the transition, so fold here
-		const now = Date.now();
-		if (!isQuietHours(now, getSettings(deps.db), deps.config.tz)) deps.db.transaction(() => fold(deps, now));
-	} catch (e) {
-		console.error('engine: startup fold failed', e);
-	}
 	const timer = setInterval(() => {
 		const now = Date.now();
 		try {

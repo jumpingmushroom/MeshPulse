@@ -21,7 +21,12 @@ export function startCollector({ config, state, onEffects }: {
 		state.monitor.connected = true;
 		state.monitor.downSince = null;
 		state.monitor.connectedAt = Date.now();
-		client.subscribe(`${config.baseTopic}/#`);
+		const topic = `${config.baseTopic}/#`;
+		client.subscribe(topic, (err, granted) => {
+			if (err) console.error(`MQTT: subscribe to ${topic} failed:`, err.message);
+			else if (granted?.some((g) => g.qos === 128))
+				console.error(`subscribe to ${topic} was rejected by the broker — check the MQTT user ACL`);
+		});
 	});
 	client.on('close', down);
 	client.on('offline', down);

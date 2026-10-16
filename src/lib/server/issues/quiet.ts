@@ -15,6 +15,3 @@ export function isQuietHours(now: number, settings: Quiet, tz: string): boolean 
 	const end = minutes(settings.quietEnd);
 	return start <= end ? m >= start && m < end : m >= start || m < end; // window may wrap midnight
 }
-
-export const quietHoursEnded = (prev: number, now: number, settings: Quiet, tz: string) =>
-	isQuietHours(prev, settings, tz) && !isQuietHours(now, settings, tz);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ctx, dev, DOOR, TEMP } from '../../../../tests/helpers/ctx';
+import { ctx, dev, DOOR, HALL, TEMP } from '../../../../tests/helpers/ctx';
 import type { DeviceState } from '../types';
 import { issueKey } from './index';
 import { batteryLow } from './battery';
@@ -34,6 +34,16 @@ describe('battery.low', () => {
 
 	it('ignores voltage for multi-cell devices', () => {
 		expect(run(DOOR, { maxVoltage: 6.0, voltage: 2.8, battery: 60 })).toEqual([]);
+	});
+
+	it('never fires for a mains device, whatever its voltage says', () => {
+		expect(run(HALL, { maxVoltage: 0.23, voltage: 0.23 })).toEqual([]);
+		expect(run(HALL, { maxVoltage: 0.23, voltage: 0.23 }, true)).toEqual([]);
+		expect(run(HALL, { maxVoltage: 0.23 }, true)).toEqual([]); // an old false issue resolves
+	});
+
+	it('when open, holds while nothing is known yet (after a restart)', () => {
+		expect(run(DOOR, { batteryLow: null, battery: null, voltage: null }, true)).toHaveLength(1);
 	});
 
 	it('is nothing for a healthy baseline', () => {

@@ -1,6 +1,8 @@
 // Pure view helpers shared by the pages (server loads and components).
 import type { AppState, DeviceState, Severity } from './server/types';
 
+export const FOREVER = 253402300799000; // 9999-12-31, the "mute forever" sentinel
+
 const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
 
 export type Status = 'green' | 'amber' | 'red';

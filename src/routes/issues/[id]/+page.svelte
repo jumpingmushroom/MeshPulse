@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { evidenceRows, formatTime } from '../../../lib/views';
+	import { evidenceRows, FOREVER, formatTime } from '../../../lib/views';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -42,7 +42,7 @@
 			</label>
 			<button>Apply</button>
 		</form>
-		<p>{muted === 253402300799000 ? 'Muted forever' : muted ? `Muted until ${formatTime(muted, data.tz)}` : 'Not muted'}</p>
+		<p>{muted === FOREVER ? 'Muted forever' : muted ? `Muted until ${formatTime(muted, data.tz)}` : 'Not muted'}</p>
 	{/if}
 </div>
 
