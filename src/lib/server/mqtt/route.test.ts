@@ -87,17 +87,17 @@ describe('route', () => {
 		const s = withDevices();
 		const snap = JSON.stringify([...s.devices]);
 		const fx = feed(s, [
-			msg(T, 'living/lamp/set', { state: 'ON' }),
-			msg(T, 'living/lamp/get', { state: '' }),
-			msg(T, 'living/lamp/set/brightness', 5),
-			msg(T, 'bridge/request/permit_join', { time: 10 }),
+			msg(T + 1000, 'living/lamp/set', { state: 'ON' }),
+			msg(T + 1000, 'living/lamp/get', { state: '' }),
+			msg(T + 1000, 'living/lamp/set/brightness', 5),
+			msg(T + 1000, 'bridge/request/permit_join', { time: 10 }),
 			msg(T, 'some_group', { state: 'ON' }),
 			msg(T, 'bridge/logging', { level: 'info', message: 'x' }),
 			msg(T, 'bridge/response/device/rename', { status: 'ok' })
 		]);
 		expect(fx).toEqual([]);
 		expect(JSON.stringify([...s.devices])).toBe(snap);
-		// foreign clients do not count as live; bridge/logging and groups do
+		// /set, /get and bridge/request (T+1000) are not live; groups, logging, response (T) are
 		expect(s.bridge.lastLiveAt).toBe(T);
 	});
 
@@ -122,6 +122,12 @@ describe('route', () => {
 		expect(s.bridge.lastLiveAt).toBeNull();
 		route(s, msg(T, 'temp_sensor', { battery: 80, last_seen: '2026-10-16T10:00:00.000Z' }, true), B);
 		expect(d.lastSeenAt).toBe(Date.parse('2026-10-16T10:00:00.000Z'));
+	});
+
+	it('retained garbage last_seen leaves lastSeenAt untouched', () => {
+		const s = withDevices();
+		route(s, msg(T, 'temp_sensor', { battery: 80, last_seen: 'garbage' }, true), B);
+		expect(s.devices.get(TEMP)!.lastSeenAt).toBeNull();
 	});
 
 	it('live message updates seen, gaps and samples at most every 5 min', () => {

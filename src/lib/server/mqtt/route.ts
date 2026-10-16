@@ -39,7 +39,8 @@ export function route(state: AppState, msg: MqttMsg, baseTopic: string): Effect[
 			if (d && persisted(d) !== was) fx.push({ kind: 'dirty', ieee });
 		}
 		return fx;
-	} catch {
+	} catch (e) {
+		console.error(`route: failed on topic ${msg.topic}`, e);
 		return [];
 	}
 }
@@ -209,7 +210,8 @@ function onDevice(
 
 	if (msg.retain) {
 		// retained state is not live: only an explicit last_seen counts
-		if (p.last_seen !== undefined) d.lastSeenAt = Math.max(d.lastSeenAt ?? 0, parseLastSeen(p.last_seen, 0));
+		const seen = parseLastSeen(p.last_seen, NaN);
+		if (!Number.isNaN(seen)) d.lastSeenAt = Math.max(d.lastSeenAt ?? 0, seen);
 		return;
 	}
 	d.lastSeenAt = parseLastSeen(p.last_seen, msg.ts);
