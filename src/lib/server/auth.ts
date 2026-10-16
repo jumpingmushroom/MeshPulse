@@ -16,6 +16,8 @@ function create() {
 		database: drizzleAdapter(getDb(), { provider: 'sqlite', schema }),
 		secret: config.secretKey,
 		baseURL: config.publicUrl,
+		// Better Auth defaults to Secure cookies in production, which browsers drop over plain http.
+		advanced: { useSecureCookies: config.publicUrl?.startsWith('https:') ?? false },
 		emailAndPassword: { enabled: true, disableSignUp: true },
 		plugins: [sveltekitCookies(getRequestEvent)]
 	});
