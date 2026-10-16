@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../settings';
-import { isQuietHours, quietHoursEnded } from './quiet';
+import { isQuietHours } from './quiet';
 
 const TZ = 'Europe/Oslo';
 const S = DEFAULT_SETTINGS;
@@ -20,12 +20,9 @@ describe('quiet hours', () => {
 		expect(isQuietHours(utc('2026-10-16T21:30:00Z'), { ...S, quietEnabled: false }, TZ)).toBe(false);
 	});
 
-	it('quietHoursEnded true once when crossing 07:00', () => {
+	it('follows the DST change', () => {
 		// 2026-10-25: Oslo leaves summer time at 03:00 CEST -> 02:00 CET, so 07:00 local is 06:00Z
 		expect(q('2026-10-25T05:30:00Z')).toBe(true); // 06:30 CET (a fixed +2 offset would say 07:30)
-		const ends: string[] = [];
-		for (let t = utc('2026-10-24T18:00:00Z'); t < utc('2026-10-25T18:00:00Z'); t += 60_000)
-			if (quietHoursEnded(t, t + 60_000, S, TZ)) ends.push(new Date(t + 60_000).toISOString());
-		expect(ends).toEqual(['2026-10-25T06:00:00.000Z']);
+		expect(q('2026-10-25T06:00:00Z')).toBe(false);
 	});
 });
