@@ -1,10 +1,10 @@
 import { ChannelError, type Channel, type Message } from './channel';
 
 const COLORS: Record<Message['severity'], number> = { critical: 0xe53935, warning: 0xffb300, info: 0x1e88e5, resolved: 0x43a047 };
-const MENTION_KINDS: readonly string[] = ['open', 'escalate', 'reminder'];
+export const MENTION_KINDS: readonly string[] = ['open', 'escalate', 'reminder'];
 
 export function toDiscordPayload(m: Message, cfg: { mentionCritical: boolean }) {
-	const mention = cfg.mentionCritical && m.severity === 'critical' && MENTION_KINDS.includes(m.kind);
+	const mention = cfg.mentionCritical && (m.mention ?? (m.severity === 'critical' && MENTION_KINDS.includes(m.kind)));
 	return {
 		...(mention ? { content: '@here' } : {}),
 		embeds: [{

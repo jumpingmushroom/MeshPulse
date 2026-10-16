@@ -69,7 +69,7 @@ export function startEngine(deps: EngineDeps): { stop(): void } {
 	try {
 		// a restart across the end of quiet hours never sees the transition, so fold here
 		const now = Date.now();
-		if (!isQuietHours(now, getSettings(deps.db), deps.config.tz)) fold(deps, now);
+		if (!isQuietHours(now, getSettings(deps.db), deps.config.tz)) deps.db.transaction(() => fold(deps, now));
 	} catch (e) {
 		console.error('engine: startup fold failed', e);
 	}

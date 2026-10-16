@@ -9,6 +9,8 @@ export interface Message {
 	fields: { name: string; value: string }[];
 	url?: string;
 	kind: NotifyKind | 'digest';
+	/** overrides the per-kind @here rule (folded bursts) */
+	mention?: boolean;
 }
 
 export class ChannelError extends Error {

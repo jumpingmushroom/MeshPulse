@@ -5,13 +5,27 @@ import { channels, issues, outbox } from '../db/schema';
 import { RANK, type IssueRow, type Notify } from '../issues/lifecycle';
 import type { DeviceState, Severity } from '../types';
 import { SEVERITY_LABEL, toMessage, type Channel, type Message } from './channel';
-import { discord } from './discord';
+import { discord, MENTION_KINDS } from './discord';
 
 export const CHANNELS: Record<string, Channel> = { discord };
 
 const SPACING_MS = 2000;
 const BACKOFF_MS = [60_000, 300_000, 1_800_000];
 const MAX_ATTEMPTS = 4;
+
+// webhook URLs carry the token; errors like "Failed to parse URL from <url>" must not store or return it
+const redact = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/https?:\/\/\S+/g, '<url>');
+
+/** Bullet list that fits a Discord field value (1024 chars). */
+function bullets(lines: string[]): string {
+	let out = '';
+	for (const [i, l] of lines.entries()) {
+		const more = `\n…and ${lines.length - i} more`;
+		if (out.length + l.length + 3 + (i < lines.length - 1 ? more.length + 4 : 0) > 1024) return out + more;
+		out += (out ? '\n' : '') + `• ${l}`;
+	}
+	return out;
+}
 
 const maxSeverity = (s: Severity[]) => s.reduce((a, b) => (RANK[b] > RANK[a] ? b : a), 'info');
 
@@ -37,7 +51,7 @@ export function foldHeld(db: Db, now: number): void {
 		const iss = db.select().from(issues).where(inArray(issues.id, ids)).all();
 		const open = iss.filter((i) => i.state !== 'resolved');
 		const resolved = iss.filter((i) => i.state === 'resolved');
-		const list = (xs: typeof iss) => xs.map((i) => `• ${i.summary}`).join('\n');
+		const list = (xs: typeof iss) => bullets(xs.map((i) => i.summary));
 		const message: Message = {
 			kind: 'digest', title: 'Overnight summary', severity: open.length ? maxSeverity(open.map((i) => i.severity)) : 'resolved',
 			summary: `${rows.length} message(s) were held during quiet hours.`,
@@ -46,8 +60,9 @@ export function foldHeld(db: Db, now: number): void {
 				...(resolved.length ? [{ name: 'Resolved overnight', value: list(resolved) }] : [])
 			]
 		};
-		db.insert(outbox).values({ channelId, issueId: null, kind: 'digest', severity: maxSeverity(rows.map((r) => r.severity)), message,
-			dedupeKey: `digest:${channelId}:${now}`, status: 'pending', nextAttemptAt: now, createdAt: now }).onConflictDoNothing().run();
+		const digest = db.insert(outbox).values({ channelId, issueId: null, kind: 'digest', severity: maxSeverity(rows.map((r) => r.severity)), message,
+			dedupeKey: `digest:${channelId}:${now}`, status: 'pending', nextAttemptAt: now, createdAt: now }).onConflictDoNothing().returning().get();
+		if (!digest) continue; // key collision: keep them held for the next fold
 		db.update(outbox).set({ status: 'sent', sentAt: now }).where(inArray(outbox.id, rows.map((r) => r.id))).run();
 	}
 }
@@ -82,13 +97,16 @@ export async function outboxTick({ db, secretKey, fetch: fetchFn = fetch }: { db
 		const message: Message = batch.length === 1 ? msgs[0] : {
 			kind: 'digest', title: `${batch.length} new issues`, summary: 'Several notifications were due at once.',
 			severity: msgs.some((m) => m.severity !== 'resolved') ? maxSeverity(msgs.flatMap((m) => (m.severity === 'resolved' ? [] : [m.severity]))) : 'resolved',
-			fields: msgs.map((m) => ({ name: m.title, value: m.summary }))
+			// 25 fields x 150 chars stays under Discord's 6000-char embed total
+			fields: [...msgs.slice(0, msgs.length > 25 ? 24 : 25).map((m) => ({ name: m.title.slice(0, 100), value: m.summary.slice(0, 150) })),
+				...(msgs.length > 25 ? [{ name: `+${msgs.length - 24} more`, value: 'See MeshPulse for the full list.' }] : [])],
+			mention: msgs.some((m) => m.severity === 'critical' && MENTION_KINDS.includes(m.kind))
 		};
 		try {
 			await sendVia(ch, message, secretKey, fetchFn);
 			db.update(outbox).set({ status: 'sent', sentAt: now, lastError: null }).where(inArray(outbox.id, batch.map((r) => r.id))).run();
 		} catch (e) {
-			const lastError = e instanceof Error ? e.message : String(e);
+			const lastError = redact(e);
 			const retryAfterMs = (e as { retryAfterMs?: number }).retryAfterMs;
 			for (const r of batch) {
 				const attempts = retryAfterMs === undefined ? r.attempts + 1 : r.attempts; // 429s don't count
@@ -127,6 +145,6 @@ export async function sendTest(db: Db, channelId: number, secretKey: string, fet
 		await sendVia(ch, TEST_MESSAGE, secretKey, fetchFn);
 		return { ok: true };
 	} catch (e) {
-		return { ok: false, error: e instanceof Error ? e.message : String(e) };
+		return { ok: false, error: redact(e) };
 	}
 }

@@ -147,6 +147,45 @@ describe('outbox', () => {
 		expect(rows(db).every((r) => r.status === 'sent')).toBe(true);
 	});
 
+	it('a burst with a critical open mentions only when mentionCritical is on', async () => {
+		for (const mentionCritical of [true, false]) {
+			resetOutbox();
+			const { db, addChannel } = setup();
+			const id = addChannel();
+			db.update(channels).set({ config: { webhookUrl: encrypt(HOOK, KEY), mentionCritical } }).where(eq(channels.id, id)).run();
+			for (const i of [1, 2, 3]) enqueue(db, issue(i), n(), { now: T, quiet: false, device: null });
+			enqueue(db, issue(4, 'critical'), n('critical'), { now: T, quiet: false, device: null });
+			const f = fakeFetch();
+			await tick(db, f.fn, T);
+			const body = f.calls[0].body as unknown as { content?: string; allowed_mentions: unknown };
+			expect(body.content).toBe(mentionCritical ? '@here' : undefined);
+			expect(body.allowed_mentions).toEqual({ parse: mentionCritical ? ['everyone'] : [] });
+		}
+	});
+
+	it('caps a large burst at 24 fields plus "+N more", values at 150 chars', async () => {
+		const { db, addChannel } = setup();
+		addChannel();
+		for (let i = 1; i <= 30; i++) enqueue(db, issue(i, 'warning', { summary: `Issue ${i} ` + 'x'.repeat(300) }), n(), { now: T, quiet: false, device: null });
+		const f = fakeFetch();
+		await tick(db, f.fn, T);
+		const fields = f.calls[0].body.embeds[0].fields as unknown as { name: string; value: string }[];
+		expect(fields).toHaveLength(25);
+		expect(fields[24].name).toBe('+6 more');
+		expect(Math.max(...fields.map((x) => x.value.length))).toBeLessThanOrEqual(150);
+		expect(rows(db).every((r) => r.status === 'sent')).toBe(true);
+	});
+
+	it('redacts URLs from errors', async () => {
+		const { db, addChannel } = setup();
+		const id = addChannel();
+		enqueue(db, issue(1), n(), { now: T, quiet: false, device: null });
+		const f = fakeFetch([new TypeError(`Failed to parse URL from ${HOOK}`), new TypeError(`Failed to parse URL from ${HOOK}`)]);
+		await tick(db, f.fn, T);
+		expect(rows(db)[0].lastError).toBe('Failed to parse URL from <url>');
+		expect(await sendTest(db, id, KEY, f.fn)).toEqual({ ok: false, error: 'Failed to parse URL from <url>' });
+	});
+
 	it('marks rows for a disabled or missing channel failed', async () => {
 		const { db, addChannel } = setup();
 		const id = addChannel();
@@ -174,6 +213,22 @@ describe('outbox', () => {
 			message: { title: 'Overnight summary', fields: [{ name: 'Still open', value: '• Still bad' }, { name: 'Resolved overnight', value: '• Came back' }] } }]);
 		foldHeld(db, T + 2); // nothing held: no-op
 		expect(rows(db)).toHaveLength(4);
+	});
+
+	it('foldHeld keeps rows held when the digest key collides, and truncates long lists', () => {
+		const { db, addChannel } = setup();
+		const ch = addChannel();
+		for (let i = 0; i < 40; i++) {
+			const id = db.insert(issues).values({ ...issue(0), id: undefined, rule: `r${i}` as IssueRow['rule'], summary: `Open issue number ${i} ` + 'y'.repeat(40) }).returning().get().id;
+			enqueue(db, issue(id), n(), { now: T, quiet: true, device: null });
+		}
+		db.insert(outbox).values({ channelId: ch, kind: 'digest', severity: 'info', message: {}, dedupeKey: `digest:${ch}:${T + 1}`, createdAt: T }).run();
+		foldHeld(db, T + 1);
+		expect(rows(db).filter((r) => r.status === 'held')).toHaveLength(40);
+		foldHeld(db, T + 2);
+		const digest = rows(db).at(-1)!.message as { fields: { name: string; value: string }[] };
+		expect(digest.fields[0].value.length).toBeLessThanOrEqual(1024);
+		expect(digest.fields[0].value).toMatch(/…and \d+ more$/);
 	});
 
 	it('sendTest posts directly and reports errors without throwing', async () => {
