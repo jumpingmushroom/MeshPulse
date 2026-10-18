@@ -150,4 +150,24 @@ describe('lifecycle', () => {
 		// guard lifted: counters kept advancing, so the device issue opens on the next run
 		expect(run([f()], [], c2, T + 2 * MIN).opens.map((o) => o.rule)).toEqual(['battery.low']);
 	});
+
+	it('notify:false rule opens and resolves silently', () => {
+		const c = counters();
+		const r1 = run([f('warning', 'battery.forecast')], [], c, T);
+		expect(r1.opens.map((o) => o.rule)).toEqual(['battery.forecast']);
+		expect(r1.notify).toEqual([]);
+		const open = issue({ rule: 'battery.forecast', lastNotifiedAt: null });
+		const r2 = run([f('critical', 'battery.forecast')], [open], c, T + MIN);
+		expect(r2.notify).toEqual([]);
+		expect(r2.updates[0].patch.lastNotifiedAt).toBeUndefined();
+		expect(run([], [open], c, T + 2 * MIN).updates).toEqual([]);
+		const r4 = run([], [open], c, T + 3 * MIN);
+		expect(r4.updates[0].patch).toMatchObject({ state: 'resolved' });
+		expect(r4.notify).toEqual([]);
+	});
+
+	it('notify:false holds even for an issue that was somehow announced', () => {
+		const r = run([f('critical', 'battery.forecast')], [issue({ rule: 'battery.forecast' })], counters(), T + MIN);
+		expect(r.notify).toEqual([]);
+	});
 });

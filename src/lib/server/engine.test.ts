@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { loadFixture } from '../../../tests/helpers/fixtures';
 import { loadConfig } from './config';
 import { openDb } from './db';
-import { channels, devices, issues, outbox } from './db/schema';
+import { channels, devices, issues, outbox, samplesHourly } from './db/schema';
 import { runOnce } from './engine';
 import { saveSettings } from './settings';
 import type { IssueRow, Notify } from './issues/lifecycle';
@@ -38,6 +38,22 @@ describe('engine', () => {
 
 		runOnce(deps, T + 180_000);
 		expect(db.select().from(issues).all()).toMatchObject([{ id: rows[0].id, state: 'open', updatedAt: T + 180_000 }]);
+	});
+
+	it('feeds hourly history to the rules', () => {
+		const db = openDb(':memory:');
+		const state = createState(T);
+		Object.assign(state.monitor, { connected: true, connectedAt: T });
+		const dirty = new Set<string>();
+		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		const DOOR = '0x00124b0000000004';
+		const now = T + 60_000;
+		const hour = now - (now % 3_600_000);
+		db.insert(samplesHourly).values(Array.from({ length: 6 }, (_, i) => ({ ieee: DOOR, hour: hour - (i + 1) * 3_600_000, lqiAvg: 20, msgCount: 1 }))).run();
+		const deps = { db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() }, notify: () => {} };
+		runOnce(deps, now);
+		runOnce(deps, now + 60_000);
+		expect(db.select().from(issues).all().map((i) => `${i.rule}|${i.ieee}`)).toContain(`lqi.weak|${DOOR}`);
 	});
 
 	it('enqueues notifications to the outbox by default', () => {

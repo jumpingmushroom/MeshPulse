@@ -21,6 +21,7 @@ describe('parseSettingsForm', () => {
 	it.each([
 		['graceMin', '-1'], ['graceMin', 'abc'], ['graceMin', ''], ['graceMin', 'Infinity'], ['graceMin', null],
 		['batteryLowPct', '101'], ['voltageLow', '11'], ['quietStart', '25:00'], ['quietEnd', '7:00'],
+		['lqiDegradePct', '101'], ['lqiRecoverPct', '101'],
 		['heartbeatUrl', 'ftp://x'], ['heartbeatUrl', 'not a url']
 	])('rejects %s = %s', (key, value) => {
 		const r = parseSettingsForm(form({ [key]: value }));
@@ -35,12 +36,13 @@ describe('parseSettingsForm', () => {
 describe('parseSettingsForm ordering', () => {
 	it.each([
 		[{ batteryCriticalPct: '30' }], [{ batteryClearPct: '20' }], [{ voltageCritical: '2.9' }], [{ voltageClear: '2.7' }],
-		[{ flappingClearBelow: '4' }], [{ silenceMinH: '30' }]
+		[{ flappingClearBelow: '4' }], [{ silenceMinH: '30' }], [{ lqiWeak: '40' }], [{ lqiWeakClear: '20' }]
 	])('rejects out-of-order thresholds %o', (o) => {
 		expect(parseSettingsForm(form(o))).toHaveProperty('error');
 	});
 
-	it.each([['silenceMultiplier'], ['flappingWindowH'], ['reminderCriticalH'], ['reminderWarningH'], ['bridgeSilenceMin'], ['mqttLostSec']])(
+	it.each([['silenceMultiplier'], ['flappingWindowH'], ['reminderCriticalH'], ['reminderWarningH'], ['bridgeSilenceMin'], ['mqttLostSec'],
+		['lqiWeak'], ['lqiWeakClear'], ['lqiMinHours'], ['lqiDegradePct'], ['lqiRecoverPct'], ['baselineMinDays']])(
 		'rejects zero %s', (key) => {
 			expect(parseSettingsForm(form({ [key]: '0' }))).toHaveProperty('error');
 		});

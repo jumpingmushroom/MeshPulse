@@ -25,7 +25,7 @@ export function ctx(): RuleContext {
 		d.offlineSince = null;
 		d.lastSeenAt = NOW;
 	}
-	return { now: NOW, state, events: [], settings: { ...DEFAULT_SETTINGS }, open: new Set() };
+	return { now: NOW, state, events: [], settings: { ...DEFAULT_SETTINGS }, open: new Set(), history: { hourly: new Map(), baselines: new Map() } };
 }
 
 let nextId = 1;

@@ -32,7 +32,8 @@ export function simulate(msgs: MqttMsg[], opts: { until: number; settings?: Part
 			for (const fx of timeline[next].run()) if (fx.kind === 'event') events.push({ id: events.length + 1, ...fx.event });
 		const open = issues.filter((i) => i.state !== 'resolved');
 		const recent = events.filter((e) => e.ts >= now - DAY);
-		const findings = evaluateRules({ now, state, events: recent, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) });
+		const findings = evaluateRules({ now, state, events: recent, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
+			history: { hourly: new Map(), baselines: new Map() } });
 		const r = evaluate({ findings, issues: open, counters, settings, now, mutedUntil: (ieee) => state.devices.get(ieee)?.mutedUntil ?? null });
 		for (const f of r.opens)
 			issues.push({ id: issues.length + 1, ...newIssue(f, now, r.notify.some((n) => n.key === issueKey(f.rule, f.ieee))) });
