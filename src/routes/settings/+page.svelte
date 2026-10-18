@@ -70,6 +70,34 @@
 	</p>
 </form>
 
+<h2>Apprise</h2>
+<form method="post" action="?/saveApprise" use:enhance={() => ({ update }) => update({ reset: false })}>
+	<label>Apprise API URL
+		<input name="apiUrl" type="url" required autocomplete="off" value={data.apprise?.apiUrl ?? ''} placeholder="http://apprise:8000" />
+	</label>
+	<label>Config key (stateful mode)
+		<input name="key" autocomplete="off" value={data.apprise?.key ?? ''} />
+	</label>
+	<label>Notification URLs (stateless mode, one per line)
+		<textarea name="urls" rows="3" autocomplete="off"
+			placeholder={data.apprise?.urlsConfigured ? 'Configured (leave empty to keep them)' : 'tgram://…'}></textarea>
+	</label>
+	<p class="muted">Use either a key or notification URLs. {data.apprise?.urlsConfigured ? 'Notification URLs are configured.' : ''}</p>
+	<label><input name="enabled" type="checkbox" checked={data.apprise?.enabled ?? true} /> Enabled</label>
+	<label>Minimum severity
+		<select name="minSeverity" value={data.apprise?.minSeverity ?? 'warning'}>
+			<option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
+		</select>
+	</label>
+	{#if msg('apprise')?.error}<p class="error" role="alert">{msg('apprise')?.error}</p>{/if}
+	{#if msg('apprise')?.saved}<p role="status">Channel saved.</p>{/if}
+	{#if msg('apprise')?.tested}<p role="status">Test message sent.</p>{/if}
+	<p>
+		<button>Save channel</button>
+		{#if data.apprise}<button formaction="?/testApprise" formnovalidate>Send test</button>{/if}
+	</p>
+</form>
+
 <h2>Zigbee2MQTT prerequisites</h2>
 {#if data.prereqs.length}
 	<ul>
