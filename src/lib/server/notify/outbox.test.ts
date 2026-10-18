@@ -186,6 +186,13 @@ describe('outbox', () => {
 		expect(await sendTest(db, id, KEY, f.fn)).toEqual({ ok: false, error: 'Failed to parse URL from <url>' });
 	});
 
+	it('redacts apprise urls in errors', async () => {
+		const { db } = setup();
+		const id = db.insert(channels).values({ kind: 'apprise', name: 'a', config: { apiUrl: 'http://a', urls: encrypt('tgram://123:abc/9', KEY) } }).returning().get().id;
+		const f = fakeFetch([new TypeError('bad tgram://123:abc/9 here')]);
+		expect(await sendTest(db, id, KEY, f.fn)).toEqual({ ok: false, error: 'bad <url> here' });
+	});
+
 	it('marks rows for a disabled or missing channel failed', async () => {
 		const { db, addChannel } = setup();
 		const id = addChannel();

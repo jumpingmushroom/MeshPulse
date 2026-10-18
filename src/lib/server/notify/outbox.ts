@@ -5,16 +5,17 @@ import { channels, issues, outbox } from '../db/schema';
 import { RANK, type IssueRow, type Notify } from '../issues/lifecycle';
 import type { DeviceState, Severity } from '../types';
 import { SEVERITY_LABEL, toMessage, type Channel, type Message } from './channel';
+import { apprise } from './apprise';
 import { discord, MENTION_KINDS } from './discord';
 
-export const CHANNELS: Record<string, Channel> = { discord };
+export const CHANNELS: Record<string, Channel> = { discord, apprise };
 
 const SPACING_MS = 2000;
 const BACKOFF_MS = [60_000, 300_000, 1_800_000];
 const MAX_ATTEMPTS = 4;
 
-// webhook URLs carry the token; errors like "Failed to parse URL from <url>" must not store or return it
-const redact = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/https?:\/\/\S+/g, '<url>');
+// webhook and Apprise URLs carry tokens; errors like "Failed to parse URL from <url>" must not store or return it
+const redact = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, '<url>');
 
 /** Bullet list that fits a Discord field value (1024 chars). */
 function bullets(lines: string[]): string {
@@ -76,7 +77,8 @@ const sendVia = (ch: ChannelRow, message: Message, secretKey: string, fetchFn: t
 	const impl = CHANNELS[ch.kind];
 	if (!impl) throw new Error(`unknown channel kind ${ch.kind}`);
 	const cfg = ch.config ?? {};
-	return impl.send({ ...cfg, webhookUrl: decrypt(String(cfg.webhookUrl), secretKey) }, message, fetchFn);
+	const secret = (k: string) => (cfg[k] === undefined ? {} : { [k]: decrypt(String(cfg[k]), secretKey) });
+	return impl.send({ ...cfg, ...secret('webhookUrl'), ...secret('urls') }, message, fetchFn);
 };
 
 export async function outboxTick({ db, secretKey, fetch: fetchFn = fetch }: { db: Db; secretKey: string; fetch?: typeof fetch }, now: number): Promise<void> {
