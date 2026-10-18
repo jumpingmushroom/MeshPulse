@@ -83,7 +83,9 @@ function handle(
 	const ieee = state.byName.get(rest);
 	if (ieee && !msg.retain) {
 		const b = state.bridge;
-		if (b.lastDeviceAt === null || msg.ts - b.lastDeviceAt >= DEVICE_GAP_MS) b.deviceSince = msg.ts;
+		const gap = b.lastDeviceAt === null ? null : msg.ts - b.lastDeviceAt;
+		if (gap !== null && gap >= DEVICE_GAP_MS) Object.assign(b, { silenceEndedAt: msg.ts, silenceMs: gap });
+		if (gap === null || gap >= DEVICE_GAP_MS) b.deviceSince = msg.ts;
 		b.lastDeviceAt = Math.max(b.lastDeviceAt ?? 0, msg.ts);
 	}
 	if (ieee) return onDevice(state, state.devices.get(ieee)!, msg, payload, fx, touch, event);

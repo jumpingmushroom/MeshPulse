@@ -114,9 +114,11 @@ describe('route', () => {
 		expect(s.bridge.lastDeviceAt).toBeNull();
 		route(s, msg(T + MIN, 'temp_sensor', { battery: 80 }), B);
 		route(s, msg(T + 2 * MIN, 'living/lamp', { state: 'ON' }), B);
-		expect(s.bridge).toMatchObject({ lastDeviceAt: T + 2 * MIN, deviceSince: T + MIN });
+		expect(s.bridge).toMatchObject({ lastDeviceAt: T + 2 * MIN, deviceSince: T + MIN, silenceEndedAt: null, silenceMs: 0 });
 		route(s, msg(T + 4 * MIN, 'living/lamp', { state: 'ON' }), B);
-		expect(s.bridge).toMatchObject({ lastDeviceAt: T + 4 * MIN, deviceSince: T + 4 * MIN });
+		expect(s.bridge).toMatchObject({ lastDeviceAt: T + 4 * MIN, deviceSince: T + 4 * MIN, silenceEndedAt: T + 4 * MIN, silenceMs: 2 * MIN });
+		route(s, msg(T + 5 * MIN, 'living/lamp', { state: 'ON' }), B);
+		expect(s.bridge).toMatchObject({ silenceEndedAt: T + 4 * MIN, silenceMs: 2 * MIN });
 	});
 
 	it('ignores malformed payloads', () => {

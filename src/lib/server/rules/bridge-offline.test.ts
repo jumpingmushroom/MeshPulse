@@ -3,7 +3,7 @@ import { ctx, MIN, NOW } from '../../../../tests/helpers/ctx';
 import { evaluate, newIssue, type IssueRow } from '../issues/lifecycle';
 import { route } from '../mqtt/route';
 import { evaluateRules, issueKey } from './index';
-import { bridgeOffline, deviceSilent } from './bridge-offline';
+import { bridgeOffline, deviceSilent, deviceSilentFor } from './bridge-offline';
 
 const z2m = (topic: string, ts: number, payload: unknown) => ({ ts, topic: `zigbee2mqtt/${topic}`, payload, retain: false });
 
@@ -146,7 +146,8 @@ describe('bridge.offline', () => {
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
 			const findings = evaluateRules(run);
 			if (k >= 30 && !cleared && !findings.some((f) => f.rule === 'bridge.offline')) cleared = k;
-			const r = evaluate({ findings, issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
+			const r = evaluate({ findings, issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+				networkQuiet: deviceSilentFor(run, 60_000) });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
 			notes.push(...r.notify.map((n) => `${n.key}:${n.kind}`));

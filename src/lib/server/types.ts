@@ -40,6 +40,9 @@ export interface BridgeState {
 	lastDeviceAt: number | null;
 	/** start of the current run of device messages (no gap of 2 min or more) */
 	deviceSince: number | null;
+	/** end and length of the last gap in device messages of 2 min or more */
+	silenceEndedAt: number | null;
+	silenceMs: number;
 	restartedAt: number | null;
 }
 
@@ -110,6 +113,8 @@ export function createState(now: number): AppState {
 			lastLiveAt: null,
 			lastDeviceAt: null,
 			deviceSince: null,
+			silenceEndedAt: null,
+			silenceMs: 0,
 			restartedAt: null
 		},
 		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null },

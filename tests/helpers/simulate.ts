@@ -1,6 +1,7 @@
 import { evaluate, newIssue, type IssueRow, type Notify } from '../../src/lib/server/issues/lifecycle';
 import { route } from '../../src/lib/server/mqtt/route';
 import { evaluateRules, issueKey, type EventRow } from '../../src/lib/server/rules/index';
+import { deviceSilentFor } from '../../src/lib/server/rules/bridge-offline';
 import { DEFAULT_SETTINGS, type Settings } from '../../src/lib/server/settings';
 import { createState, type AppState, type MqttMsg } from '../../src/lib/server/types';
 
@@ -32,10 +33,11 @@ export function simulate(msgs: MqttMsg[], opts: { until: number; settings?: Part
 			for (const fx of timeline[next].run()) if (fx.kind === 'event') events.push({ id: events.length + 1, ...fx.event });
 		const open = issues.filter((i) => i.state !== 'resolved');
 		const recent = events.filter((e) => e.ts >= now - DAY);
-		const findings = evaluateRules({ now, state, events: recent, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
+		const ctx = { now, state, events: recent, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
 			openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
-			history: { hourly: new Map(), baselines: new Map() } });
-		const r = evaluate({ findings, issues: open, counters, settings, now, mutedUntil: (ieee) => state.devices.get(ieee)?.mutedUntil ?? null });
+			history: { hourly: new Map(), baselines: new Map() } };
+		const findings = evaluateRules(ctx);
+		const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), mutedUntil: (ieee) => state.devices.get(ieee)?.mutedUntil ?? null });
 		for (const f of r.opens)
 			issues.push({ id: issues.length + 1, ...newIssue(f, now, r.notify.some((n) => n.key === issueKey(f.rule, f.ieee))) });
 		for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);

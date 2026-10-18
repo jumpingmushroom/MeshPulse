@@ -4,6 +4,7 @@ import { evaluate, newIssue, type IssueRow } from '../issues/lifecycle';
 import type { DeviceState } from '../types';
 import { evaluateRules, issueKey, type RuleContext } from './index';
 import { massOffline } from './mass-offline';
+import { deviceSilentFor } from './bridge-offline';
 
 /** Adds `n` online devices of `type`; returns their ieees. */
 function add(c: RuleContext, n: number, type: DeviceState['type']): string[] {
@@ -121,7 +122,8 @@ describe('network.mass_offline', () => {
 			if (k === 15) for (const e of ends) Object.assign(dev(c, e), { availability: 'online', offlineSince: null, lastSeenAt: now });
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
+			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+				networkQuiet: deviceSilentFor(run, 60_000) });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
 			notes.push(...r.notify.map((n) => `${n.key}:${n.kind}:${n.severity}`));
@@ -167,7 +169,8 @@ describe('network.mass_offline', () => {
 			if (k === 1) drop({ ...c, now }, ends, 0.9);
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
+			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+				networkQuiet: deviceSilentFor(run, 60_000) });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
 			notes.push(...r.notify.map((n) => `${n.key}:${n.kind}`));
