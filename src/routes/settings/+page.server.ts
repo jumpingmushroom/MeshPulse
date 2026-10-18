@@ -22,11 +22,11 @@ export const load: PageServerLoad = () => {
 	return {
 		settings: getSettings(db),
 		// the webhook URL holds a token: never send it to the browser
-		channel: ch ? { configured: !!ch.config?.webhookUrl, mentionCritical: ch.config?.mentionCritical === true,
+		channel: ch ? { configured: !!ch.config?.webhookUrl, mentionCritical: ch.config?.mentionCritical === true, weeklyDigest: ch.config?.weeklyDigest !== false,
 			minSeverity: ch.minSeverity, enabled: ch.enabled } : null,
 		apprise: (() => {
 			const a = channelOf('apprise'); // the stored urls hold tokens: send only whether they exist
-			return a ? { apiUrl: String(a.config?.apiUrl ?? ''), key: String(a.config?.key ?? ''), urlsConfigured: !!a.config?.urls,
+			return a ? { apiUrl: String(a.config?.apiUrl ?? ''), key: String(a.config?.key ?? ''), urlsConfigured: !!a.config?.urls, weeklyDigest: a.config?.weeklyDigest === true,
 				minSeverity: a.minSeverity, enabled: a.enabled } : null;
 		})(),
 		prereqs: checkPrereqs(state.bridge.info),
@@ -52,7 +52,7 @@ export const actions: Actions = {
 		if (url && !WEBHOOK_RE.test(url)) return fail(400, { section: 'channel', error: 'The webhook URL must start with https://discord.com/api/webhooks/' });
 		const webhookUrl = url ? encrypt(url, config.secretKey) : ch?.config?.webhookUrl; // empty keeps the stored one
 		if (!webhookUrl) return fail(400, { section: 'channel', error: 'Enter the Discord webhook URL.' });
-		const values = { config: { webhookUrl, mentionCritical: form.get('mentionCritical') === 'on' }, minSeverity, enabled: form.get('enabled') === 'on' };
+		const values = { config: { webhookUrl, mentionCritical: form.get('mentionCritical') === 'on', weeklyDigest: form.get('weeklyDigest') === 'on' }, minSeverity, enabled: form.get('enabled') === 'on' };
 		if (ch) db.update(channels).set(values).where(eq(channels.id, ch.id)).run();
 		else db.insert(channels).values({ kind: 'discord', name: 'Discord', ...values }).run();
 		return { section: 'channel', saved: true };
@@ -73,7 +73,7 @@ export const actions: Actions = {
 		const r = parseAppriseForm(form, !!ch?.config?.urls);
 		if ('error' in r) return fail(400, { section: 'apprise', error: r.error });
 		const urls = r.urls ? encrypt(r.urls, config.secretKey) : r.key ? undefined : ch?.config?.urls; // empty keeps the stored one
-		const values = { config: { apiUrl: r.apiUrl, ...(r.key ? { key: r.key } : {}), ...(urls ? { urls } : {}) }, minSeverity, enabled: form.get('enabled') === 'on' };
+		const values = { config: { weeklyDigest: form.get('weeklyDigest') === 'on', apiUrl: r.apiUrl, ...(r.key ? { key: r.key } : {}), ...(urls ? { urls } : {}) }, minSeverity, enabled: form.get('enabled') === 'on' };
 		if (ch) db.update(channels).set(values).where(eq(channels.id, ch.id)).run();
 		else db.insert(channels).values({ kind: 'apprise', name: 'Apprise', ...values }).run();
 		return { section: 'apprise', saved: true };

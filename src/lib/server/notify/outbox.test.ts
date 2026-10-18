@@ -147,6 +147,18 @@ describe('outbox', () => {
 		expect(rows(db).every((r) => r.status === 'sent')).toBe(true);
 	});
 
+	it('never folds a weekly digest into a burst', async () => {
+		const { db, addChannel } = setup();
+		const ch = addChannel();
+		db.insert(outbox).values({ channelId: ch, issueId: null, kind: 'digest', severity: 'info', dedupeKey: `weekly:2026-W43:${ch}`,
+			message: { kind: 'digest', severity: 'info', title: 'Weekly digest', summary: 's', fields: [] }, status: 'pending', nextAttemptAt: T, createdAt: T - 1 }).run();
+		for (const id of [1, 2, 3, 4]) enqueue(db, issue(id), n(), { now: T, quiet: false, device: null });
+		const f = fakeFetch();
+		await tick(db, f.fn, T);
+		await tick(db, f.fn, T + 2000);
+		expect(f.calls.map((c) => c.body.embeds[0].title)).toEqual(['4 notifications', 'Weekly digest']);
+	});
+
 	it('a burst with a critical open mentions only when mentionCritical is on', async () => {
 		for (const mentionCritical of [true, false]) {
 			resetOutbox();
