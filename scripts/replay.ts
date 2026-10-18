@@ -36,7 +36,7 @@ export function replay(lines: MqttMsg[], opts: { settings?: Partial<Settings> } 
 	const notifications: ReplayReport['notifications'] = [];
 	const notify = (issue: { rule: string; ieee: string | null }, n: { kind: string; severity: string }, quiet: boolean) =>
 		notifications.push({ at: state.monitor.lastRulesRunAt ?? 0, rule: issue.rule, kind: n.kind, severity: n.severity,
-			name: (issue.ieee && state.devices.get(issue.ieee)?.friendlyName) || null, held: quiet });
+			name: (issue.ieee && state.devices.get(issue.ieee)?.friendlyName) || null, held: quiet && n.severity !== 'critical' }); // as enqueue()
 	const deps = { db, state, counters, config, dirty, foldHeld: () => {}, notify: (i: never, n: never, q: boolean) => notify(i, n, q) };
 
 	let next = 0;

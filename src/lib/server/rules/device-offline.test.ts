@@ -117,14 +117,17 @@ describe('device.offline', () => {
 		expect(deviceOffline(c)).toHaveLength(1);
 	});
 
-	it('after a network silence, holds devices offline from before the recovery for graceMin', () => {
+	it('holds new offline findings for graceMin after device traffic resumes or Z2M restarts', () => {
 		const c = ctx();
 		c.state.bridge.deviceSince = NOW - 10 * MIN;
 		Object.assign(dev(c, LAMP), { availability: 'offline', offlineSince: NOW - 30 * MIN });
+		Object.assign(dev(c, HALL), { availability: 'offline', offlineSince: NOW - 5 * MIN }); // Z2M still catching up
 		expect(deviceOffline(c)).toEqual([]);
-		Object.assign(dev(c, HALL), { availability: 'offline', offlineSince: NOW - 5 * MIN }); // dropped after recovery
-		expect(deviceOffline(c).map((f) => f.ieee)).toEqual([HALL]);
 		c.state.bridge.deviceSince = NOW - 15 * MIN;
+		expect(deviceOffline(c).map((f) => f.ieee)).toEqual([LAMP, HALL]);
+		c.state.bridge.restartedAt = NOW - 14 * MIN;
+		expect(deviceOffline(c)).toEqual([]);
+		c.state.bridge.restartedAt = NOW - 15 * MIN;
 		expect(deviceOffline(c).map((f) => f.ieee)).toEqual([LAMP, HALL]);
 	});
 
@@ -157,5 +160,35 @@ describe('device.offline', () => {
 		}
 		// device traffic resumed at minute 25: grace (15 min) ends at minute 40
 		expect(notes).toEqual(['9 bridge.offline|:open', '28 bridge.offline|:resolved', `41 device.offline|${routers[0]}:open`]);
+	});
+
+	it('Z2M restart marks 50 devices offline that come back within 10 min: no issue; one still offline at grace end opens', () => {
+		const c = ctx();
+		const ends = Array.from({ length: 50 }, (_, i) => {
+			const ieee = `0xend${i}`;
+			c.state.devices.set(ieee, { ...dev(c, DOOR), ieee, friendlyName: `end_${i}`, recentSeen: [] });
+			return ieee;
+		});
+		const issues: IssueRow[] = [];
+		const counters = { seen: new Map(), missing: new Map() };
+		const notes: string[] = [];
+		for (let k = 0; k < 40; k++) {
+			const now = NOW + k * MIN;
+			route(c.state, { ts: now, topic: 'zigbee2mqtt/living/lamp', payload: { state: 'ON' }, retain: false }, 'zigbee2mqtt');
+			if (k === 2) c.state.bridge.restartedAt = now;
+			if (k === 6) for (const e of ends) {
+				Object.assign(dev(c, e), { availability: 'offline', offlineSince: now });
+				c.events.push(flip(e, now, 'online', 'offline'));
+			}
+			if (k === 12) for (const e of ends.slice(1)) Object.assign(dev(c, e), { availability: 'online', offlineSince: null, lastSeenAt: now });
+			const open = issues.filter((i) => i.state !== 'resolved');
+			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
+			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
+			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
+			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
+			notes.push(...r.notify.map((n) => `${k} ${n.key}:${n.kind}`));
+		}
+		// restart at minute 2: grace (15 min) ends at minute 17
+		expect(notes).toEqual([`18 device.offline|${ends[0]}:open`]);
 	});
 });

@@ -8,8 +8,9 @@ export function deviceOffline(ctx: RuleContext): Finding[] {
 	const grace = inGrace(ctx);
 	// Z2M marks devices offline when the coordinator stops hearing them: during a network silence that is not the device
 	const quiet = deviceSilentFor(ctx, 60_000);
-	const { deviceSince } = ctx.state.bridge;
-	const recovering = deviceSince !== null && now < deviceSince + s.graceMin * 60_000;
+	// after device traffic resumes or Z2M restarts, Z2M marks devices offline until it hears from them again
+	const { deviceSince, restartedAt } = ctx.state.bridge;
+	const settling = now < Math.max(deviceSince ?? 0, restartedAt ?? 0) + s.graceMin * 60_000;
 	const out: Finding[] = [];
 	for (const d of ctx.state.devices.values()) {
 		if (d.type === 'Coordinator') continue;
@@ -25,8 +26,7 @@ export function deviceOffline(ctx: RuleContext): Finding[] {
 		if (d.availability !== 'offline' && !silent) continue;
 		const last = ctx.events.findLast((e) => e.kind === 'availability' && e.ieee === d.ieee);
 		const offlineSince = d.offlineSince ?? (last?.detail.to === 'offline' ? last.ts : null) ?? d.lastSeenAt;
-		// after a network silence, devices marked offline before traffic resumed get graceMin to come back
-		const held = !open && (quiet || (recovering && offlineSince !== null && offlineSince < deviceSince!));
+		const held = !open && (quiet || settling);
 		const offline = d.availability === 'offline' && !held;
 		if (!offline && !silent) continue;
 		out.push({
