@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { loadFixture } from '../../../tests/helpers/fixtures';
 import { loadConfig } from './config';
 import { openDb } from './db';
-import { channels, devices, healthSamples, issues, outbox, samplesHourly } from './db/schema';
+import { channels, devices, healthSamples, issues, outbox, samplesHourly, settings } from './db/schema';
 import { runOnce } from './engine';
 import { saveSettings } from './settings';
 import type { IssueRow, Notify } from './issues/lifecycle';
@@ -119,6 +119,7 @@ describe('engine', () => {
 	it('enqueues notifications to the outbox by default', () => {
 		const db = openDb(':memory:');
 		db.insert(channels).values({ kind: 'discord', name: 'd', config: {} }).run();
+		db.insert(settings).values({ key: 'weeklyDigestWeek', value: '2025-W40' }).run(); // the digest has its own tests
 		const state = createState(T);
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
@@ -135,6 +136,7 @@ describe('engine', () => {
 	const heldSetup = () => {
 		const db = openDb(':memory:');
 		db.insert(channels).values({ kind: 'discord', name: 'd', config: {} }).run();
+		db.insert(settings).values({ key: 'weeklyDigestWeek', value: '2026-W42' }).run();
 		db.insert(outbox).values({ channelId: 1, issueId: null, kind: 'open', severity: 'warning', message: {}, dedupeKey: 'h1',
 			status: 'held', createdAt: T }).run();
 		const state = createState(T);

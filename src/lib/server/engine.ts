@@ -5,6 +5,7 @@ import { events, healthSamples, issues } from './db/schema';
 import { evaluate, newIssue, type Counters, type IssueRow, type Notify } from './issues/lifecycle';
 import { isQuietHours } from './issues/quiet';
 import { enqueue, foldHeld } from './notify/outbox';
+import { sendWeekly } from './notify/weekly';
 import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
 import { deviceSilentFor } from './rules/bridge-offline';
@@ -74,6 +75,7 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		// every non-quiet run: covers quiet hours ending, being disabled or moved, and restarts (no-op when nothing is held)
 		if (!quiet) fold(deps, now);
 	});
+	sendWeekly(db, state, now, config.tz, quiet);
 	state.monitor.lastRulesRunAt = now;
 	flushDevices(db, state, deps.dirty);
 }

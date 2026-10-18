@@ -78,6 +78,7 @@
 	<p class="muted">{data.channel?.configured ? 'A webhook is configured.' : 'No webhook configured.'}</p>
 	<label><input name="enabled" type="checkbox" checked={data.channel?.enabled ?? true} /> Enabled</label>
 	<label><input name="mentionCritical" type="checkbox" checked={data.channel?.mentionCritical ?? false} /> @here on critical</label>
+	<label><input name="weeklyDigest" type="checkbox" checked={data.channel?.weeklyDigest ?? true} /> Weekly digest (Sunday 18:00)</label>
 	<label>Minimum severity
 		<select name="minSeverity" value={data.channel?.minSeverity ?? 'warning'}>
 			<option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
@@ -106,6 +107,7 @@
 	</label>
 	<p class="muted">Use either a key or notification URLs. {data.apprise?.urlsConfigured ? 'Notification URLs are configured.' : ''}</p>
 	<label><input name="enabled" type="checkbox" checked={data.apprise?.enabled ?? true} /> Enabled</label>
+	<label><input name="weeklyDigest" type="checkbox" checked={data.apprise?.weeklyDigest ?? false} /> Weekly digest (Sunday 18:00)</label>
 	<label>Minimum severity
 		<select name="minSeverity" value={data.apprise?.minSeverity ?? 'warning'}>
 			<option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
