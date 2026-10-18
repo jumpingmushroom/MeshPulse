@@ -167,8 +167,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		} else {
 			// the parent resolved: an unannounced child still firing gets one normal open; others just lose the parent
 			p.patch.parentIssueId = null;
-			// flapping can't tell whether it flapped again after the parent resolved: stay silent
-			p.kind = p.f && p.i.lastNotifiedAt === null && p.i.rule !== 'device.flapping' ? 'open' : null;
+			p.kind = p.f && p.i.lastNotifiedAt === null ? 'open' : null;
 			if (p.kind) p.patch.summary = `${p.f!.summary}${RELEASE_SUFFIX[p.i.rule] ?? ''}`;
 			out.released.push(p.i.id);
 		}
