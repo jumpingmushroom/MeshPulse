@@ -11,6 +11,11 @@ const DOOR = '0x00124b0000000004';
 const DEVICE_RULES = ['device.offline', 'device.flapping', 'battery.low'];
 
 type Sim = ReturnType<typeof simulate>;
+
+/** The fixtures carry no device payloads; a device report beside each live health sample keeps the mesh visibly alive. */
+const withTraffic = (msgs: MqttMsg[], device: string) =>
+	msgs.flatMap((m) => (m.topic.endsWith('bridge/health') && !m.retain
+		? [m, { ts: m.ts, topic: `zigbee2mqtt/${device}`, payload: { linkquality: 100 }, retain: false }] : [m]));
 const rules = (r: Sim) => r.issues.map((i) => i.rule);
 const kinds = (r: Sim) => r.notifies.map((n) => `${n.key}:${n.kind}:${n.severity}`);
 
@@ -23,7 +28,7 @@ function z2mRestart(offlineMs: number) {
 		if (!health && m.ts >= on && m.ts < on + 5 * S) return [{ ...m, ts: m.ts - 40 * S + offlineMs }];
 		return health && m.ts > off && m.ts < off + offlineMs ? [] : [m];
 	});
-	return simulate(msgs, { until: T + 90 * MIN });
+	return simulate(withTraffic(msgs, 'living/lamp'), { until: T + 90 * MIN });
 }
 
 const batterySwap = () => {
@@ -39,7 +44,7 @@ const renamed = () => {
 };
 
 const mqttLost = () =>
-	simulate(loadFixture('mqtt-lost'), {
+	simulate(withTraffic(loadFixture('mqtt-lost'), 'living/lamp'), {
 		until: T + 40 * MIN,
 		hooks: {
 			[T + 19 * MIN + 59 * S]: (s) => Object.assign(s.monitor, { connected: false, downSince: T + 19 * MIN + 59 * S }),
@@ -47,7 +52,7 @@ const mqttLost = () =>
 		}
 	});
 
-const massReconnect = () => simulate(loadFixture('mass-reconnect'), { until: T + 90 * MIN });
+const massReconnect = () => simulate(withTraffic(loadFixture('mass-reconnect'), 'router_01'), { until: T + 90 * MIN });
 
 describe('scenarios', () => {
 	it('Z2M restart', () => {
@@ -71,7 +76,7 @@ describe('scenarios', () => {
 		const noRestart = loadFixture('mass-reconnect')
 			.filter((m) => !m.topic.endsWith('bridge/state') || m.ts === T)
 			.map((m) => (m.topic.endsWith('bridge/health') ? { ...m, payload: { process: { uptime_sec: (m.ts - T) / S + 5000 } } } : m));
-		const control = simulate(noRestart, { until: T + 90 * MIN });
+		const control = simulate(withTraffic(noRestart, 'router_01'), { until: T + 90 * MIN });
 		expect(rules(control).filter((x) => x === 'device.flapping')).toHaveLength(20);
 		expect(rules(control).filter((x) => x !== 'device.flapping')).toEqual([]);
 	});
@@ -98,7 +103,7 @@ describe('scenarios', () => {
 		expect(kinds(r)).toEqual(['monitor.mqtt_lost|:open:critical', 'monitor.mqtt_lost|:resolved:critical']);
 		expect(rules(r).filter((x) => DEVICE_RULES.includes(x))).toEqual([]);
 		// without the outage the same door_sensor drop does open
-		const control = simulate(loadFixture('mqtt-lost'), { until: T + 40 * MIN });
+		const control = simulate(withTraffic(loadFixture('mqtt-lost'), 'living/lamp'), { until: T + 40 * MIN });
 		expect(rules(control)).toEqual(['device.offline']);
 	});
 

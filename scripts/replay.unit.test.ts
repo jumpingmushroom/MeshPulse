@@ -12,15 +12,29 @@ describe('replay', () => {
 	it('replays a fixture into issues and notifications', () => {
 		const r = replay([
 			...fixture,
-			msg(10, 'zigbee2mqtt/living/lamp/availability', { state: 'offline' }),
-			msg(13, 'zigbee2mqtt/living/lamp/availability', '{"state":"online"}'),
-			msg(30, 'zigbee2mqtt/bridge/state', { state: 'online' })
+			// device traffic every minute: a mesh with none reads as a silent network and holds new offline findings
+			...Array.from({ length: 41 }, (_, k) => msg(k, 'zigbee2mqtt/temp_sensor', { temperature: 21 })),
+			msg(20, 'zigbee2mqtt/living/lamp/availability', { state: 'offline' }),
+			msg(23, 'zigbee2mqtt/living/lamp/availability', '{"state":"online"}'),
+			msg(40, 'zigbee2mqtt/bridge/state', { state: 'online' })
 		]);
 		const lamp = r.issues.filter((i) => i.rule === 'device.offline' && i.name === 'living/lamp');
 		expect(lamp).toHaveLength(1);
 		expect(lamp[0].resolvedAt).not.toBeNull();
 		expect(r.notifications.filter((n) => n.name === 'living/lamp').map((n) => n.kind)).toEqual(['open', 'resolved']);
 		expect(formatReport(r, 'UTC')).toContain('device.offline');
+	});
+
+	it('marks held like production: warning held in quiet hours, critical never', () => {
+		const r = replay([
+			...fixture,
+			...Array.from({ length: 41 }, (_, k) => msg(k, 'zigbee2mqtt/temp_sensor', { temperature: 21 })),
+			msg(20, 'zigbee2mqtt/living/lamp/availability', { state: 'offline' }),
+			msg(30, 'zigbee2mqtt/bridge/state', { state: 'offline' })
+		], { settings: { quietStart: '00:00', quietEnd: '23:59' } });
+		const held = r.notifications.map((n) => `${n.rule}:${n.severity}:${n.held}`);
+		expect(held).toContain('device.offline:warning:true');
+		expect(held).toContain('bridge.offline:critical:false');
 	});
 
 	it('ignores retained-only captures for liveness', () => {

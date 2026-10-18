@@ -38,7 +38,8 @@ describe('parseSettingsForm ordering', () => {
 		[{ batteryCriticalPct: '30' }], [{ batteryClearPct: '20' }], [{ voltageCritical: '2.9' }], [{ voltageClear: '2.7' }],
 		[{ flappingClearBelow: '4' }], [{ silenceMinH: '30' }], [{ lqiWeak: '40' }], [{ lqiWeakClear: '20' }],
 		[{ lqiRecoverPct: '25' }], [{ lqiDegradePct: '10' }], [{ lqiMinHours: '25' }], [{ forecastWarnDays: '30' }], [{ forecastTargetPct: '101' }],
-		[{ routeFailClear: '5' }], [{ routeFailWarn: '20' }], [{ routeFailCrit: '5' }], [{ netRouteClearFactor: '3' }], [{ netRouteFactor: '1.5' }]
+		[{ routeFailClear: '5' }], [{ routeFailWarn: '20' }], [{ routeFailCrit: '5' }], [{ netRouteClearFactor: '3' }], [{ netRouteFactor: '1.5' }],
+		[{ massOfflineRouterPct: '101' }], [{ massOfflineClearPct: '20' }]
 	])('rejects out-of-order thresholds %o', (o) => {
 		expect(parseSettingsForm(form(o))).toHaveProperty('error');
 	});
@@ -46,7 +47,8 @@ describe('parseSettingsForm ordering', () => {
 	it.each([['silenceMultiplier'], ['flappingWindowH'], ['reminderCriticalH'], ['reminderWarningH'], ['bridgeSilenceMin'], ['mqttLostSec'],
 		['lqiWeak'], ['lqiWeakClear'], ['lqiMinHours'], ['lqiDegradePct'], ['lqiRecoverPct'], ['baselineMinDays'],
 		['routeFailWarn'], ['routeFailCrit'], ['routeFailClear'], ['netRouteFactor'], ['netRouteMin'], ['netRouteClearFactor'],
-		['forecastWarnDays'], ['forecastClearDays'], ['forecastMinDays']])(
+		['forecastWarnDays'], ['forecastClearDays'], ['forecastMinDays'],
+		['massOfflineRouterPct'], ['massOfflineDevices'], ['massOfflineWindowMin'], ['massOfflineClearPct']])(
 		'rejects zero %s', (key) => {
 			expect(parseSettingsForm(form({ [key]: '0' }))).toHaveProperty('error');
 		});

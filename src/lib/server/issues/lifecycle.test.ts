@@ -19,8 +19,8 @@ const issue = (p: Partial<IssueRow> = {}): IssueRow => ({
 
 const counters = (): Counters => ({ seen: new Map(), missing: new Map() });
 
-function run(findings: Finding[], issues: IssueRow[], c: Counters, now: number, muted: number | null = null) {
-	return evaluate({ findings, issues, counters: c, mutedUntil: () => muted, settings: DEFAULT_SETTINGS, now });
+function run(findings: Finding[], issues: IssueRow[], c: Counters, now: number, muted: number | null = null, networkQuiet = false) {
+	return evaluate({ findings, issues, counters: c, mutedUntil: () => muted, settings: DEFAULT_SETTINGS, now, networkQuiet });
 }
 
 describe('lifecycle', () => {
@@ -149,6 +149,29 @@ describe('lifecycle', () => {
 		expect(r2.opens.map((o) => o.rule)).toEqual(['bridge.offline']);
 		// guard lifted: counters kept advancing, so the device issue opens on the next run
 		expect(run([f()], [], c2, T + 2 * MIN).opens.map((o) => o.rule)).toEqual(['battery.low']);
+	});
+
+	it('a mass_offline finding guards: 12 device.offline findings open nothing', () => {
+		const c = counters();
+		const findings = [f('critical', 'network.mass_offline', null),
+			...Array.from({ length: 12 }, (_, i) => f('warning', 'device.offline', `0xdev${i}`))];
+		run(findings, [], c, T);
+		const r = run(findings, [], c, T + MIN);
+		expect(r.opens.map((o) => o.rule)).toEqual(['network.mass_offline']);
+		expect(r.notify).toEqual([{ key: 'network.mass_offline|', kind: 'open', severity: 'critical' }]);
+	});
+
+	it('networkQuiet holds new device.offline issues only; counters advance so it opens on the first non-quiet run', () => {
+		const c = counters();
+		const off = f('warning', 'device.offline');
+		const findings = [off, f('warning', 'battery.low', '0xother')];
+		run(findings, [], c, T, null, true);
+		const r = run(findings, [], c, T + MIN, null, true);
+		expect(r.opens.map((o) => o.rule)).toEqual(['battery.low']);
+		const held = issue({ rule: 'device.offline', lastNotifiedAt: T - 13 * H });
+		// an open device.offline issue still updates while quiet
+		expect(run([off], [held], counters(), T + MIN, null, true).updates).toHaveLength(1);
+		expect(run([off], [], c, T + 2 * MIN).opens.map((o) => o.rule)).toEqual(['device.offline']);
 	});
 
 	it('notify:false rule opens and resolves silently', () => {

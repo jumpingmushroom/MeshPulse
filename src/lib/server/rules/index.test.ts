@@ -32,13 +32,14 @@ describe('rules index', () => {
 	});
 
 	it('has defaults for every rule', () => {
-		expect(RULES).toHaveLength(12);
+		expect(RULES).toHaveLength(13);
 		expect(RULE_DEFAULTS['monitor.mqtt_lost']).toEqual({ minRuns: 1, resolveRuns: 2, deviceLevel: false, notify: true });
 		expect(RULE_DEFAULTS['bridge.permit_join_open'].minRuns).toBe(1);
 		expect(RULE_DEFAULTS['device.offline']).toEqual({ minRuns: 2, resolveRuns: 2, deviceLevel: true, notify: true });
 		expect(RULE_DEFAULTS['battery.low'].deviceLevel).toBe(true);
 		expect(RULE_DEFAULTS['lqi.weak']).toEqual({ minRuns: 2, resolveRuns: 2, deviceLevel: true, notify: true });
 		expect(RULE_DEFAULTS['network.route_errors'].deviceLevel).toBe(false);
+		expect(RULE_DEFAULTS['network.mass_offline']).toEqual({ minRuns: 2, resolveRuns: 2, deviceLevel: false, notify: true });
 		expect(RULE_DEFAULTS['battery.forecast']).toEqual({ minRuns: 1, resolveRuns: 2, deviceLevel: true, notify: false });
 	});
 });

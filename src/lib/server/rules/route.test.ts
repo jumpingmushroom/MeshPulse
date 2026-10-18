@@ -76,8 +76,8 @@ describe('route.failures', () => {
 			dev(c, LAMP).availability = k >= 3 && Math.floor(k / 2) % 2 === 0 ? 'offline' : 'online';
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-			c.state.bridge.lastLiveAt = now;
-			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
+			c.state.bridge.lastDeviceAt = now;
+			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now, networkQuiet: false });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
 			kinds.push(...r.notify.filter((n) => n.key.startsWith('route.failures|')).map((n) => n.kind));

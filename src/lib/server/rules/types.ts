@@ -14,7 +14,8 @@ export type RuleId =
 	| 'lqi.degrading'
 	| 'route.failures'
 	| 'network.route_errors'
-	| 'battery.forecast';
+	| 'battery.forecast'
+	| 'network.mass_offline';
 
 export interface EventRow extends NewEvent {
 	id: number;

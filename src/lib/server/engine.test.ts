@@ -21,6 +21,7 @@ describe('engine', () => {
 		const dirty = new Set<string>();
 		// startup.jsonl has hall_plug (a router) offline
 		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		state.bridge.lastDeviceAt = T + 10 * 60_000; // the fixture has no device payloads: keep the mesh live for these runs
 		const sent: { issue: IssueRow; n: Notify; inTx: boolean }[] = [];
 		const deps = {
 			db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() },
@@ -46,6 +47,7 @@ describe('engine', () => {
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
 		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		state.bridge.lastDeviceAt = T + 10 * 60_000; // the fixture has no device payloads: keep the mesh live for these runs
 		const sent: Notify[] = [];
 		const deps = { db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() },
 			notify: (_: IssueRow, n: Notify) => sent.push(n) };
@@ -64,6 +66,7 @@ describe('engine', () => {
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
 		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		state.bridge.lastDeviceAt = T + 10 * 60_000; // the fixture has no device payloads: keep the mesh live for these runs
 		const DOOR = '0x00124b0000000004';
 		const now = T + 60_000;
 		const hour = now - (now % 3_600_000);
@@ -81,6 +84,7 @@ describe('engine', () => {
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
 		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		state.bridge.lastDeviceAt = T + 10 * 60_000; // the fixture has no device payloads: keep the mesh live for these runs
 		const deps = { db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() } };
 		runOnce(deps, T + 60_000);
 		runOnce(deps, T + 120_000);

@@ -37,6 +37,8 @@ export interface LifecycleInput {
 	mutedUntil: (ieee: string) => number | null;
 	settings: Settings;
 	now: number;
+	/** no device message for 60 s: Z2M marks devices offline when the coordinator stops hearing them, so hold new device.offline */
+	networkQuiet: boolean;
 }
 
 export interface LifecycleResult {
@@ -47,10 +49,10 @@ export interface LifecycleResult {
 
 export const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
 const H = 3_600_000;
-const GUARD_RULES: readonly string[] = ['bridge.offline', 'monitor.mqtt_lost'];
+const GUARD_RULES: readonly string[] = ['bridge.offline', 'monitor.mqtt_lost', 'network.mass_offline'];
 
 /** Turns this run's findings into issue changes and notifications. Mutates `counters`. */
-export function evaluate({ findings, issues, counters, mutedUntil, settings, now }: LifecycleInput): LifecycleResult {
+export function evaluate({ findings, issues, counters, mutedUntil, settings, now, networkQuiet }: LifecycleInput): LifecycleResult {
 	const out: LifecycleResult = { opens: [], updates: [], notify: [] };
 	const found = new Map(findings.map((f) => [issueKey(f.rule, f.ieee), f]));
 	const byKey = new Map(issues.map((i) => [issueKey(i.rule, i.ieee), i]));
@@ -65,7 +67,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		counters.seen.set(key, seen);
 		if (byKey.has(key)) continue;
 		const def = RULE_DEFAULTS[f.rule];
-		if (seen < def.minRuns || (guard && def.deviceLevel)) continue;
+		if (seen < def.minRuns || (guard && def.deviceLevel) || (networkQuiet && f.rule === 'device.offline')) continue;
 		out.opens.push(f);
 		if (def.notify && !muted(f.ieee)) out.notify.push({ key, kind: 'open', severity: f.severity });
 	}

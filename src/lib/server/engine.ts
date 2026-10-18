@@ -7,6 +7,7 @@ import { isQuietHours } from './issues/quiet';
 import { enqueue, foldHeld } from './notify/outbox';
 import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
+import { deviceSilentFor } from './rules/bridge-offline';
 import { loadHistory } from './trends/history';
 import { hourStart, computeBaselines, rollupHours } from './trends/rollup';
 import { getSettings } from './settings';
@@ -39,10 +40,11 @@ export function runOnce(deps: EngineDeps, now: number): void {
 	const evs: EventRow[] = db.select().from(events).where(gte(events.ts, now - 24 * H)).orderBy(asc(events.ts), asc(events.id)).all()
 		.map((e) => ({ ...e, kind: e.kind as EventKind, detail: e.detail ?? {} }));
 	const open = db.select().from(issues).where(ne(issues.state, 'resolved')).all().map(toRow);
-	const findings = evaluateRules({ now, state, events: evs, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
+	const ctx = { now, state, events: evs, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
 		openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
-		history: loadHistory(db, now) });
-	const r = evaluate({ findings, issues: open, counters, settings, now,
+		history: loadHistory(db, now) };
+	const findings = evaluateRules(ctx);
+	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000),
 		// ignored devices are silent like muted ones, so ignoring does not send "Resolved" for each issue
 		mutedUntil: (ieee) => (state.devices.get(ieee)?.tags.includes('ignore') ? FOREVER : (state.devices.get(ieee)?.mutedUntil ?? null)) });
 	const quiet = isQuietHours(now, settings, config.tz);

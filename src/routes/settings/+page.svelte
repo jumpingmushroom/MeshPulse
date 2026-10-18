@@ -22,7 +22,9 @@
 		['netRouteFactor', 'Network failures above', '× normal per hour'], ['netRouteMin', 'Network failures at least', 'per hour'],
 		['netRouteClearFactor', 'Network failures clear below', '× normal per hour'],
 		['forecastTargetPct', 'Battery forecast target', '%'], ['forecastWarnDays', 'Forecast warns within', 'days'],
-		['forecastClearDays', 'Forecast clears above', 'days'], ['forecastMinDays', 'Forecast needs', 'days of data']
+		['forecastClearDays', 'Forecast clears above', 'days'], ['forecastMinDays', 'Forecast needs', 'days of data'],
+		['massOfflineDevices', 'Mass offline at', 'devices'], ['massOfflineRouterPct', 'Mass offline at', '% of routers'],
+		['massOfflineWindowMin', 'Mass offline window', 'min'], ['massOfflineClearPct', 'Mass offline clears below', '% of routers']
 	];
 	const msg = (section: string) => (form?.section === section ? form : null);
 </script>
@@ -38,6 +40,7 @@
 			</label>
 		{/each}
 	</div>
+	<p class="muted">Bridge silence: on a small or very quiet mesh, raise this. It is the time without any device message before "Zigbee network silent" fires.</p>
 	<h2>Quiet hours</h2>
 	<div class="grid">
 		<label><input name="quietEnabled" type="checkbox" checked={s.quietEnabled} /> Hold non-critical messages during quiet hours</label>
