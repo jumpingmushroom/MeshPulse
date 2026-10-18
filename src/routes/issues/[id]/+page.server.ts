@@ -17,6 +17,9 @@ export const load: PageServerLoad = ({ params }) => {
 	const device = issue.ieee ? state.devices.get(issue.ieee) : undefined;
 	return {
 		issue,
+		parent: issue.parentIssueId === null ? null
+			: db.select({ id: issues.id, summary: issues.summary }).from(issues).where(eq(issues.id, issue.parentIssueId)).get() ?? null,
+		children: db.select({ id: issues.id, summary: issues.summary, state: issues.state }).from(issues).where(eq(issues.parentIssueId, issue.id)).all(),
 		device: device ? { name: device.friendlyName, ieee: device.ieee, mutedUntil: device.mutedUntil } : null,
 		events: issue.ieee ? db.select().from(events).where(eq(events.ieee, issue.ieee)).orderBy(desc(events.ts), desc(events.id)).limit(50).all() : []
 	};

@@ -30,7 +30,7 @@ function runs(c: RuleContext, n: number, tick: (c: RuleContext, k: number) => vo
 		tick(c, k);
 		const open = issues.filter((i) => i.state !== 'resolved');
 		c.open = new Set(open.map((i) => issueKey(i.rule, i.ieee)));
-		const r = evaluate({ findings: evaluateRules(c), issues: open, counters, mutedUntil: () => null, settings: c.settings, now: c.now, networkQuiet: false });
+		const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(c), issues: open, counters, mutedUntil: () => null, settings: c.settings, now: c.now, networkQuiet: false });
 		for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, c.now, true) });
 		for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
 		notes.push(...r.notify.map((x) => `${x.key}:${x.kind}:${x.severity}`));

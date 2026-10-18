@@ -29,7 +29,7 @@ export interface EngineDeps {
 	foldHeld?: (now: number) => void;
 }
 
-const toRow = ({ ieeeKey: _k, parentIssueId: _p, ...r }: typeof issues.$inferSelect): IssueRow =>
+const toRow = ({ ieeeKey: _k, ...r }: typeof issues.$inferSelect): IssueRow =>
 	({ ...r, rule: r.rule as RuleId, evidence: r.evidence ?? {} });
 
 const fold = (deps: EngineDeps, now: number) => (deps.foldHeld ?? ((t: number) => foldHeld(deps.db, t)))(now);
@@ -46,7 +46,7 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		history: loadHistory(db, now),
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };
 	const findings = evaluateRules(ctx);
-	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000),
+	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee),
 		// ignored devices are silent like muted ones, so ignoring does not send "Resolved" for each issue
 		mutedUntil: (ieee) => (state.devices.get(ieee)?.tags.includes('ignore') ? FOREVER : (state.devices.get(ieee)?.mutedUntil ?? null)) });
 	const quiet = isQuietHours(now, settings, config.tz);
@@ -62,6 +62,11 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		for (const { id, patch } of r.updates) {
 			tx.update(issues).set(patch).where(eq(issues.id, id)).run();
 			Object.assign(byId.get(id)!, patch);
+		}
+		for (const [c, p] of r.parentOf) {
+			const row = byKey.get(c)!;
+			row.parentIssueId = byKey.get(p)!.id;
+			tx.update(issues).set({ parentIssueId: row.parentIssueId }).where(eq(issues.id, row.id)).run();
 		}
 		const notify = deps.notify ?? ((issue: IssueRow, n: Notify, quiet: boolean) => enqueue(db, issue, n,
 			{ now, quiet, publicUrl: config.publicUrl, tz: config.tz, device: (issue.ieee && state.devices.get(issue.ieee)) || null }));

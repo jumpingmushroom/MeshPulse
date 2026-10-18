@@ -17,6 +17,12 @@
 	{#if data.device} · device <a href="/devices/{data.device.ieee}">{data.device.name}</a>{/if}
 </p>
 
+{#if data.parent}<p>Part of: <a href="/issues/{data.parent.id}">{data.parent.summary}</a></p>{/if}
+{#if data.children.length}
+	<h2>Grouped issues ({data.children.length})</h2>
+	<ul>{#each data.children as ch (ch.id)}<li><a href="/issues/{ch.id}">{ch.summary}</a>{#if ch.state === 'resolved'} <span class="muted">resolved</span>{/if}</li>{/each}</ul>
+{/if}
+
 {#if i.action}<h2>Suggested action</h2><p>{i.action}</p>{/if}
 
 {#if evidence.length}

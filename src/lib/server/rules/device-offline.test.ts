@@ -175,7 +175,7 @@ describe('device.offline', () => {
 			if (k === 35) for (const r of routers.slice(1)) Object.assign(dev(c, r), { availability: 'online', offlineSince: null });
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+			const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
 				networkQuiet: deviceSilentFor(run, 60_000) });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
@@ -206,7 +206,7 @@ describe('device.offline', () => {
 			if (k === 12) for (const e of ends.slice(1)) Object.assign(dev(c, e), { availability: 'online', offlineSince: null, lastSeenAt: now });
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+			const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
 				networkQuiet: deviceSilentFor(run, 60_000) });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
@@ -229,7 +229,7 @@ function simulateRuns(c: RuleContext, n: number, talk: (k: number) => boolean, s
 		step(k);
 		const open = issues.filter((i) => i.state !== 'resolved');
 		const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-		const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+		const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
 			networkQuiet: deviceSilentFor(run, 60_000) });
 		for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 		for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);

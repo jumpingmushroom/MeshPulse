@@ -46,6 +46,7 @@ export const DEFAULT_SETTINGS = {
 	massOfflineDevices: 10,
 	massOfflineWindowMin: 5,
 	massOfflineClearPct: 5,
+	routerGroupWindowMin: 10,
 	churnAnnounce: 3,
 	churnAddrChanges: 2,
 	churnWindowH: 6,

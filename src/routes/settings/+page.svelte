@@ -25,6 +25,7 @@
 		['forecastClearDays', 'Forecast clears above', 'days'], ['forecastMinDays', 'Forecast needs', 'days of data'],
 		['massOfflineDevices', 'Mass offline at', 'devices'], ['massOfflineRouterPct', 'Mass offline at', '% of routers'],
 		['massOfflineWindowMin', 'Mass offline window', 'min'], ['massOfflineClearPct', 'Mass offline clears below', '% of routers'],
+		['routerGroupWindowMin', 'Group end devices with a router within', 'min'],
 		['churnAnnounce', 'Rejoin churn at', 'announces'], ['churnAddrChanges', 'Rejoin churn at', 'address changes'],
 		['churnWindowH', 'Rejoin churn window', 'h'], ['churnCritical', 'Rejoin churn critical at', 'rejoins in 24 h'],
 		['churnClearH', 'Rejoin churn clears after', 'h quiet'], ['netChurnDevices', 'Network churn at', 'devices'],

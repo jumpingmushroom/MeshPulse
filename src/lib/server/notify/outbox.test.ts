@@ -13,7 +13,7 @@ const HOOK = 'https://discord.test/api/webhooks/1/abc';
 
 const issue = (id: number, severity: Severity = 'warning', p: Partial<IssueRow> = {}): IssueRow => ({
 	id, rule: 'battery.low', ieee: null, severity, state: 'open', openedAt: T, updatedAt: T, resolvedAt: null,
-	summary: `Issue ${id}`, action: 'Do something', evidence: {}, lastNotifiedAt: null, ...p
+	summary: `Issue ${id}`, action: 'Do something', evidence: {}, lastNotifiedAt: null, parentIssueId: null, ...p
 });
 const n = (severity: Severity = 'warning', kind: Notify['kind'] = 'open'): Notify => ({ key: 'k', kind, severity });
 

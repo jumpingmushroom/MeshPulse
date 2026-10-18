@@ -34,6 +34,7 @@ src/lib/server/trends/               rollup.ts (hourly samples + baselines), for
 src/lib/server/rules/types.ts        RuleId, RuleContext, Finding, issueKey, inGrace
 src/lib/server/issues/lifecycle.ts   evaluate(input) -> LifecycleResult
 src/lib/server/issues/quiet.ts       isQuietHours(now, settings, tz)
+src/lib/server/issues/grouping.ts    PARENT_RULES, parentFor (child issues under incidents)
 src/lib/server/engine.ts             runOnce(deps, now); startEngine(deps)
 src/lib/server/notify/*.ts           channel registry, discord, apprise, outbox worker
 src/lib/server/crypto.ts             encrypt, decrypt
