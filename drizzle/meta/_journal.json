@@ -15,6 +15,13 @@
       "when": 1792319101084,
       "tag": "0001_phase2_trends",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792319233924,
+      "tag": "0002_samples_hourly_hour_idx",
+      "breakpoints": true
     }
   ]
 }

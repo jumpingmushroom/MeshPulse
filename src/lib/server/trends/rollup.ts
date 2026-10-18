@@ -28,16 +28,21 @@ export function rollupHours(db: Db, state: AppState, now: number): void {
 	for (const { ieee, hour, ...a } of agg) Object.assign(row(ieee, hour), a);
 
 	const drained: string[] = [];
+	const counted = new Set<string>();
 	for (const [k, n] of state.msgCounts) {
 		const [ieee, h] = [k.slice(0, k.lastIndexOf('|')), Number(k.slice(k.lastIndexOf('|') + 1))];
 		if (h < from || h >= to) continue;
 		row(ieee, h).msgCount = n;
-		drained.push(k);
+		counted.add(`${ieee}|${h}`);
 	}
+	// counters outside the window can never be rolled up; drop them
+	for (const k of state.msgCounts.keys()) if (Number(k.slice(k.lastIndexOf('|') + 1)) < to) drained.push(k);
 	db.transaction((tx) => {
 		for (const r of rows.values()) {
-			const { ieee: _i, hour: _h, ...set } = r;
-			tx.insert(samplesHourly).values(r).onConflictDoUpdate({ target: [samplesHourly.ieee, samplesHourly.hour], set }).run();
+			const { ieee, hour, msgCount, ...set } = r;
+			// a counter is added to the stored count (a restart can split an hour); no counter leaves it untouched
+			const count = counted.has(`${ieee}|${hour}`) ? { msgCount: sql`${samplesHourly.msgCount} + ${msgCount}` } : {};
+			tx.insert(samplesHourly).values(r).onConflictDoUpdate({ target: [samplesHourly.ieee, samplesHourly.hour], set: { ...set, ...count } }).run();
 		}
 	});
 	for (const k of drained) state.msgCounts.delete(k);

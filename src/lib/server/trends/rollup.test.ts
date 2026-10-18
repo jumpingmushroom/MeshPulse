@@ -56,6 +56,25 @@ describe('rollupHours', () => {
 		expect(db.select().from(samplesHourly).all()).toHaveLength(1);
 	});
 
+	it('keeps msg_count when rerun without a counter, and adds split counters', () => {
+		const { db, state } = setup();
+		db.insert(samples).values({ ieee: IEEE, ts: at(10, 5), lqi: 70 }).run();
+		state.msgCounts.set(`${IEEE}|${at(10)}`, 3);
+		rollupHours(db, state, T);
+		rollupHours(db, state, T);
+		expect(db.select().from(samplesHourly).all()[0].msgCount).toBe(3);
+		state.msgCounts.set(`${IEEE}|${at(10)}`, 4);
+		rollupHours(db, state, T);
+		expect(db.select().from(samplesHourly).all()[0].msgCount).toBe(7);
+	});
+
+	it('drops counters older than the window', () => {
+		const { db, state } = setup();
+		state.msgCounts.set(`${IEEE}|${T - 60 * H}`, 3);
+		rollupHours(db, state, T);
+		expect(state.msgCounts.size).toBe(0);
+	});
+
 	it('catch-up is bounded to 48 h', () => {
 		const { db, state } = setup();
 		db.insert(samples).values({ ieee: IEEE, ts: T - 50 * H, lqi: 70 }).run();

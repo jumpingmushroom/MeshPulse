@@ -51,7 +51,7 @@ export const samplesHourly = sqliteTable(
 		voltageMin: real('voltage_min'),
 		msgCount: integer('msg_count').notNull()
 	},
-	(t) => [primaryKey({ columns: [t.ieee, t.hour] })]
+	(t) => [primaryKey({ columns: [t.ieee, t.hour] }), index('samples_hourly_hour_idx').on(t.hour)]
 );
 
 export type BaselineMetric = 'lqi_mean' | 'lqi_stddev' | 'route_errors_hourly' | 'battery_days_left';

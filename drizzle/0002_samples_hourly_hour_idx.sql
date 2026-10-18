@@ -1,0 +1,1 @@
+CREATE INDEX `samples_hourly_hour_idx` ON `samples_hourly` (`hour`);
