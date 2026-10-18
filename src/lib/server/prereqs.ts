@@ -18,7 +18,8 @@ export function checkPrereqs(info: Record<string, any> | null): Prereq[] {
 		},
 		{
 			key: 'mqtt_log',
-			ok: Array.isArray(c.advanced?.log_output) && c.advanced.log_output.includes('mqtt'),
+			// Z2M 2.x always publishes bridge/logging and dropped 'mqtt' from log_output
+			ok: parseInt(info.version) >= 2 || (Array.isArray(c.advanced?.log_output) && c.advanced.log_output.includes('mqtt')),
 			fix: 'advanced:\n  log_output: [console, file, mqtt]\n  log_level: info'
 		}
 	];

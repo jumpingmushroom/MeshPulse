@@ -112,7 +112,7 @@ Read from `bridge/info.config`:
 
 - `availability.enabled` (or `availability: true`) is true.
 - `health` is configured.
-- `advanced.log_output` includes `mqtt`.
+- `advanced.log_output` includes `mqtt` (Zigbee2MQTT 1.x only; 2.x always publishes `bridge/logging`).
 
 The Overview and Settings pages show a banner for each missing setting. In the
 MVP, log output only affects the banner, because route rules are Phase 2.
