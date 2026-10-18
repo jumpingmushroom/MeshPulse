@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, overallStatus, sortIssues, sortRows } from './views';
+import { batteryRows, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, overallStatus, sortIssues, sortRows } from './views';
 import type { DeviceState } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -108,5 +108,22 @@ describe('formatDetail', () => {
 		expect(formatDetail('bridge_restart', { reason: 'uptime', from: 5, to: 1 })).toBe('reason: uptime, from: 5, to: 1');
 		expect(formatDetail('join', { a: { b: 1 } })).toBe('a: {"b":1}');
 		expect(formatDetail('leave', null)).toBe('');
+	});
+});
+
+describe('batteryRows', () => {
+	const b = (ieee: string, o: Partial<DeviceState> = {}) => dev({ ieee, friendlyName: ieee, powerSource: 'Battery', battery: 50, ...o });
+
+	it('sorts by days left, unknown last', () => {
+		const rows = batteryRows([b('a', { battery: 20 }), b('b', { battery: 90 }), b('c', { battery: 10 }), b('d', { battery: 60 })],
+			new Map([['b', 5], ['d', 40]]), new Map([['b', 123]]));
+		expect(rows.map((r) => r.ieee)).toEqual(['b', 'd', 'c', 'a']);
+		expect(rows[0]).toMatchObject({ daysLeft: 5, lastSwapAt: 123 });
+		expect(rows[3]).toMatchObject({ daysLeft: null, lastSwapAt: null });
+	});
+
+	it('excludes mains and removed devices', () => {
+		const rows = batteryRows([b('a'), b('m', { powerSource: 'Mains (single phase)' }), b('r', { removedAt: 1 })], new Map(), new Map());
+		expect(rows.map((r) => r.ieee)).toEqual(['a']);
 	});
 });

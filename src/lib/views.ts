@@ -117,3 +117,23 @@ export function formatDetail(kind: string, detail: Record<string, unknown> | nul
 	}
 	return Object.entries(detail).map(([k, v]) => `${k}: ${typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}`).join(', ');
 }
+
+export interface BatteryRow {
+	ieee: string;
+	name: string;
+	battery: number | null;
+	voltage: number | null;
+	daysLeft: number | null;
+	lastSwapAt: number | null;
+}
+
+/** Battery devices for the shopping list: soonest to run out first, no forecast last (then lowest charge). */
+export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>): BatteryRow[] {
+	return devices.filter((d) => d.powerSource === 'Battery' && d.removedAt === null).map((d) => ({
+		ieee: d.ieee, name: d.friendlyName, battery: d.battery, voltage: d.voltage,
+		daysLeft: daysLeft.get(d.ieee) ?? null, lastSwapAt: lastSwap.get(d.ieee) ?? null
+	})).sort((a, b) => {
+		if (a.daysLeft !== b.daysLeft) return a.daysLeft === null ? 1 : b.daysLeft === null ? -1 : a.daysLeft - b.daysLeft;
+		return (a.battery ?? 101) - (b.battery ?? 101);
+	});
+}
