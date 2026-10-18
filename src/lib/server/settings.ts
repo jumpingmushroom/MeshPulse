@@ -32,6 +32,10 @@ export const DEFAULT_SETTINGS = {
 	lqiDegradePct: 25,
 	lqiRecoverPct: 10,
 	baselineMinDays: 3,
+	forecastTargetPct: 10,
+	forecastWarnDays: 21,
+	forecastClearDays: 30,
+	forecastMinDays: 7,
 	heartbeatUrl: ''
 };
 
@@ -47,11 +51,12 @@ export function saveSettings(db: Db, patch: Partial<Settings>): void {
 		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
 
-const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct'];
+const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
 const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
-	'lqiWeak', 'lqiWeakClear', 'lqiMinHours', 'lqiDegradePct', 'lqiRecoverPct', 'baselineMinDays'];
+	'lqiWeak', 'lqiWeakClear', 'lqiMinHours', 'lqiDegradePct', 'lqiRecoverPct', 'baselineMinDays',
+	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays'];
 
 /** Validates the Settings form; all-or-nothing, unknown keys ignored. */
 export function parseSettingsForm(form: FormData): { settings: Settings } | { error: string } {
@@ -81,6 +86,7 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum'],
 		[v.lqiWeak < v.lqiWeakClear, 'Weak link must clear above the LQI that raises it'],
 		[v.lqiRecoverPct < v.lqiDegradePct, 'Link recovered must be within less than the degrading percentage'],
+		[v.forecastWarnDays < v.forecastClearDays, 'Forecast must clear above the days that raise it'],
 		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours']
 	];
 	const bad = order.find(([ok]) => !ok);

@@ -4,13 +4,14 @@ import { bridgeOffline } from './bridge-offline';
 import { bridgeRestarted } from './bridge-restarted';
 import { deviceFlapping } from './device-flapping';
 import { deviceOffline } from './device-offline';
+import { batteryForecast } from './forecast';
 import { lqiDegrading, lqiWeak } from './lqi';
 import { mqttLost } from './mqtt-lost';
 import { permitJoinOpen } from './permit-join';
 
 export * from './types';
 
-export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading];
+export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, batteryForecast];
 
 const d = (minRuns: number, deviceLevel: boolean, notify = true) => ({ minRuns, resolveRuns: 2, deviceLevel, notify });
 export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: number; deviceLevel: boolean; notify: boolean }> = {

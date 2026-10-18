@@ -1,6 +1,8 @@
-import { and, gte, lt, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import type { Db } from '../db/index';
-import { baselines, events, samples, samplesHourly } from '../db/schema';
+import { forecastDaysLeft } from './forecast';
+import { baselines, devices, events, samples, samplesHourly } from '../db/schema';
+import { getSettings } from '../settings';
 import type { AppState } from '../types';
 
 const H = 3_600_000;
@@ -75,9 +77,37 @@ export function computeBaselines(db: Db, now: number): void {
 	const errors = evs.filter((e) => e.kind === 'route_error').length;
 	out.push({ ieee: '', metric: 'route_errors_hourly', value: errors / ((to - from) / H), days: netDays.size, computedAt: now });
 
+	const { stale, forecasts } = batteryForecasts(db, now);
+	out.push(...forecasts);
+
 	db.transaction((tx) => {
+		if (stale.length) tx.delete(baselines).where(and(eq(baselines.metric, 'battery_days_left'), inArray(baselines.ieee, stale))).run();
 		for (const b of out) {
 			tx.insert(baselines).values(b).onConflictDoUpdate({ target: [baselines.ieee, baselines.metric], set: { value: b.value, days: b.days, computedAt: b.computedAt } }).run();
 		}
 	});
+}
+
+/** Days until each battery device hits the target, fitted on the last 30 days since its latest battery swap. */
+function batteryForecasts(db: Db, now: number) {
+	const s = getSettings(db);
+	const ieees = db.select({ ieee: devices.ieee }).from(devices).where(and(eq(devices.powerSource, 'Battery'), sql`${devices.removedAt} is null`)).all().map((r) => r.ieee);
+	const swaps = new Map<string, number>();
+	for (const e of db.select({ ieee: events.ieee, ts: events.ts }).from(events).where(and(eq(events.kind, 'battery_swap'), gte(events.ts, now - 30 * D))).orderBy(events.ts).all())
+		if (e.ieee) swaps.set(e.ieee, e.ts);
+	const pts = new Map<string, { t: number; battery: number }[]>();
+	for (const r of db.select().from(samplesHourly).where(and(gte(samplesHourly.hour, now - 30 * D), isNotNull(samplesHourly.batteryMin))).orderBy(samplesHourly.hour).all()) {
+		if (r.hour <= (swaps.get(r.ieee) ?? -Infinity)) continue;
+		pts.set(r.ieee, [...(pts.get(r.ieee) ?? []), { t: r.hour, battery: r.batteryMin! }]);
+	}
+	const forecasts: (typeof baselines.$inferInsert)[] = [];
+	for (const ieee of ieees) {
+		const p = pts.get(ieee) ?? [];
+		const value = forecastDaysLeft(p, now, s.forecastTargetPct, s.forecastMinDays);
+		if (value !== null) forecasts.push({ ieee, metric: 'battery_days_left', value, days: Math.floor((p[p.length - 1].t - p[0].t) / D), computedAt: now });
+	}
+	// everything without a fresh forecast (also devices no longer battery powered) loses its row
+	const have = new Set(forecasts.map((f) => f.ieee));
+	const stale = db.select({ ieee: baselines.ieee }).from(baselines).where(eq(baselines.metric, 'battery_days_left')).all().map((r) => r.ieee).filter((i) => !have.has(i));
+	return { stale, forecasts };
 }

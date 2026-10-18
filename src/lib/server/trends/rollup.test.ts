@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from '../db/index';
-import { baselines, events, samples, samplesHourly } from '../db/schema';
+import { baselines, devices, events, samples, samplesHourly } from '../db/schema';
 import { createState } from '../types';
 import { computeBaselines, hourStart, rollupHours } from './rollup';
 
@@ -111,6 +111,46 @@ describe('computeBaselines', () => {
 		const { db } = setup();
 		computeBaselines(db, T);
 		expect(get(db, '', 'route_errors_hourly')!.value).toBe(0);
+	});
+
+	describe('battery_days_left', () => {
+		const battery = (db: ReturnType<typeof openDb>, from: number, days: number, start: number, perDay: number) => {
+			const rows = [];
+			for (let i = 0; i < days * 24; i++) rows.push({ ieee: IEEE, hour: from + i * H, batteryMin: start - (perDay * i) / 24, msgCount: 1 });
+			db.insert(samplesHourly).values(rows).run();
+		};
+		const addDevice = (db: ReturnType<typeof openDb>, powerSource = 'Battery') =>
+			db.insert(devices).values({ ieee: IEEE, powerSource }).run();
+
+		it('fits the last 30 days and stores the span', () => {
+			const { db } = setup();
+			addDevice(db);
+			battery(db, T - 10 * D, 10, 80, 1); // 80 -> 71 over ~10 days
+			computeBaselines(db, T);
+			const b = get(db, IEEE, 'battery_days_left')!;
+			expect(b.days).toBe(9);
+			expect(b.value).toBeCloseTo(60, 0);
+		});
+
+		it('swap resets the fit', () => {
+			const { db } = setup();
+			addDevice(db);
+			battery(db, T - 23 * D, 20, 80, 3); // 80 -> 20
+			db.insert(events).values({ ts: T - 3 * D, ieee: IEEE, kind: 'battery_swap', detail: {} }).run();
+			battery(db, T - 3 * D + H, 3, 100, 0);
+			computeBaselines(db, T);
+			expect(get(db, IEEE, 'battery_days_left')).toBeUndefined();
+		});
+
+		it('deletes a stale row and ignores mains devices', () => {
+			const { db } = setup();
+			addDevice(db);
+			battery(db, T - 10 * D, 10, 80, 1);
+			computeBaselines(db, T);
+			db.update(devices).set({ powerSource: 'Mains' }).run();
+			computeBaselines(db, T);
+			expect(get(db, IEEE, 'battery_days_left')).toBeUndefined();
+		});
 	});
 });
 
