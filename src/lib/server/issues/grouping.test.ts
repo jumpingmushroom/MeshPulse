@@ -139,6 +139,31 @@ describe('grouping', () => {
 		expect(kinds(h.notes)).toEqual(['device.offline|0xend0:open', 'network.mass_offline|:open', 'network.mass_offline|:resolved', 'device.offline|0xend0:resolved']);
 	});
 
+	it('a released flapping child stays open and does not notify', () => {
+		const h = harness();
+		const mass = f('network.mass_offline', null, 'critical');
+		const flap = f('device.flapping', '0xend0');
+		h.run([mass, flap], T);
+		h.run([mass, flap], T + MIN);
+		h.run([flap], T + 2 * MIN);
+		h.run([flap], T + 3 * MIN);
+		expect(h.get('device.flapping', '0xend0').parentIssueId).toBeNull();
+		expect(kinds(h.notes)).toEqual(['network.mass_offline|:open', 'network.mass_offline|:resolved']);
+	});
+
+	it('a days-old offline issue is not adopted by a new mass outage', () => {
+		const h = harness();
+		const old = f('device.offline', '0xend0');
+		h.run([old], T);
+		h.run([old], T + MIN);
+		const mass = f('network.mass_offline', null, 'critical');
+		const later = T + 3 * 24 * 60 * MIN;
+		h.run([old, mass], later);
+		const r = h.run([old, mass], later + MIN);
+		expect(r.parentOf.size).toBe(0);
+		expect(h.get('device.offline', '0xend0').parentIssueId).toBeNull();
+	});
+
 	it('released storm children say they are still noisy', () => {
 		const h = harness();
 		const storm = f('network.storm', null);
