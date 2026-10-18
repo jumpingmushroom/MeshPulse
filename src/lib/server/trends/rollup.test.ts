@@ -132,6 +132,7 @@ describe('computeBaselines', () => {
 		db.insert(samplesHourly).values([
 			...Array.from({ length: 72 }, (_, i) => ({ ieee: '0xa', hour: start + i * H, msgCount: i % 2 ? 180 : 60 })),
 			...Array.from({ length: 30 }, (_, i) => ({ ieee: '0xb', hour: start + i * H, msgCount: 30 })),
+			...Array.from({ length: 30 }, (_, i) => ({ ieee: '0xb', hour: start + (40 + i) * H, msgCount: 0 })), // lost counters: ignored
 			{ ieee: '0xa', hour: T - D, msgCount: 10_000 } // last 24 h: not in the baseline
 		]).run();
 		computeBaselines(db, T);

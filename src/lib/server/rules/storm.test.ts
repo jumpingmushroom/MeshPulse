@@ -131,6 +131,18 @@ describe('device.storm', () => {
 		expect(deviceStorm(c)).toEqual([]);
 	});
 
+	it('a real device-traffic silence is a window boundary', () => {
+		const c = ctx();
+		base(c, LAMP, 3);
+		send(c, LAMP, 100, 25);
+		const grace = c.settings.graceMin * MIN;
+		// a coordinator hang ends with a buffered burst but no bridge_restart
+		Object.assign(c.state.bridge, { silenceEndedAt: minute(c, 5) - grace + 1, silenceMs: c.settings.bridgeSilenceMin * MIN });
+		expect(deviceStorm(c)).toEqual([]);
+		c.state.bridge.silenceMs = c.settings.bridgeSilenceMin * MIN - 1; // a short gap is not a real silence
+		expect(deviceStorm(c)).toHaveLength(1);
+	});
+
 	it('no resolve/reopen loop over consecutive runs', () => {
 		const c = ctx();
 		base(c, LAMP, 3);
@@ -184,6 +196,19 @@ describe('device.dominant', () => {
 		send(c, LAMP, 30, 15);
 		send(c, HALL, 5, 15);
 		expect(evaluateRules(c).map((f) => f.rule)).toEqual(['device.storm']);
+	});
+
+	it('a fast storm on a quiet network notifies as device.storm only', () => {
+		const c = ctx();
+		base(c, LAMP, 2, 3);
+		const others = add(c, 5);
+		// rest of the network ~60 msgs/min; LAMP floods at 150/min for 20 min, then is back to normal
+		const { notes } = runs(c, 60, (c, k) => {
+			send(c, LAMP, k < 20 ? 150 : 2, 1);
+			for (const i of others) send(c, i, 12, 1);
+		});
+		const key = issueKey('device.storm', LAMP);
+		expect(notes).toEqual([`${key}:open:critical`, `${key}:resolved:warning`]); // drops to warning while it winds down
 	});
 
 	it('needs a full window after start', () => {

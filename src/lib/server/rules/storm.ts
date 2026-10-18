@@ -7,12 +7,17 @@ const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 const show = (n: number) => Math.round(n * 10) / 10;
 
 /**
- * Whether the last `n` complete minutes all come after the latest MeshPulse start, broker reconnect and
- * restart-guard window: counters start empty and a restart makes every device report at once.
+ * Whether the last `n` complete minutes all come after the latest MeshPulse start, broker reconnect,
+ * restart-guard window and real-silence recovery: counters start empty, and a restart or the end of a
+ * coordinator hang (buffered bursts, no bridge_restart) makes devices report at once.
  */
 function ready(ctx: RuleContext, n: number): boolean {
+	const s = ctx.settings;
 	const { startedAt, connectedAt } = ctx.state.monitor;
-	const since = Math.max(startedAt, connectedAt ?? 0, ...restartStarts(ctx).map((s) => s + ctx.settings.graceMin * MIN));
+	const { silenceEndedAt, silenceMs } = ctx.state.bridge;
+	// same "real silence" as the device.offline recovery hold
+	const resumedAt = silenceMs >= s.bridgeSilenceMin * MIN ? silenceEndedAt ?? 0 : 0;
+	const since = Math.max(startedAt, connectedAt ?? 0, ...[...restartStarts(ctx), resumedAt].map((t) => t + s.graceMin * MIN));
 	return Math.floor(ctx.now / MIN) * MIN - n * MIN >= since;
 }
 
@@ -51,6 +56,11 @@ export function deviceDominant(ctx: RuleContext): Finding[] {
 	const m = state.minutes;
 	// one problem, one issue: a storming device is reported as device.storm
 	const storm = new Set([...deviceStorm(ctx).map((f) => f.ieee!), ...openFor(ctx, 'device.storm')]);
+	// a storm still building (the storm window not yet full) would otherwise open dominant first
+	for (const d of state.devices.values()) {
+		const b = baselineOf(ctx.history, d.ieee, 'msg_per_min');
+		if (b && b.days >= s.baselineMinDays && m.perMinute(d.ieee, now, 1)[0] > Math.max(s.stormFactor * b.value, s.stormMinPerMin)) storm.add(d.ieee);
+	}
 	const skip = (d: DeviceState) => d.tags.includes('chatty') || d.tags.includes('ignore') || storm.has(d.ieee);
 	const share = (ieee: string, min: number) => {
 		const [n, total] = [sum(m.perMinute(ieee, now, min)), sum(m.perMinute(null, now, min))];
