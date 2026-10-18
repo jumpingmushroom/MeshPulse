@@ -14,7 +14,17 @@ function window(ctx: RuleContext, ieee: string, hours: number): { avg: number; n
 
 const show = (n: number) => (Number.isNaN(n) ? 'unknown' : Math.round(n));
 
-// Both rules open on the 24 h window; once open only the last 12 h decide, and no data there holds the issue.
+/**
+ * Both rules open on the 24 h window, but not while the last 12 h already meet the stop condition
+ * (that would resolve and reopen in a loop). Once open the last 12 h decide, falling back to 24 h;
+ * no data in 24 h stops it (device.offline covers silent devices).
+ */
+function fires(open: boolean, day: { avg: number; n: number }, recent: { avg: number; n: number }, minHours: number,
+	raises: (avg: number) => boolean, clears: (avg: number) => boolean): boolean {
+	if (!open) return day.n >= minHours && raises(day.avg) && !(recent.n > 0 && clears(recent.avg));
+	const judge = recent.n > 0 ? recent : day;
+	return judge.n > 0 && !clears(judge.avg);
+}
 
 export function lqiWeak(ctx: RuleContext): Finding[] {
 	const s = ctx.settings;
@@ -23,10 +33,8 @@ export function lqiWeak(ctx: RuleContext): Finding[] {
 		if (d.type === 'Coordinator') continue;
 		const day = window(ctx, d.ieee, 24);
 		const recent = window(ctx, d.ieee, 12);
-		const fire = ctx.open.has(issueKey('lqi.weak', d.ieee))
-			? recent.n === 0 || recent.avg <= s.lqiWeakClear
-			: day.n >= s.lqiMinHours && day.avg < s.lqiWeak;
-		if (!fire) continue;
+		if (!fires(ctx.open.has(issueKey('lqi.weak', d.ieee)), day, recent, s.lqiMinHours,
+			(avg) => avg < s.lqiWeak, (avg) => avg > s.lqiWeakClear)) continue;
 		out.push({
 			rule: 'lqi.weak',
 			ieee: d.ieee,
@@ -47,10 +55,10 @@ export function lqiDegrading(ctx: RuleContext): Finding[] {
 		if (d.type === 'Coordinator' || !b) continue;
 		const day = window(ctx, d.ieee, 24);
 		const recent = window(ctx, d.ieee, 12);
-		const fire = ctx.open.has(issueKey('lqi.degrading', d.ieee))
-			? recent.n === 0 || recent.avg < b.value * (1 - s.lqiRecoverPct / 100)
-			: b.days >= s.baselineMinDays && day.n >= s.lqiMinHours && day.avg < b.value * (1 - s.lqiDegradePct / 100);
-		if (!fire) continue;
+		const open = ctx.open.has(issueKey('lqi.degrading', d.ieee));
+		if (!open && b.days < s.baselineMinDays) continue;
+		if (!fires(open, day, recent, s.lqiMinHours,
+			(avg) => avg < b.value * (1 - s.lqiDegradePct / 100), (avg) => avg >= b.value * (1 - s.lqiRecoverPct / 100))) continue;
 		out.push({
 			rule: 'lqi.degrading',
 			ieee: d.ieee,

@@ -36,7 +36,8 @@ describe('parseSettingsForm', () => {
 describe('parseSettingsForm ordering', () => {
 	it.each([
 		[{ batteryCriticalPct: '30' }], [{ batteryClearPct: '20' }], [{ voltageCritical: '2.9' }], [{ voltageClear: '2.7' }],
-		[{ flappingClearBelow: '4' }], [{ silenceMinH: '30' }], [{ lqiWeak: '40' }], [{ lqiWeakClear: '20' }]
+		[{ flappingClearBelow: '4' }], [{ silenceMinH: '30' }], [{ lqiWeak: '40' }], [{ lqiWeakClear: '20' }],
+		[{ lqiRecoverPct: '25' }], [{ lqiDegradePct: '10' }], [{ lqiMinHours: '25' }]
 	])('rejects out-of-order thresholds %o', (o) => {
 		expect(parseSettingsForm(form(o))).toHaveProperty('error');
 	});

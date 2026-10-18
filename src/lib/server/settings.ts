@@ -79,7 +79,9 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.voltageCritical < v.voltageLow && v.voltageLow < v.voltageClear, 'Coin cell thresholds must be critical < low < OK again'],
 		[v.flappingClearBelow < v.flappingCount, 'Flapping must clear below the count that raises it'],
 		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum'],
-		[v.lqiWeak < v.lqiWeakClear, 'Weak link must clear above the LQI that raises it']
+		[v.lqiWeak < v.lqiWeakClear, 'Weak link must clear above the LQI that raises it'],
+		[v.lqiRecoverPct < v.lqiDegradePct, 'Link recovered must be within less than the degrading percentage'],
+		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours']
 	];
 	const bad = order.find(([ok]) => !ok);
 	return bad ? { error: bad[1] } : { settings: v };

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { COORD, ctx, DOOR, H, LAMP, NOW } from '../../../../tests/helpers/ctx';
 import type { HourlyRow } from '../trends/history';
 import { hourStart } from '../trends/rollup';
+import { evaluate, newIssue, type IssueRow } from '../issues/lifecycle';
 import { evaluateRules, issueKey, type RuleContext } from './index';
 import { lqiDegrading, lqiWeak } from './lqi';
 
@@ -41,8 +42,18 @@ describe('lqi.weak', () => {
 		expect(lqiWeak(setup(DOOR, rows(41), { open: 'lqi.weak' }))).toEqual([]);
 	});
 
-	it('holds an open issue when the last 12 h have no data', () => {
+	it('judges an open issue on 24 h when the last 12 h have no data', () => {
 		expect(lqiWeak(setup(DOOR, hours(12, 10, 13), { open: 'lqi.weak' }))).toHaveLength(1);
+		expect(lqiWeak(setup(DOOR, hours(12, 45, 13), { open: 'lqi.weak' }))).toEqual([]);
+	});
+
+	it('stops an open issue when the last 24 h have no data', () => {
+		expect(lqiWeak(setup(DOOR, [hour(5, null)], { open: 'lqi.weak' }))).toEqual([]);
+		expect(lqiWeak(setup(DOOR, [], { open: 'lqi.weak' }))).toEqual([]);
+	});
+
+	it('does not open while the last 12 h are already above the clear level', () => {
+		expect(lqiWeak(setup(DOOR, [...hours(12, 15, 13), ...hours(12, 42)]))).toEqual([]);
 	});
 
 	it('skips the coordinator and devices without history', () => {
@@ -75,6 +86,11 @@ describe('lqi.degrading', () => {
 		expect(lqiDegrading(setup(LAMP, rows(91), { open: 'lqi.degrading', baseline: base }))).toEqual([]);
 		expect(lqiDegrading(setup(LAMP, rows(89), { open: 'lqi.degrading', baseline: base }))).toHaveLength(1);
 		expect(lqiDegrading(setup(LAMP, hours(12, 50, 13), { open: 'lqi.degrading', baseline: base }))).toHaveLength(1);
+		expect(lqiDegrading(setup(LAMP, [], { open: 'lqi.degrading', baseline: base }))).toEqual([]);
+	});
+
+	it('does not open while the last 12 h are already within 10%', () => {
+		expect(lqiDegrading(setup(LAMP, [...hours(12, 50, 13), ...hours(12, 91)], { baseline: base }))).toEqual([]);
 	});
 });
 
@@ -90,5 +106,38 @@ describe('lqi rules via evaluateRules', () => {
 		c.state.devices.get(LAMP)!.ignoreRules = [];
 		c.state.devices.get(LAMP)!.tags = ['ignore'];
 		expect(evaluateRules(c)).toEqual([]);
+	});
+});
+
+describe('lqi rules through the lifecycle', () => {
+	/** One run a minute: `bad` history for the first 3 runs, then `good`; returns the notify kinds. */
+	function replay(bad: RuleContext, good: RuleContext, runs = 30) {
+		const issues: IssueRow[] = [];
+		const counters = { seen: new Map(), missing: new Map() };
+		const kinds: string[] = [];
+		for (let k = 0; k < runs; k++) {
+			const now = NOW + k * 60_000;
+			const open = issues.filter((i) => i.state !== 'resolved');
+			const c = { ...(k < 3 ? bad : good), now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
+			c.state.bridge.lastLiveAt = now; // keep the bridge live as time advances
+			const r = evaluate({ findings: evaluateRules(c), issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
+			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
+			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
+			kinds.push(...r.notify.map((n) => `${n.key.split('|')[0]} ${n.kind}`));
+		}
+		return kinds;
+	}
+
+	it('a recovered weak link resolves once and does not reopen', () => {
+		// 24 h avg 28.5 stays below 30 while the last 12 h (42) are above the clear level
+		expect(replay(setup(DOOR, [...hours(12, 15, 13), ...hours(12, 10)]), setup(DOOR, [...hours(12, 15, 13), ...hours(12, 42)])))
+			.toEqual(['lqi.weak open', 'lqi.weak resolved']);
+	});
+
+	it('a recovered degrading link resolves once and does not reopen', () => {
+		const base = { baseline: { value: 100, days: 3 } };
+		// 24 h avg 70.5 stays 25% below while the last 12 h (91) are within 10%
+		expect(replay(setup(LAMP, [...hours(12, 50, 13), ...hours(12, 50)], base), setup(LAMP, [...hours(12, 50, 13), ...hours(12, 91)], base)))
+			.toEqual(['lqi.degrading open', 'lqi.degrading resolved']);
 	});
 });
