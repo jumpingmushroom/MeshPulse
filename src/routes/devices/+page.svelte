@@ -4,7 +4,7 @@
 
 	let { data }: PageProps = $props();
 	const COLS: [Key, string][] = [['name', 'Name'], ['type', 'Type'], ['availability', 'Availability'], ['lastSeenAt', 'Last seen'],
-		['lqi', 'LQI'], ['battery', 'Battery %'], ['voltage', 'Battery V'], ['openIssues', 'Open issues']];
+		['lqi', 'LQI'], ['battery', 'Battery %'], ['voltage', 'Battery V'], ['openIssues', 'Open issues'], ['score', 'Score']];
 	let sortKey = $state<Key>('name');
 	let asc = $state(true);
 	let f = $state({ routers: false, battery: false, offline: false, issues: false });
@@ -49,6 +49,7 @@
 					<td>{r.battery ?? '—'}</td>
 					<td>{formatVoltage(r.voltage)}</td>
 					<td>{r.openIssues || ''}</td>
+					<td>{r.score}</td>
 				</tr>
 			{/each}
 		</tbody>

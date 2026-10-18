@@ -1,4 +1,5 @@
 // Pure view helpers shared by the pages (server loads and components).
+import { deviceScore } from './server/score';
 import type { AppState, DeviceState, Severity } from './server/types';
 
 export const FOREVER = 253402300799000; // 9999-12-31, the "mute forever" sentinel
@@ -6,12 +7,6 @@ export const FOREVER = 253402300799000; // 9999-12-31, the "mute forever" sentin
 const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
 
 export type Status = 'green' | 'amber' | 'red';
-
-/** Worst unresolved issue decides; info-only counts as green. */
-export function overallStatus(issues: { severity: Severity }[]): Status {
-	const worst = Math.max(0, ...issues.map((i) => RANK[i.severity]));
-	return worst === 2 ? 'red' : worst === 1 ? 'amber' : 'green';
-}
 
 export function sortIssues<T extends { severity: Severity; openedAt: number }>(issues: T[]): T[] {
 	return [...issues].sort((a, b) => RANK[b.severity] - RANK[a.severity] || b.openedAt - a.openedAt);
@@ -29,24 +24,25 @@ export interface DeviceRow {
 	lqi: number | null;
 	mutedUntil: number | null;
 	openIssues: number;
+	score: number;
 }
 
 // the coordinator is the network itself, not a device to watch
 const watched = (state: Pick<AppState, 'devices'>) =>
 	[...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator');
 
-export function deviceRows(state: Pick<AppState, 'devices'>, openIssues: { ieee: string | null }[]): DeviceRow[] {
-	const count = new Map<string, number>();
-	for (const i of openIssues) if (i.ieee) count.set(i.ieee, (count.get(i.ieee) ?? 0) + 1);
+export function deviceRows(state: Pick<AppState, 'devices'>, openIssues: { ieee: string | null; severity: Severity }[]): DeviceRow[] {
+	const by = new Map<string, { severity: Severity }[]>();
+	for (const i of openIssues) if (i.ieee) by.set(i.ieee, [...(by.get(i.ieee) ?? []), i]);
 	return watched(state).map((d) => ({
 		ieee: d.ieee, name: d.friendlyName, type: d.type, battery: d.battery, voltage: d.voltage,
 		batteryPowered: d.powerSource === 'Battery' || d.battery !== null || d.voltage !== null,
 		availability: d.availability, lastSeenAt: d.lastSeenAt, lqi: d.lqi, mutedUntil: d.mutedUntil,
-		openIssues: count.get(d.ieee) ?? 0
+		openIssues: by.get(d.ieee)?.length ?? 0, score: deviceScore(by.get(d.ieee) ?? [])
 	}));
 }
 
-export type SortKey = 'name' | 'type' | 'availability' | 'lastSeenAt' | 'lqi' | 'battery' | 'voltage' | 'openIssues';
+export type SortKey = 'name' | 'type' | 'availability' | 'lastSeenAt' | 'lqi' | 'battery' | 'voltage' | 'openIssues' | 'score';
 
 /** Unknown (null) values sort last in both directions. */
 export function sortRows(rows: DeviceRow[], key: SortKey, asc: boolean): DeviceRow[] {

@@ -6,5 +6,5 @@ import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = () => {
 	const { db, state } = getRuntime();
-	return { rows: deviceRows(state, db.select({ ieee: issues.ieee }).from(issues).where(ne(issues.state, 'resolved')).all()) };
+	return { rows: deviceRows(state, db.select({ ieee: issues.ieee, severity: issues.severity }).from(issues).where(ne(issues.state, 'resolved')).all()) };
 };

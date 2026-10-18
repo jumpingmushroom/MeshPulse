@@ -9,7 +9,7 @@ import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
 import { deviceSilentFor } from './rules/bridge-offline';
 import { loadHistory } from './trends/history';
-import { hourStart, computeBaselines, rollupHours } from './trends/rollup';
+import { hourStart, computeBaselines, recordScore, rollupHours } from './trends/rollup';
 import { getSettings } from './settings';
 import { flushDevices } from './store';
 import type { AppState, EventKind } from './types';
@@ -100,6 +100,7 @@ export function startEngine(deps: EngineDeps): { stop(): void } {
 			if (hourStart(now) > lastTrendHour) {
 				rollupHours(deps.db, deps.state, now);
 				computeBaselines(deps.db, now);
+				recordScore(deps.db, deps.db.select().from(issues).where(ne(issues.state, 'resolved')).all(), now);
 				lastTrendHour = hourStart(now);
 			}
 		} catch (e) {
