@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db/index';
-import { events, issues, outbox, samples } from './db/schema';
+import { events, issues, outbox, samples, samplesHourly } from './db/schema';
 import { prune } from './retention';
 
 const D = 86_400_000;
@@ -31,4 +31,12 @@ describe('prune', () => {
 		expect(db.select().from(issues).all().map((r) => r.rule)).toEqual(['r2', 'r3']);
 		expect(db.select().from(outbox).all().map((r) => r.dedupeKey)).toEqual(['2', '3']);
 	});
+});
+
+it('prunes samples_hourly after 365 days', () => {
+	const db = openDb(':memory:');
+	const now = 1000 * D;
+	db.insert(samplesHourly).values([{ ieee: 'a', hour: now - 366 * D, msgCount: 1 }, { ieee: 'a', hour: now - 364 * D, msgCount: 1 }]).run();
+	prune(db, now);
+	expect(db.select().from(samplesHourly).all().map((r) => r.hour)).toEqual([now - 364 * D]);
 });

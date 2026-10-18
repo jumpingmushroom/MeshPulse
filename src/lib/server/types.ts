@@ -61,6 +61,8 @@ export interface AppState {
 	pending: MqttMsg[];
 	bridge: BridgeState;
 	monitor: MonitorState;
+	/** live messages per device per hour, key `${ieee}|${hourStart}`; drained by rollupHours */
+	msgCounts: Map<string, number>;
 }
 
 export type EventKind =
@@ -72,7 +74,8 @@ export type EventKind =
 	| 'device_leave'
 	| 'device_announce'
 	| 'device_interview'
-	| 'battery_swap';
+	| 'battery_swap'
+	| 'route_error';
 
 export interface NewEvent {
 	ts: number;
@@ -103,6 +106,7 @@ export function createState(now: number): AppState {
 			lastLiveAt: null,
 			restartedAt: null
 		},
-		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null }
+		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null },
+		msgCounts: new Map()
 	};
 }

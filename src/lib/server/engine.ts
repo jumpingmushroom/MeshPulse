@@ -7,6 +7,7 @@ import { isQuietHours } from './issues/quiet';
 import { enqueue, foldHeld } from './notify/outbox';
 import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
+import { hourStart, computeBaselines, rollupHours } from './trends/rollup';
 import { getSettings } from './settings';
 import { flushDevices } from './store';
 import type { AppState, EventKind } from './types';
@@ -65,6 +66,7 @@ export function runOnce(deps: EngineDeps, now: number): void {
 
 export function startEngine(deps: EngineDeps): { stop(): void } {
 	let prunedAt = 0;
+	let lastTrendHour = 0;
 	const timer = setInterval(() => {
 		const now = Date.now();
 		try {
@@ -79,6 +81,15 @@ export function startEngine(deps: EngineDeps): { stop(): void } {
 			}
 		} catch (e) {
 			console.error('engine: prune failed', e);
+		}
+		try {
+			if (hourStart(now) > lastTrendHour) {
+				rollupHours(deps.db, deps.state, now);
+				computeBaselines(deps.db, now);
+				lastTrendHour = hourStart(now);
+			}
+		} catch (e) {
+			console.error('engine: trend job failed', e);
 		}
 	}, MIN);
 	return { stop: () => clearInterval(timer) };
