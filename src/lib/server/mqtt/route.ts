@@ -1,4 +1,5 @@
 import type { AppState, DeviceState, Effect, EventKind, MqttMsg } from '../types';
+import { parseRouteError } from './logparse';
 import { normaliseVoltage, parseAvailability, parseJson, parseLastSeen } from './parse';
 
 const PENDING_CAP = 5000;
@@ -70,6 +71,7 @@ function handle(
 		if (sub === 'state') return onBridgeState(state, msg, payload, event);
 		if (sub === 'health') return onHealth(state, msg, payload, event);
 		if (sub === 'event') return onBridgeEvent(state, payload, event);
+		if (sub === 'logging' && !msg.retain) return onLogging(state, payload, event);
 		return;
 	}
 
@@ -174,6 +176,15 @@ function onBridgeEvent(state: AppState, p: unknown, event: Emit) {
 	const detail: Obj = { friendly_name: name };
 	if (p.data.status !== undefined) detail.status = p.data.status;
 	event(kind, ieee, detail);
+}
+
+function onLogging(state: AppState, p: unknown, event: Emit) {
+	const r = parseRouteError(p);
+	if (!r?.final) return; // ping attempts are logged one by one; the final one stands for the ping
+	if (r.kind === 'ping_failed' && r.attempts === 1) return; // Z2M pings devices already unavailable once (`available ? 2 : 1`)
+	const id = r.ieee ?? (r.name ? state.byName.get(r.name) : undefined);
+	const d = id ? state.devices.get(id) : undefined;
+	event('route_error', d?.ieee ?? null, { kind: r.kind, code: r.code });
 }
 
 function onAvailability(d: DeviceState, msg: MqttMsg, p: unknown, touch: (d: DeviceState) => DeviceState, event: Emit) {

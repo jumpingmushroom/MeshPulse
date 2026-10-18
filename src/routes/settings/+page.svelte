@@ -17,6 +17,10 @@
 		['lqiWeak', 'Weak link below', 'LQI'], ['lqiWeakClear', 'Weak link clears above', 'LQI'], ['lqiMinHours', 'Link rules need data in', 'h'],
 		['lqiDegradePct', 'Link degrading at', '% below normal'], ['lqiRecoverPct', 'Link recovered within', '% of normal'],
 		['baselineMinDays', 'Baseline needs', 'days'],
+		['routeFailWarn', 'Route failures warning at', 'per 24 h'], ['routeFailCrit', 'Route failures critical at', 'per 24 h'],
+		['routeFailClear', 'Route failures clear below', 'per 24 h'],
+		['netRouteFactor', 'Network failures above', '× normal per hour'], ['netRouteMin', 'Network failures at least', 'per hour'],
+		['netRouteClearFactor', 'Network failures clear below', '× normal per hour'],
 		['forecastTargetPct', 'Battery forecast target', '%'], ['forecastWarnDays', 'Forecast warns within', 'days'],
 		['forecastClearDays', 'Forecast clears above', 'days'], ['forecastMinDays', 'Forecast needs', 'days of data']
 	];
