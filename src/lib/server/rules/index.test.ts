@@ -32,7 +32,10 @@ describe('rules index', () => {
 	});
 
 	it('has defaults for every rule', () => {
-		expect(RULES).toHaveLength(13);
+		expect(RULES).toHaveLength(18);
+		expect(RULE_DEFAULTS['device.rejoin_churn']).toEqual({ minRuns: 2, resolveRuns: 2, deviceLevel: true, notify: true });
+		expect(RULE_DEFAULTS['network.churn'].deviceLevel).toBe(false);
+		expect(RULE_DEFAULTS['bridge.mqtt_backlog'].deviceLevel).toBe(false);
 		expect(RULE_DEFAULTS['monitor.mqtt_lost']).toEqual({ minRuns: 1, resolveRuns: 2, deviceLevel: false, notify: true });
 		expect(RULE_DEFAULTS['bridge.permit_join_open'].minRuns).toBe(1);
 		expect(RULE_DEFAULTS['device.offline']).toEqual({ minRuns: 2, resolveRuns: 2, deviceLevel: true, notify: true });

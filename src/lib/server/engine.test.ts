@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { loadFixture } from '../../../tests/helpers/fixtures';
 import { loadConfig } from './config';
 import { openDb } from './db';
-import { channels, devices, issues, outbox, samplesHourly } from './db/schema';
+import { channels, devices, healthSamples, issues, outbox, samplesHourly } from './db/schema';
 import { runOnce } from './engine';
 import { saveSettings } from './settings';
 import type { IssueRow, Notify } from './issues/lifecycle';
@@ -75,6 +75,20 @@ describe('engine', () => {
 		runOnce(deps, now);
 		runOnce(deps, now + 60_000);
 		expect(db.select().from(issues).all().map((i) => `${i.rule}|${i.ieee}`)).toContain(`lqi.weak|${DOOR}`);
+	});
+
+	it('feeds the last two health samples to the rules', () => {
+		const db = openDb(':memory:');
+		const state = createState(T);
+		Object.assign(state.monitor, { connected: true, connectedAt: T });
+		const dirty = new Set<string>();
+		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		state.bridge.lastDeviceAt = T + 10 * 60_000; // the fixture has no device payloads: keep the mesh live for these runs
+		db.insert(healthSamples).values([5, 80, 90].map((q, i) => ({ ts: T + i * 1000, mqttQueued: q, devices: {} }))).run();
+		const deps = { db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() }, notify: () => {} };
+		runOnce(deps, T + 60_000);
+		runOnce(deps, T + 120_000);
+		expect(db.select().from(issues).all()).toContainEqual(expect.objectContaining({ rule: 'bridge.mqtt_backlog', evidence: expect.objectContaining({ queued: 90, previous: 80 }) }));
 	});
 
 	it('enqueues notifications to the outbox by default', () => {
