@@ -12,6 +12,7 @@ import { hourStart, computeBaselines, rollupHours } from './trends/rollup';
 import { getSettings } from './settings';
 import { flushDevices } from './store';
 import type { AppState, EventKind } from './types';
+import { FOREVER } from '../views';
 
 const MIN = 60_000;
 const H = 60 * MIN;
@@ -39,9 +40,11 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		.map((e) => ({ ...e, kind: e.kind as EventKind, detail: e.detail ?? {} }));
 	const open = db.select().from(issues).where(ne(issues.state, 'resolved')).all().map(toRow);
 	const findings = evaluateRules({ now, state, events: evs, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
+		openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
 		history: loadHistory(db, now) });
 	const r = evaluate({ findings, issues: open, counters, settings, now,
-		mutedUntil: (ieee) => state.devices.get(ieee)?.mutedUntil ?? null });
+		// ignored devices are silent like muted ones, so ignoring does not send "Resolved" for each issue
+		mutedUntil: (ieee) => (state.devices.get(ieee)?.tags.includes('ignore') ? FOREVER : (state.devices.get(ieee)?.mutedUntil ?? null)) });
 	const quiet = isQuietHours(now, settings, config.tz);
 
 	db.transaction((tx) => {

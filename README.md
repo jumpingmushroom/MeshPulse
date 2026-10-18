@@ -6,6 +6,34 @@ MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traff
 
 ![Overview with open issues](docs/screenshots/overview-amber.png)
 
+## Device and Batteries pages
+
+Select a device on the **Devices** page to open its page (`/devices/<ieee>`). It shows link quality, battery, voltage, and messages-per-hour charts over 24 hours, 7 days, or 30 days, plus the battery forecast, recent events, and a mute control. **Ignore this device** stops all rules for that device.
+
+![Router device page, 7 days](docs/screenshots/device-router-7d.png)
+
+![Battery device page, 30 days](docs/screenshots/device-battery-30d.png)
+
+The **Batteries** page is a shopping list. It marks devices as **Low now** or **Due soon**, and shows the forecast days left, the last battery swap, and a 30-day sparkline.
+
+![Batteries page](docs/screenshots/batteries.png)
+
+## Trend rules
+
+These rules work from hourly rollups of link quality, battery, and message counts.
+
+| Rule | Raises an issue when | Defaults |
+| --- | --- | --- |
+| Weak link (`lqi.weak`) | The 24-hour average link quality (LQI) is low. Never Critical. | Below 30 |
+| Degrading link (`lqi.degrading`) | The 24-hour average is below the device's own 7-day baseline. | 25% below |
+| Route failures (`route.failures`) | Commands to a device fail. Failed availability pings and commands sent while the device is offline don't count for a single device. | 5 in 24 hours: Warning; 20: Critical |
+| Network route errors (`network.route_errors`) | Route errors across the network exceed the normal hourly rate. | More than 3 times normal and at least 10 per hour |
+| Battery forecast (`battery.forecast`) | The battery is forecast to reach 10% soon. Shown in the interface only; it never notifies. | 21 days |
+
+Needs history: the first rollup appears after the first full hour. Degrading link and network route errors start after 3 days of history, and the battery forecast needs 7 days since the last battery swap. You can change every threshold in the **Thresholds** section of **Settings**.
+
+Tip: a device whose link is permanently weak sends a Warning reminder every 24 hours. To stop the reminders, acknowledge the issue or ignore the device.
+
 ## Requirements
 
 - Zigbee2MQTT 2.x publishing to an MQTT broker.
@@ -26,7 +54,7 @@ advanced:
   log_level: info
 ```
 
-Zigbee2MQTT 2.x always publishes its log on `bridge/logging`, so no `log_output` change is needed. On Zigbee2MQTT 1.x, add `mqtt` to `advanced.log_output`. Future route-failure rules will read this log.
+Zigbee2MQTT 2.x always publishes its log on `bridge/logging`, so no `log_output` change is needed. On Zigbee2MQTT 1.x, add `mqtt` to `advanced.log_output`. The route-failure rules read this log.
 
 If you run the Home Assistant add-on, these settings go in Zigbee2MQTT's own `configuration.yaml` (or its web UI under **Settings**), not on the add-on's Configuration tab, which only accepts the add-on's own options.
 
@@ -92,6 +120,16 @@ The container stores its database in `/mnt/user/appdata/meshpulse`. It starts as
 
 1. In Discord, open the channel's **Edit Channel > Integrations > Webhooks** and create a webhook. Copy its URL.
 2. In MeshPulse, open **Settings**, paste the URL, and select **Send test**.
+
+## Apprise notifications
+
+Apprise delivers to services such as ntfy, Telegram, Pushover, and email through an [apprise-api](https://github.com/caronc/apprise-api) server that you run.
+
+1. In MeshPulse, open **Settings** and go to **Apprise**.
+2. Enter the apprise-api URL.
+3. Enter either a stored configuration key or one or more Apprise URLs. MeshPulse encrypts the URLs and doesn't show them again.
+4. Select the minimum severity to send.
+5. Save, then select **Send test**.
 
 ## Heartbeat
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ctx, dev, ev, H, LAMP, MIN, NOW } from '../../../../tests/helpers/ctx';
+import { route } from '../mqtt/route';
 import { evaluate, newIssue, type IssueRow } from '../issues/lifecycle';
 import { evaluateRules, issueKey, type RuleContext } from './index';
 import { networkRouteErrors, routeFailures } from './route';
@@ -38,6 +39,26 @@ describe('route.failures', () => {
 		expect(routeFailures(c)).toEqual([]);
 		c.open.add(issueKey('route.failures', LAMP));
 		expect(routeFailures(c)).toHaveLength(1);
+	});
+
+	it('commands sent while the device was offline do not open an issue once it is back', () => {
+		const c = ctx();
+		dev(c, LAMP).availability = 'offline';
+		const fail = { level: 'error', message: `Publish 'set' 'state' to 'living/lamp' failed: 'Error: ZCL command ${LAMP}/1 genOnOff.on({}, {}) failed (Data request failed with error: 'NWK_NO_ROUTE' (0xcd))'` };
+		for (let i = 0; i < 25; i++) for (const fx of route(c.state, { ts: NOW - H + i * MIN, topic: 'zigbee2mqtt/bridge/logging', payload: fail, retain: false }, 'zigbee2mqtt'))
+			if (fx.kind === 'event') c.events.push(ev(fx.event));
+		expect(c.events).toHaveLength(25);
+		dev(c, LAMP).availability = 'online';
+		expect(routeFailures(c)).toEqual([]);
+	});
+
+	it('open at critical stays critical down to the warning threshold', () => {
+		const c = setup(errs(5, LAMP), { open: 'route.failures', openIeee: LAMP });
+		expect(routeFailures(c)[0].severity).toBe('warning');
+		c.openCritical = new Set([issueKey('route.failures', LAMP)]);
+		expect(routeFailures(c)[0].severity).toBe('critical');
+		c.events = errs(4, LAMP);
+		expect(routeFailures(c)[0].severity).toBe('warning');
 	});
 
 	it('ignores ping failures (availability rules cover them)', () => {

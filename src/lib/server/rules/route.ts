@@ -11,14 +11,17 @@ export function routeFailures(ctx: RuleContext): Finding[] {
 	const out: Finding[] = [];
 	for (const [ieee, count] of counts) {
 		const d = ctx.state.devices.get(ieee);
-		const open = ctx.open.has(issueKey('route.failures', ieee));
+		const key = issueKey('route.failures', ieee);
+		const open = ctx.open.has(key);
+		// hysteresis: an open critical stays critical down to the warning threshold
+		const crit = ctx.openCritical?.has(key) ? s.routeFailWarn : s.routeFailCrit;
 		// do not open for an offline device (device.offline covers it), but hold an open issue so a flap does not resolve and reopen it
 		if (!d || (d.availability === 'offline' && !open)) continue;
 		if (count < (open ? s.routeFailClear : s.routeFailWarn)) continue;
 		out.push({
 			rule: 'route.failures',
 			ieee,
-			severity: count >= s.routeFailCrit ? 'critical' : 'warning',
+			severity: count >= crit ? 'critical' : 'warning',
 			summary: `Messages to ${d.friendlyName} are failing (${count} in 24 h)`,
 			action: 'Check the router path to the device: move it closer to a router or add one nearby',
 			evidence: { count, warn: s.routeFailWarn, critical: s.routeFailCrit, clearBelow: s.routeFailClear }

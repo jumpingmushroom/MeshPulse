@@ -11,6 +11,10 @@ describe('forecastDaysLeft', () => {
 	it('flat series has no forecast', () => {
 		expect(forecastDaysLeft(series(10, 40, 0), 0, 10, 7)).toBeNull();
 	});
+	it('a nearly flat series (more than a year left) has no forecast', () => {
+		expect(forecastDaysLeft(series(10, 40, 0.01), 0, 10, 7)).toBeNull();
+		expect(forecastDaysLeft(series(10, 40, 0.1), 0, 10, 7)).toBeCloseTo(300);
+	});
 	it('less than 7 days has no forecast', () => {
 		expect(forecastDaysLeft(series(6, 40, 1).slice(0, 6), 0, 10, 7)).toBeNull();
 		expect(forecastDaysLeft([{ t: 0, battery: 40 }], 0, 10, 7)).toBeNull();

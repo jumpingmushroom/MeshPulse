@@ -302,6 +302,15 @@ describe('route bridge/logging', () => {
 		expect(log(s, ping('living/lamp', 1, 1, LAMP))).toEqual([]);
 	});
 
+	it('a command failure for an offline device counts network-wide only', () => {
+		const fail = { level: 'error', message: `Publish 'set' 'state' to 'living/lamp' failed: 'Error: ZCL command ${LAMP}/1 genOnOff.on({}, {}) failed (Data request failed with error: 'NWK_NO_ROUTE' (0xcd))'` };
+		const s = withDevices();
+		s.devices.get(LAMP)!.availability = 'online';
+		expect(log(s, fail)).toMatchObject([{ ieee: LAMP, detail: { kind: 'command_failed' } }]);
+		s.devices.get(LAMP)!.availability = 'offline';
+		expect(log(s, fail)).toMatchObject([{ ieee: null, detail: { kind: 'command_failed' } }]);
+	});
+
 	it('emits nothing for the real fixture (its final pings are all 1/1)', () => {
 		expect(events(feed(createState(T), loadFixture('z2m-logging')))).toEqual([]);
 	});

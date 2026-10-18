@@ -1,6 +1,6 @@
 const D = 86_400_000;
 
-/** Days from `now` until the least-squares battery line reaches `targetPct`; null without a falling trend over `minDays`. */
+/** Days from `now` until the least-squares battery line reaches `targetPct`; null without a falling trend over `minDays` or beyond a year. */
 export function forecastDaysLeft(points: { t: number; battery: number }[], now: number, targetPct: number, minDays: number): number | null {
 	if (points.length < 2) return null;
 	const ts = points.map((p) => p.t);
@@ -12,5 +12,6 @@ export function forecastDaysLeft(points: { t: number; battery: number }[], now: 
 	const slope = points.reduce((a, p) => a + (p.t - mt) * (p.battery - mb), 0) / sxx; // % per ms
 	if (!(slope < 0)) return null;
 	const now_ = mb + slope * (now - mt);
-	return Math.max(0, (now_ - targetPct) / -slope / D);
+	const days = Math.max(0, (now_ - targetPct) / -slope / D);
+	return days > 365 ? null : days; // a nearly flat line (or float noise) is no forecast
 }

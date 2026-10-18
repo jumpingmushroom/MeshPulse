@@ -28,6 +28,8 @@ export interface RuleContext {
 	settings: Settings;
 	/** issueKey of every open issue */
 	open: Set<string>;
+	/** issueKey of every open issue at critical */
+	openCritical?: Set<string>;
 	history: History;
 }
 

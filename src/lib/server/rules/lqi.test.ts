@@ -19,6 +19,15 @@ function setup(ieee: string, rows: HourlyRow[], opts: { open?: string; baseline?
 	return c;
 }
 
+describe('lqi.weak and lqi.degrading', () => {
+	it('a weak device gets one issue: degrading does not open while lqi.weak is open or firing', () => {
+		const baseline = { value: 80, days: 7 };
+		expect(lqiDegrading(setup(DOOR, hours(24, 20), { baseline }))).toEqual([]);
+		expect(lqiDegrading(setup(DOOR, hours(24, 35), { baseline, open: 'lqi.weak' }))).toEqual([]);
+		expect(lqiDegrading(setup(DOOR, hours(24, 35), { baseline }))).toHaveLength(1);
+	});
+});
+
 describe('lqi.weak', () => {
 	it('fires below 30 with 6+ hours of data', () => {
 		const [f, ...rest] = lqiWeak(setup(DOOR, hours(6, 25)));
