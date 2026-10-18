@@ -94,7 +94,9 @@ export async function outboxTick({ db, secretKey, fetch: fetchFn = fetch }: { db
 		}
 		if (now - (lastSentAt.get(channelId) ?? -Infinity) < SPACING_MS) continue;
 		lastSentAt.set(channelId, now);
-		const batch = rows.length > 3 ? rows : [rows[0]];
+		// weekly digests go out on their own, never inside an "N notifications" burst
+		const rest = rows.filter((r) => !r.dedupeKey.startsWith('weekly:'));
+		const batch = rest.length > 3 ? rest : [rows[0]];
 		const msgs = batch.map((r) => r.message as Message);
 		const message: Message = batch.length === 1 ? msgs[0] : {
 			kind: 'digest', title: `${batch.length} notifications`, summary: 'Several notifications were due at once.',

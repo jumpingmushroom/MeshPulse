@@ -10,6 +10,8 @@ import type { Message } from './channel';
 
 const H = 3_600_000;
 const DAY = 24 * H;
+// the network score's green threshold (score.ts keeps it inline)
+const GREEN = 85;
 const KEY = 'weeklyDigestWeek';
 
 /** ISO week id (`2026-W43`) of the Sunday 18:00 (in `tz`) that most recently passed, or null if `lastWeek` already has it. */
@@ -63,7 +65,7 @@ export function weeklyDigest(db: Db, state: AppState, now: number): Message {
 	const fails = [...by((e) => e.kind === 'route_error' && e.detail.kind === 'command_failed')].map(([i, es]) => [i, es.length] as const).sort((a, b) => b[1] - a[1]);
 	if (fails.length) fields.push({ name: 'Route failures (7 days)', value: list(fails.map(([i, n]) => `${name(i)}: ${n}`)) });
 
-	const good = (min === null || min >= 85) && !openCount && !buy.length;
+	const good = (min === null || min >= GREEN) && !openCount && !buy.length;
 	return { kind: 'digest', severity: 'info', title: 'Weekly digest', fields,
 		summary: good ? 'All good this week.' : 'How the mesh did this week.' };
 }
@@ -73,12 +75,14 @@ export function sendWeekly(db: Db, state: AppState, now: number, tz: string, qui
 	// shortcut: while quiet hours last the digest waits (held rows would fold into the overnight summary and lose their content)
 	if (quiet) return;
 	const last = db.select().from(settings).where(eq(settings.key, KEY)).get()?.value;
-	const week = shouldSendWeekly(now, typeof last === 'string' ? last : null, tz);
+	const week = shouldSendWeekly(now, typeof last === 'string' && last ? last : null, tz);
 	if (!week) return;
+	const record = () => db.insert(settings).values({ key: KEY, value: week }).onConflictDoUpdate({ target: settings.key, set: { value: week } }).run();
+	if (!last) return record(); // fresh install: no catch-up digest, the first one goes out next Sunday 18:00
 	const message = weeklyDigest(db, state, now);
 	for (const ch of db.select().from(channels).where(eq(channels.enabled, true)).all())
 		if (ch.config?.weeklyDigest ?? ch.kind === 'discord')
 			db.insert(outbox).values({ channelId: ch.id, issueId: null, kind: 'digest', severity: 'info', message,
 				dedupeKey: `weekly:${week}:${ch.id}`, status: 'pending', nextAttemptAt: now, createdAt: now }).onConflictDoNothing().run();
-	db.insert(settings).values({ key: KEY, value: week }).onConflictDoUpdate({ target: settings.key, set: { value: week } }).run();
+	record();
 }

@@ -1,7 +1,8 @@
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DOOR, HALL, LAMP, T, ctx } from '../../../../tests/helpers/ctx';
 import { openDb, type Db } from '../db';
-import { baselines, channels, events, healthScores, issues, outbox, samplesHourly } from '../db/schema';
+import { baselines, channels, events, healthScores, issues, outbox, samplesHourly, settings } from '../db/schema';
 import type { AppState } from '../types';
 import { sendWeekly, shouldSendWeekly, weeklyDigest } from './weekly';
 
@@ -9,6 +10,7 @@ const TZ = 'Europe/Oslo';
 const Z = (s: string) => Date.parse(s);
 const H = 3_600_000;
 const DAY = 24 * H;
+const saveWeek = (db: Db, value: string) => db.insert(settings).values({ key: 'weeklyDigestWeek', value }).run();
 
 describe('shouldSendWeekly', () => {
 	it('not before Sunday 18:00', () => {
@@ -82,17 +84,32 @@ describe('sendWeekly', () => {
 		const a2 = add(db, 'apprise', { weeklyDigest: true });
 		const off = add(db, 'discord', { weeklyDigest: false });
 		const dis = add(db, 'discord', { weeklyDigest: true }, 'info', false);
+		saveWeek(db, '2026-W42');
 		sendWeekly(db, state, now, TZ, false);
 		sendWeekly(db, state, now + 60_000, TZ, false);
 		const rows = db.select().from(outbox).all();
 		expect(rows.map((r) => r.dedupeKey).sort()).toEqual([`weekly:2026-W43:${d}`, `weekly:2026-W43:${a2}`].sort());
-		expect([a, off, dis]).toHaveLength(3);
+		expect(rows.map((r) => r.channelId)).not.toContain(a);
+		expect(rows.map((r) => r.channelId)).not.toContain(off);
+		expect(rows.map((r) => r.channelId)).not.toContain(dis);
 		expect(rows[0]).toMatchObject({ kind: 'digest', severity: 'info', status: 'pending' });
+	});
+
+	it('on a fresh install records the current week without sending, then sends next Sunday', () => {
+		const db = openDb(':memory:');
+		const state = ctx().state;
+		const d = add(db, 'discord', {});
+		sendWeekly(db, state, Z('2026-10-21T10:00:00Z'), TZ, false); // Wednesday
+		expect(db.select().from(outbox).all()).toHaveLength(0);
+		expect(db.select().from(settings).where(eq(settings.key, 'weeklyDigestWeek')).get()?.value).toBe('2026-W42');
+		sendWeekly(db, state, Z('2026-10-25T17:05:00Z'), TZ, false); // Sunday 18:05 CET
+		expect(db.select().from(outbox).all().map((r) => r.channelId)).toEqual([d]);
 	});
 
 	it('waits out quiet hours', () => {
 		const db = openDb(':memory:');
 		add(db, 'discord', {});
+		saveWeek(db, '2026-W42');
 		sendWeekly(db, ctx().state, now, TZ, true);
 		expect(db.select().from(outbox).all()).toHaveLength(0);
 		sendWeekly(db, ctx().state, now + H, TZ, false);
