@@ -6,25 +6,35 @@ const log = (message: string, level = 'error') => ({ level, message });
 const OPTS = '{"timeout":10000,"disableResponse":false}';
 
 describe('parseRouteError', () => {
+	const publish = (code: string) => log(`Publish 'set' 'state' to '0xa4c1381504f7ffff' failed: 'Error: ZCL command 0xa4c1381504f7ffff/1 genOnOff.on({}, ${OPTS}) failed (Data request failed with error: '${code}' (0xe9))'`);
+
 	it('parses a failed publish with a Z-Stack status', () => {
-		expect(parseRouteError(log(`Publish 'set' 'state' to '0xa4c1381504f7ffff' failed: 'Error: ZCL command 0xa4c1381504f7ffff/1 genOnOff.on({}, ${OPTS}) failed (Data request failed with error: 'MAC_TRANSACTION_EXPIRED' (0xf0))'`)))
-			.toEqual({ kind: 'command_failed', code: 'MAC_TRANSACTION_EXPIRED', ieee: '0xa4c1381504f7ffff', name: '0xa4c1381504f7ffff', final: true });
+		expect(parseRouteError(publish('NWK_NO_ROUTE')))
+			.toEqual({ kind: 'command_failed', code: 'NWK_NO_ROUTE', ieee: '0xa4c1381504f7ffff', name: '0xa4c1381504f7ffff', final: true, attempts: null });
+	});
+
+	it.each(['MAC_CHANNEL_ACCESS_FAILURE', 'BUFFER_FULL', 'MAC_NO_RESOURCES', 'MAC_TRANSACTION_EXPIRED'])('ignores non-routing code %s', (code) => {
+		expect(parseRouteError(publish(code))).toBeNull();
+	});
+
+	it('ignores a failed publish without a delivery code', () => {
+		expect(parseRouteError(log("Publish 'set' 'state' to 'lamp' failed: 'Error: No converter available for 'state''"))).toBeNull();
 	});
 
 	it('parses a failed publish with a timeout', () => {
 		expect(parseRouteError(log(`z2m: Publish 'set' 'identify' to 'Window Slaapkamer 2' failed: 'Error: ZCL command 0x00158d000202bb70/1 genIdentify.identify({"identifytime":3}, ${OPTS}) failed (Timeout after 10000ms [address=40756 endpoint=1 clusterId=3 cmdId=11 tsn=29])'`)))
-			.toEqual({ kind: 'command_failed', code: 'TIMEOUT', ieee: '0x00158d000202bb70', name: 'Window Slaapkamer 2', final: true });
+			.toEqual({ kind: 'command_failed', code: 'TIMEOUT', ieee: '0x00158d000202bb70', name: 'Window Slaapkamer 2', final: true, attempts: null });
 	});
 
 	it('parses ping attempts; only n/n is final', () => {
 		const ping = (i: number) => log(`Failed to ping 'Office desk right' (attempt ${i}/2, ZCL command 0x001788010c65c66c/11 genBasic.read(["zclVersion"], ${OPTS}) failed (Data request failed with error: 'MAC_NO_ACK' (0xe9)))`, 'warning');
-		expect(parseRouteError(ping(1))).toEqual({ kind: 'ping_failed', code: 'MAC_NO_ACK', ieee: '0x001788010c65c66c', name: 'Office desk right', final: false });
+		expect(parseRouteError(ping(1))).toEqual({ kind: 'ping_failed', code: 'MAC_NO_ACK', ieee: '0x001788010c65c66c', name: 'Office desk right', final: false, attempts: 2 });
 		expect(parseRouteError(ping(2))).toMatchObject({ final: true });
 	});
 
 	it('keeps the name when the IEEE is missing', () => {
 		expect(parseRouteError(log(`Failed to ping 'it's mine' (attempt 1/1, something else failed)`, 'warning')))
-			.toEqual({ kind: 'ping_failed', code: null, ieee: null, name: "it's mine", final: true });
+			.toEqual({ kind: 'ping_failed', code: null, ieee: null, name: "it's mine", final: true, attempts: 1 });
 	});
 
 	it('ignores other lines and non-log payloads', () => {

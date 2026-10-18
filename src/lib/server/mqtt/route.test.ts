@@ -286,25 +286,23 @@ describe('route bridge/logging', () => {
 	});
 
 	it('resolves the device by friendly name without an IEEE', () => {
-		expect(log(withDevices(), ping('living/lamp', 1, 1))).toMatchObject([{ ieee: LAMP }]);
+		expect(log(withDevices(), ping('living/lamp', 2, 2))).toMatchObject([{ ieee: LAMP }]);
 	});
 
 	it('unknown device counts network-wide only', () => {
 		const s = withDevices();
-		expect(log(s, ping('nobody', 1, 1))).toMatchObject([{ ieee: null, kind: 'route_error' }]);
-		expect(log(s, ping('nobody', 1, 1, '0x0000000000000bad'))).toMatchObject([{ ieee: null }]);
+		expect(log(s, ping('nobody', 2, 2))).toMatchObject([{ ieee: null, kind: 'route_error' }]);
+		expect(log(s, ping('nobody', 2, 2, '0x0000000000000bad'))).toMatchObject([{ ieee: null }]);
 	});
 
-	it('ignores retained lines, MQTT publish echoes and failed pings of offline devices', () => {
+	it('ignores retained lines, MQTT publish echoes and single-attempt pings of unavailable devices', () => {
 		const s = withDevices();
-		expect(log(s, ping('living/lamp', 1, 1, LAMP), true)).toEqual([]);
-		expect(log(s, { level: 'info', message: "z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/x', payload '{\"error\":\"Failed to ping 'x' (attempt 1/1, \"}'" })).toEqual([]);
-		s.devices.get(LAMP)!.availability = 'offline';
+		expect(log(s, ping('living/lamp', 2, 2, LAMP), true)).toEqual([]);
+		expect(log(s, { level: 'info', message: "z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/x', payload '{\"error\":\"Failed to ping 'x' (attempt 2/2, \"}'" })).toEqual([]);
 		expect(log(s, ping('living/lamp', 1, 1, LAMP))).toEqual([]);
 	});
 
-	it('emits nothing for the real fixture echoes and counts its final pings', () => {
-		const fx = feed(createState(T), loadFixture('z2m-logging'));
-		expect(events(fx).map((e) => e.kind)).toEqual(Array(4).fill('route_error'));
+	it('emits nothing for the real fixture (its final pings are all 1/1)', () => {
+		expect(events(feed(createState(T), loadFixture('z2m-logging')))).toEqual([]);
 	});
 });

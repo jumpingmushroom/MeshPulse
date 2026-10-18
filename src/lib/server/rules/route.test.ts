@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ctx, dev, ev, H, LAMP, MIN, NOW } from '../../../../tests/helpers/ctx';
-import { issueKey, type RuleContext } from './index';
+import { evaluate, newIssue, type IssueRow } from '../issues/lifecycle';
+import { evaluateRules, issueKey, type RuleContext } from './index';
 import { networkRouteErrors, routeFailures } from './route';
 
 /** `n` route errors spread over the window ending `endAgo` ms before NOW */
-const errs = (n: number, ieee: string | null, span = 20 * H, endAgo = 0) =>
-	Array.from({ length: n }, (_, i) => ev({ ts: NOW - endAgo - Math.floor((i * span) / n) - 1, ieee, kind: 'route_error', detail: { kind: 'ping_failed', code: 'MAC_NO_ACK' } }));
+const errs = (n: number, ieee: string | null, span = 20 * H, endAgo = 0, kind = 'command_failed') =>
+	Array.from({ length: n }, (_, i) => ev({ ts: NOW - endAgo - Math.floor((i * span) / n) - 1, ieee, kind: 'route_error', detail: { kind, code: 'MAC_NO_ACK' } }));
 
 function setup(events: ReturnType<typeof errs>, opts: { open?: string; openIeee?: string | null; baseline?: { value: number; days: number } } = {}): RuleContext {
 	const c = ctx();
@@ -31,10 +32,37 @@ describe('route.failures', () => {
 		expect(routeFailures(setup(errs(1, LAMP), { open: 'route.failures', openIeee: LAMP }))).toEqual([]);
 	});
 
-	it('skips offline devices, also when open', () => {
-		const c = setup(errs(30, LAMP), { open: 'route.failures', openIeee: LAMP });
+	it('does not open for an offline device, but holds an open issue', () => {
+		const c = setup(errs(30, LAMP));
 		dev(c, LAMP).availability = 'offline';
 		expect(routeFailures(c)).toEqual([]);
+		c.open.add(issueKey('route.failures', LAMP));
+		expect(routeFailures(c)).toHaveLength(1);
+	});
+
+	it('ignores ping failures (availability rules cover them)', () => {
+		expect(routeFailures(setup(errs(30, LAMP, 20 * H, 0, 'ping_failed')))).toEqual([]);
+	});
+
+	it('a flapping device with command failures opens once and never resolves or reopens', () => {
+		const c = setup(errs(6, LAMP));
+		const issues: IssueRow[] = [];
+		const counters = { seen: new Map(), missing: new Map() };
+		const kinds: string[] = [];
+		for (let k = 0; k < 30; k++) {
+			const now = NOW + k * MIN;
+			// online for 3 runs, then offline/online every 2 runs
+			dev(c, LAMP).availability = k >= 3 && Math.floor(k / 2) % 2 === 0 ? 'offline' : 'online';
+			const open = issues.filter((i) => i.state !== 'resolved');
+			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
+			c.state.bridge.lastLiveAt = now;
+			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
+			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
+			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
+			kinds.push(...r.notify.filter((n) => n.key.startsWith('route.failures|')).map((n) => n.kind));
+		}
+		expect(kinds).toEqual(['open']);
+		expect(issues.filter((i) => i.rule === 'route.failures')).toHaveLength(1);
 	});
 
 	it('ignores network-only errors and other events', () => {
@@ -45,7 +73,7 @@ describe('route.failures', () => {
 });
 
 describe('network.route_errors', () => {
-	const hour = (n: number, endAgo = 0) => errs(n, null, H - 1, endAgo);
+	const hour = (n: number, endAgo = 0) => errs(n, null, H - 1, endAgo, 'ping_failed'); // pings still count network-wide
 
 	it('30 in the last hour, baseline 5 over 3 days: warning', () => {
 		expect(networkRouteErrors(setup(hour(30), { baseline: { value: 5, days: 3 } }))).toEqual([{

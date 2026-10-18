@@ -181,10 +181,9 @@ function onBridgeEvent(state: AppState, p: unknown, event: Emit) {
 function onLogging(state: AppState, p: unknown, event: Emit) {
 	const r = parseRouteError(p);
 	if (!r?.final) return; // ping attempts are logged one by one; the final one stands for the ping
+	if (r.kind === 'ping_failed' && r.attempts === 1) return; // Z2M pings devices already unavailable once (`available ? 2 : 1`)
 	const id = r.ieee ?? (r.name ? state.byName.get(r.name) : undefined);
 	const d = id ? state.devices.get(id) : undefined;
-	// a failed ping of a device already offline (an unpowered lamp) is availability, not routing: device.offline covers it
-	if (r.kind === 'ping_failed' && d?.availability === 'offline') return;
 	event('route_error', d?.ieee ?? null, { kind: r.kind, code: r.code });
 }
 

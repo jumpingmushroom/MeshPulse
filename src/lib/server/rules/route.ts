@@ -6,13 +6,15 @@ const H = 3_600_000;
 export function routeFailures(ctx: RuleContext): Finding[] {
 	const s = ctx.settings;
 	const counts = new Map<string, number>();
-	for (const e of ctx.events) if (e.kind === 'route_error' && e.ieee) counts.set(e.ieee, (counts.get(e.ieee) ?? 0) + 1);
+	// ping failures belong to device.offline / device.flapping; they only count network-wide
+	for (const e of ctx.events) if (e.kind === 'route_error' && e.ieee && e.detail.kind === 'command_failed') counts.set(e.ieee, (counts.get(e.ieee) ?? 0) + 1);
 	const out: Finding[] = [];
 	for (const [ieee, count] of counts) {
 		const d = ctx.state.devices.get(ieee);
-		// device.offline covers offline devices: their availability pings are what fail
-		if (!d || d.availability === 'offline') continue;
-		if (count < (ctx.open.has(issueKey('route.failures', ieee)) ? s.routeFailClear : s.routeFailWarn)) continue;
+		const open = ctx.open.has(issueKey('route.failures', ieee));
+		// do not open for an offline device (device.offline covers it), but hold an open issue so a flap does not resolve and reopen it
+		if (!d || (d.availability === 'offline' && !open)) continue;
+		if (count < (open ? s.routeFailClear : s.routeFailWarn)) continue;
 		out.push({
 			rule: 'route.failures',
 			ieee,
