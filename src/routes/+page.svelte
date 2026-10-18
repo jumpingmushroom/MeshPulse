@@ -4,6 +4,7 @@
 
 	let { data }: PageProps = $props();
 	const HEADLINE = { green: 'All good', amber: 'Needs attention', red: 'Critical problem' };
+	const STATUS_WORD = { green: 'healthy', amber: 'needs attention', red: 'critical' };
 	const c = $derived(data.counters);
 	const b = $derived(data.bridge);
 	const PREREQ = { availability: 'Availability is off', health: 'Health checks are off', mqtt_log: 'Logging to MQTT is off' };
@@ -11,7 +12,13 @@
 
 <section class="banner {data.status}" role="status">
 	<h1>{HEADLINE[data.status]}</h1>
-	{#if data.issues.length}<p>{data.issues.length} unresolved issue{data.issues.length === 1 ? '' : 's'}</p>{/if}
+	<p class="score"><strong>{data.score}</strong> / 100, {STATUS_WORD[data.status]}</p>
+	{#if data.topLevel}<p>{data.topLevel} unresolved issue{data.topLevel === 1 ? '' : 's'}</p>{/if}
+	{#if data.spark.d}
+		<svg class="spark" viewBox="0 0 {data.spark.w} {data.spark.h}" width={data.spark.w} height={data.spark.h} role="img" aria-label={data.spark.summary}>
+			<path d={data.spark.d} />
+		</svg>
+	{/if}
 </section>
 
 {#each data.prereqs as p (p.key)}

@@ -1,9 +1,10 @@
 import { and, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import type { Db } from '../db/index';
 import { forecastDaysLeft } from './forecast';
-import { baselines, devices, events, samples, samplesHourly } from '../db/schema';
+import { baselines, devices, events, healthScores, samples, samplesHourly } from '../db/schema';
+import { networkScore } from '../score';
 import { getSettings } from '../settings';
-import type { AppState } from '../types';
+import type { AppState, Severity } from '../types';
 
 const H = 3_600_000;
 const D = 24 * H;
@@ -126,4 +127,17 @@ function batteryForecasts(db: Db, now: number) {
 	const have = new Set(forecasts.filter((f) => f.metric === 'battery_days_left').map((f) => f.ieee));
 	const stale = db.select({ ieee: baselines.ieee }).from(baselines).where(eq(baselines.metric, 'battery_days_left')).all().map((r) => r.ieee).filter((i) => !have.has(i));
 	return { stale, forecasts };
+}
+
+/** One network score row per hour; the first call in an hour wins. */
+export function recordScore(db: Db, open: { severity: Severity; parentIssueId: number | null }[], now: number): void {
+	db.insert(healthScores).values({ ts: hourStart(now), score: networkScore(open).score }).onConflictDoNothing().run();
+}
+
+/** Network messages per minute for the last 24 complete hours: hourly msgCount summed over devices, / 60. */
+export function networkMsgPerMin(db: Db, now: number): { t: number; v: number }[] {
+	const to = hourStart(now);
+	return db.select({ t: samplesHourly.hour, n: sql<number>`sum(${samplesHourly.msgCount})` }).from(samplesHourly)
+		.where(and(gte(samplesHourly.hour, to - 24 * H), lt(samplesHourly.hour, to))).groupBy(samplesHourly.hour).orderBy(samplesHourly.hour).all()
+		.map((r) => ({ t: r.t, v: r.n / 60 }));
 }

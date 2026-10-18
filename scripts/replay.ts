@@ -1,3 +1,4 @@
+import { ne } from 'drizzle-orm';
 import { loadConfig } from '../src/lib/server/config';
 import { openDb } from '../src/lib/server/db/index';
 import { issues } from '../src/lib/server/db/schema';
@@ -5,7 +6,7 @@ import { runOnce } from '../src/lib/server/engine';
 import { route } from '../src/lib/server/mqtt/route';
 import { saveSettings, type Settings } from '../src/lib/server/settings';
 import { applyEffects } from '../src/lib/server/store';
-import { computeBaselines, hourStart, rollupHours } from '../src/lib/server/trends/rollup';
+import { computeBaselines, hourStart, recordScore, rollupHours } from '../src/lib/server/trends/rollup';
 import { createState, type Effect, type MqttMsg, type Severity } from '../src/lib/server/types';
 import { formatTime } from '../src/lib/views';
 
@@ -51,6 +52,7 @@ export function replay(lines: MqttMsg[], opts: { settings?: Partial<Settings> } 
 		if (hourStart(now) > lastHour) {
 			rollupHours(db, state, now);
 			computeBaselines(db, now);
+			recordScore(db, db.select().from(issues).where(ne(issues.state, 'resolved')).all(), now);
 			lastHour = hourStart(now);
 		}
 	}

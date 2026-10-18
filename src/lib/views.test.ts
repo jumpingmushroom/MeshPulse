@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteryRows, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, overallStatus, sortIssues, sortRows } from './views';
+import { batteryRows, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
 import type { DeviceState } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -11,19 +11,6 @@ const dev = (o: Partial<DeviceState>): DeviceState => ({
 const state = (ds: DeviceState[]) => ({ devices: new Map(ds.map((d) => [d.ieee, d])) });
 
 describe('views', () => {
-	it('green with no issues or only info', () => {
-		expect(overallStatus([])).toBe('green');
-		expect(overallStatus([{ severity: 'info' }])).toBe('green');
-	});
-
-	it('amber with any warning', () => {
-		expect(overallStatus([{ severity: 'info' }, { severity: 'warning' }])).toBe('amber');
-	});
-
-	it('red with any critical', () => {
-		expect(overallStatus([{ severity: 'warning' }, { severity: 'critical' }, { severity: 'info' }])).toBe('red');
-	});
-
 	it('sorts by severity then newest', () => {
 		const out = sortIssues([
 			{ id: 1, severity: 'info' as const, openedAt: 9 },
@@ -48,8 +35,8 @@ describe('views', () => {
 
 	it('builds device rows with open issue counts, skipping coordinator and removed', () => {
 		const s = state([dev({ ieee: 'c', type: 'Coordinator' }), dev({ ieee: 'a', friendlyName: 'Lamp', lqi: 80 }), dev({ ieee: 'g', removedAt: 1 })]);
-		const rows = deviceRows(s, [{ ieee: 'a' }, { ieee: 'a' }, { ieee: null }]);
-		expect(rows).toEqual([expect.objectContaining({ ieee: 'a', name: 'Lamp', lqi: 80, openIssues: 2 })]);
+		const rows = deviceRows(s, [{ ieee: 'a', severity: 'warning' }, { ieee: 'a', severity: 'critical' }, { ieee: null, severity: 'critical' }]);
+		expect(rows).toEqual([expect.objectContaining({ ieee: 'a', name: 'Lamp', lqi: 80, openIssues: 2, score: 67 })]);
 	});
 
 	it('formats ago', () => {
@@ -67,6 +54,11 @@ describe('sortRows', () => {
 		dev({ ieee: 'c', friendlyName: 'c', lqi: 10, battery: 20, lastSeenAt: null })
 	]), []);
 	const names = (key: Parameters<typeof sortRows>[1], asc: boolean) => sortRows(rows, key, asc).map((r) => r.name);
+
+	it('sorts by score', () => {
+		const r = deviceRows(state([dev({ ieee: 'a', friendlyName: 'a' }), dev({ ieee: 'b', friendlyName: 'b' })]), [{ ieee: 'b', severity: 'warning' }]);
+		expect(sortRows(r, 'score', true).map((x) => x.name)).toEqual(['b', 'a']);
+	});
 
 	it('sorts every column both ways with unknowns last', () => {
 		expect(names('name', true)).toEqual(['a', 'b', 'c']);

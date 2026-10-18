@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from '../db/index';
-import { baselines, devices, events, samples, samplesHourly } from '../db/schema';
+import { baselines, devices, events, healthScores, samples, samplesHourly } from '../db/schema';
 import { createState } from '../types';
-import { computeBaselines, hourStart, rollupHours } from './rollup';
+import { computeBaselines, hourStart, networkMsgPerMin, recordScore, rollupHours } from './rollup';
 
 const H = 3_600_000;
 const D = 24 * H;
@@ -214,4 +214,27 @@ describe('computeBaselines', () => {
 
 it('hourStart floors to the UTC hour', () => {
 	expect(hourStart(at(10, 59))).toBe(at(10));
+});
+
+describe('recordScore', () => {
+	it('writes one network score row per hour', () => {
+		const { db } = setup();
+		const open = [{ severity: 'warning' as const, parentIssueId: null }];
+		recordScore(db, open, T + 5 * 60_000);
+		recordScore(db, [], T + 30 * 60_000);
+		expect(db.select().from(healthScores).all()).toEqual([{ ts: T, score: 92 }]);
+		recordScore(db, [], T + H);
+		expect(db.select().from(healthScores).all()).toHaveLength(2);
+	});
+});
+
+describe('networkMsgPerMin', () => {
+	it('sums hourly counts across devices, divided by 60, for the last 24 h', () => {
+		const { db } = setup();
+		db.insert(samplesHourly).values([
+			{ ieee: '0x1', hour: at(10), msgCount: 60 }, { ieee: '0x2', hour: at(10), msgCount: 120 },
+			{ ieee: '0x1', hour: T - 25 * H, msgCount: 999 }
+		]).run();
+		expect(networkMsgPerMin(db, T)).toEqual([{ t: at(10), v: 3 }]);
+	});
 });
