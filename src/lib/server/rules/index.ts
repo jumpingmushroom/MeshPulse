@@ -1,7 +1,9 @@
 import type { Finding, Rule, RuleContext, RuleId } from './types';
 import { batteryLow } from './battery';
+import { bridgeBacklog } from './bridge-backlog';
 import { bridgeOffline } from './bridge-offline';
 import { bridgeRestarted } from './bridge-restarted';
+import { deviceLeave, interviewFailed, networkChurn, rejoinChurn } from './churn';
 import { deviceFlapping } from './device-flapping';
 import { deviceOffline } from './device-offline';
 import { batteryForecast } from './forecast';
@@ -14,7 +16,7 @@ import { networkRouteErrors, routeFailures } from './route';
 export * from './types';
 
 export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, routeFailures, networkRouteErrors,
-	batteryForecast, massOffline];
+	batteryForecast, massOffline, rejoinChurn, deviceLeave, networkChurn, interviewFailed, bridgeBacklog];
 
 const d = (minRuns: number, deviceLevel: boolean, notify = true) => ({ minRuns, resolveRuns: 2, deviceLevel, notify });
 export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: number; deviceLevel: boolean; notify: boolean }> = {
@@ -30,7 +32,12 @@ export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: numbe
 	'route.failures': d(2, true),
 	'network.route_errors': d(2, false),
 	'battery.forecast': d(1, true, false), // UI only
-	'network.mass_offline': d(2, false)
+	'network.mass_offline': d(2, false),
+	'device.rejoin_churn': d(2, true),
+	'device.leave': d(2, true),
+	'network.churn': d(2, false),
+	'device.interview_failed': d(2, true),
+	'bridge.mqtt_backlog': d(2, false)
 };
 
 export function evaluateRules(ctx: RuleContext): Finding[] {

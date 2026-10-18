@@ -24,18 +24,22 @@ export function simulate(msgs: MqttMsg[], opts: { until: number; settings?: Part
 	].sort((a, b) => a.ts - b.ts);
 
 	const events: EventRow[] = [];
+	const health: { ts: number; queued: number | null }[] = [];
 	const issues: IssueRow[] = [];
 	const notifies: (Notify & { at: number })[] = [];
 	const counters = { seen: new Map<string, number>(), missing: new Map<string, number>() };
 	let next = 0;
 	for (let now = start + MIN; now <= opts.until; now += MIN) {
 		for (; next < timeline.length && timeline[next].ts <= now; next++)
-			for (const fx of timeline[next].run()) if (fx.kind === 'event') events.push({ id: events.length + 1, ...fx.event });
+			for (const fx of timeline[next].run()) {
+				if (fx.kind === 'event') events.push({ id: events.length + 1, ...fx.event });
+				if (fx.kind === 'health') health.push({ ts: fx.ts, queued: fx.mqttQueued });
+			}
 		const open = issues.filter((i) => i.state !== 'resolved');
 		const recent = events.filter((e) => e.ts >= now - DAY);
 		const ctx = { now, state, events: recent, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
 			openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
-			history: { hourly: new Map(), baselines: new Map() } };
+			history: { hourly: new Map(), baselines: new Map() }, health: health.slice(-2) };
 		const findings = evaluateRules(ctx);
 		const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), mutedUntil: (ieee) => state.devices.get(ieee)?.mutedUntil ?? null });
 		for (const f of r.opens)

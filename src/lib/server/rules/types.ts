@@ -15,7 +15,12 @@ export type RuleId =
 	| 'route.failures'
 	| 'network.route_errors'
 	| 'battery.forecast'
-	| 'network.mass_offline';
+	| 'network.mass_offline'
+	| 'device.rejoin_churn'
+	| 'device.leave'
+	| 'network.churn'
+	| 'device.interview_failed'
+	| 'bridge.mqtt_backlog';
 
 export interface EventRow extends NewEvent {
 	id: number;
@@ -32,6 +37,8 @@ export interface RuleContext {
 	/** issueKey of every open issue at critical */
 	openCritical?: Set<string>;
 	history: History;
+	/** last two health samples, newest last */
+	health: { ts: number; queued: number | null }[];
 }
 
 export interface Finding {
@@ -51,4 +58,20 @@ export const issueKey = (rule: string, ieee: string | null) => `${rule}|${ieee ?
 export function inGrace(ctx: RuleContext): boolean {
 	const { monitor, bridge } = ctx.state;
 	return ctx.now < Math.max(monitor.startedAt, bridge.restartedAt ?? 0) + ctx.settings.graceMin * 60_000;
+}
+
+/**
+ * Whether an event at `ts` falls in a restart window, where announces, leaves and counter jumps are normal:
+ * `graceMin` after MeshPulse starts or after any Z2M restart in `ctx.events`. A restart noticed from uptime
+ * also guards `graceMin` after the process start, since its burst came before the health sample showed it.
+ */
+export function restartGuard(ctx: RuleContext): (ts: number) => boolean {
+	const g = ctx.settings.graceMin * 60_000;
+	const starts = [ctx.state.monitor.startedAt, ctx.state.bridge.restartedAt ?? -Infinity];
+	for (const e of ctx.events)
+		if (e.kind === 'bridge_restart') {
+			starts.push(e.ts);
+			if (e.detail.reason === 'uptime' && typeof e.detail.to === 'number') starts.push(e.ts - e.detail.to * 1000);
+		}
+	return (ts) => starts.some((s) => ts >= s && ts < s + g);
 }

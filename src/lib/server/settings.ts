@@ -46,6 +46,16 @@ export const DEFAULT_SETTINGS = {
 	massOfflineDevices: 10,
 	massOfflineWindowMin: 5,
 	massOfflineClearPct: 5,
+	churnAnnounce: 3,
+	churnAddrChanges: 2,
+	churnWindowH: 6,
+	churnCritical: 10,
+	churnClearH: 12,
+	netChurnDevices: 5,
+	netChurnWindowMin: 15,
+	netChurnQuietH: 1,
+	backlogHigh: 50,
+	backlogClear: 10,
 	heartbeatUrl: ''
 };
 
@@ -67,7 +77,9 @@ const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
 	'lqiWeak', 'lqiWeakClear', 'lqiMinHours', 'lqiDegradePct', 'lqiRecoverPct', 'baselineMinDays',
 	'routeFailWarn', 'routeFailCrit', 'routeFailClear', 'netRouteFactor', 'netRouteMin', 'netRouteClearFactor',
-	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays', 'massOfflineRouterPct', 'massOfflineDevices', 'massOfflineWindowMin', 'massOfflineClearPct'];
+	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays', 'massOfflineRouterPct', 'massOfflineDevices', 'massOfflineWindowMin', 'massOfflineClearPct',
+	'churnAnnounce', 'churnAddrChanges', 'churnWindowH', 'churnCritical', 'churnClearH', 'netChurnDevices', 'netChurnWindowMin', 'netChurnQuietH',
+	'backlogHigh', 'backlogClear'];
 
 /** Validates the Settings form; all-or-nothing, unknown keys ignored. */
 export function parseSettingsForm(form: FormData): { settings: Settings } | { error: string } {
@@ -101,7 +113,10 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.netRouteClearFactor < v.netRouteFactor, 'Network delivery failures must clear below the factor that raises them'],
 		[v.forecastWarnDays < v.forecastClearDays, 'Forecast must clear above the days that raise it'],
 		[v.massOfflineClearPct < v.massOfflineRouterPct, 'Mass offline must clear below the router percentage that raises it'],
-		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours']
+		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours'],
+		[v.churnWindowH <= v.churnClearH && v.churnClearH <= 24, 'Rejoin churn window must not exceed its quiet time, which is at most 24 hours'],
+		[v.netChurnWindowMin <= v.netChurnQuietH * 60 && v.netChurnQuietH <= 24, 'Network churn window must not exceed its quiet time, which is at most 24 hours'],
+		[v.backlogClear < v.backlogHigh, 'MQTT backlog must clear below the queue that raises it']
 	];
 	const bad = order.find(([ok]) => !ok);
 	return bad ? { error: bad[1] } : { settings: v };
