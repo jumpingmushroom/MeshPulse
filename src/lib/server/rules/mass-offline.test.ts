@@ -47,11 +47,19 @@ describe('network.mass_offline', () => {
 		expect(massOffline(c)).toEqual([]);
 	});
 
-	it('20 % of routers: critical; just below: nothing', () => {
+	it('router share needs at least 3 routers: 3 of 10 critical, 2 of 10 (20 %) nothing, 3 of 16 (< 20 %) nothing', () => {
 		const { c, routers } = setup(0, 8); // 10 routers with lamp and hall_plug
 		drop(c, routers.slice(0, 2));
-		expect(massOffline(c)).toMatchObject([{ evidence: { count: 2, routersOffline: 2, routersTotal: 10 } }]);
-		add(c, 1, 'Router');
+		expect(massOffline(c)).toEqual([]);
+		drop(c, routers.slice(2, 3));
+		expect(massOffline(c)).toMatchObject([{ evidence: { count: 3, routersOffline: 3, routersTotal: 10 } }]);
+		add(c, 6, 'Router');
+		expect(massOffline(c)).toEqual([]);
+	});
+
+	it('1 of 2 routers offline: nothing', () => {
+		const c = ctx();
+		drop(c, [LAMP]);
 		expect(massOffline(c)).toEqual([]);
 	});
 

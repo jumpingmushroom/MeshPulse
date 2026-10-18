@@ -1,6 +1,9 @@
 import { deviceSilent } from './bridge-offline';
 import { inGrace, issueKey, type Finding, type RuleContext } from './types';
 
+// a router or two dropping is device.offline; on a small mesh one router alone can be 20 %
+const MIN_ROUTERS = 3;
+
 export function massOffline(ctx: RuleContext): Finding[] {
 	const { now, state, settings: s } = ctx;
 	const open = ctx.open.has(issueKey('network.mass_offline', null));
@@ -18,7 +21,7 @@ export function massOffline(ctx: RuleContext): Finding[] {
 	const pct = routersTotal ? (routersOffline / routersTotal) * 100 : 0;
 	const bad = open
 		? hit.length >= s.massOfflineDevices || pct >= s.massOfflineClearPct
-		: hit.length >= s.massOfflineDevices || pct >= s.massOfflineRouterPct;
+		: hit.length >= s.massOfflineDevices || (routersOffline >= MIN_ROUTERS && pct >= s.massOfflineRouterPct);
 	if (!bad) return [];
 	return [{
 		rule: 'network.mass_offline',
