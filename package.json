@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest",
-		"capture": "node scripts/capture.ts"
+		"capture": "node scripts/capture.ts",
+		"replay": "NODE_OPTIONS=--max-old-space-size=4096 vitest run scripts/replay.test.ts"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-node": "^6.0.0",
