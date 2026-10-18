@@ -1,9 +1,11 @@
 import { error, fail } from '@sveltejs/kit';
 import { and, asc, desc, eq, gte, ne } from 'drizzle-orm';
-import { autoRange, summarise, type Point } from '../../../lib/chart';
+import { autoRange, fillHours, summarise, type Point } from '../../../lib/chart';
+import { formatVoltage } from '../../../lib/views';
 import { baselines, devices, events, issues, samples, samplesHourly } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
 import { getSettings } from '../../../lib/server/settings';
+import { hourStart } from '../../../lib/server/trends/rollup';
 import { muteUntil, setIgnored } from '../../../lib/server/store';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -36,14 +38,22 @@ export const load: PageServerLoad = ({ params, url }) => {
 		: hourly.map((h) => ({ t: h.hour, v: h.lqiAvg, lo: h.lqiMin, hi: h.lqiMax }));
 	const battery: Point[] = fromRaw ? raw.map((s) => ({ t: s.ts, v: s.battery })) : hourly.map((h) => ({ t: h.hour, v: h.batteryMin }));
 	const voltage: Point[] = fromRaw ? raw.map((s) => ({ t: s.ts, v: s.voltage })) : hourly.map((h) => ({ t: h.hour, v: h.voltageMin }));
-	const messages: Point[] = hourly.map((h) => ({ t: h.hour, v: h.msgCount }));
+	const messages = fillHours(hourly.map((h) => ({ t: h.hour, v: h.msgCount })), hourStart(t1) - H);
 
 	const baseline = (metric: 'lqi_mean' | 'battery_days_left') =>
 		db.select().from(baselines).where(and(eq(baselines.ieee, d.ieee), eq(baselines.metric, metric))).get()?.value ?? null;
 	const lqiMean = baseline('lqi_mean');
-	const g = { t0, t1, maxGapMs: fromRaw ? 30 * 60_000 : 3 * H };
-	const chart = (title: string, unit: string, points: Point[], y0: number, y1: number, maxGapMs = g.maxGapMs,
-		refs: { y: number; label: string }[] = []) => ({ ...g, maxGapMs, title, unit, points, y0, y1, refs, summary: summarise(title, unit, points) });
+	// sleepy sensors report less often than the default gap; don't break their line between normal reports
+	const gap = (min: number) => Math.max(min, 3 * (d.typicalGapMs ?? 0));
+	const g = { t0, t1, maxGapMs: gap(fromRaw ? 30 * 60_000 : 3 * H) };
+	const latest = (points: Point[], f: (v: number) => string) => {
+		const v = points.findLast((p) => p.v !== null && Number.isFinite(p.v))?.v;
+		return v == null ? undefined : f(v);
+	};
+	const round = (v: number) => String(Math.round(v));
+	const chart = (title: string, unit: string, points: Point[], y0: number, y1: number, f = round, maxGapMs = g.maxGapMs,
+		refs: { y: number; label: string }[] = []) =>
+		({ ...g, maxGapMs, title, unit, points, y0, y1, refs, latest: latest(points, f), summary: summarise(title, unit, points) });
 	const [v0, v1] = autoRange(voltage.map((p) => p.v));
 	const batteryPowered = d.powerSource === 'Battery' || d.battery !== null || d.voltage !== null;
 
@@ -54,12 +64,12 @@ export const load: PageServerLoad = ({ params, url }) => {
 			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), batteryPowered
 		},
 		charts: [
-			chart('Link quality', '', lqi, 0, 255, g.maxGapMs, [
+			chart('Link quality', '', lqi, 0, 255, round, g.maxGapMs, [
 				...(lqiMean !== null ? [{ y: lqiMean, label: `baseline ${Math.round(lqiMean)}` }] : []),
 				{ y: settings.lqiWeak, label: `weak ${settings.lqiWeak}` }
 			]),
-			...(batteryPowered ? [chart('Battery', '%', battery, 0, 100), chart('Voltage', 'V', voltage, v0, v1)] : []),
-			chart('Messages per hour', '', messages, 0, Math.max(1, ...messages.map((p) => p.v ?? 0)), 3 * H)
+			...(batteryPowered ? [chart('Battery', '%', battery, 0, 100), chart('Voltage', 'V', voltage, v0, v1, formatVoltage)] : []),
+			{ ...chart('Messages per hour', '', messages, 0, Math.max(1, ...messages.map((p) => p.v ?? 0)), round, gap(3 * H)), integer: true }
 		],
 		daysLeft: baseline('battery_days_left'),
 		targetPct: settings.forecastTargetPct,

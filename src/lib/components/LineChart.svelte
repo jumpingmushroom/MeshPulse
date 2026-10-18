@@ -2,23 +2,24 @@
 	import { buildSeries, niceTicks, xy, type Point } from '../chart';
 	import { formatDuration } from '../views';
 
-	let { title, unit, points, t0, t1, y0, y1, maxGapMs, refs = [], summary }: {
+	let { title, unit, points, t0, t1, y0, y1, maxGapMs, refs = [], summary, latest, integer = false }: {
 		title: string; unit: string; points: Point[]; t0: number; t1: number; y0: number; y1: number;
 		maxGapMs: number; refs?: { y: number; label: string }[]; summary: string;
+		latest?: string; integer?: boolean; // integer: whole-number ticks (counts)
 	} = $props();
 
 	// plot area inside a fixed viewBox; the SVG scales to the container width
 	const [W, H, L, T] = [600, 140, 40, 8];
 	const box = $derived({ w: W, h: H, t0, t1, y0, y1 });
 	const s = $derived(buildSeries(points, box, maxGapMs));
-	const ticks = $derived(niceTicks(y0, y1, 4));
+	const ticks = $derived(niceTicks(y0, y1, 4, integer ? 1 : 0));
 	const last = $derived(points.findLast((p) => p.v !== null && Number.isFinite(p.v)));
 	const end = $derived(last ? xy(box, last.t, last.v!) : null);
 	const y = (v: number) => xy(box, t0, v)[1];
 </script>
 
 <figure class="chart">
-	<figcaption>{title}{unit ? ` (${unit})` : ''}{#if last}<span class="muted"> · latest {+last.v!.toFixed(2)}</span>{/if}</figcaption>
+	<figcaption>{title}{unit ? ` (${unit})` : ''}{#if latest}<span class="muted">{` · latest ${latest}`}</span>{/if}</figcaption>
 	{#if s.empty}
 		<p class="muted">No data yet</p>
 	{:else}

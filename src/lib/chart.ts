@@ -38,12 +38,12 @@ export function buildSeries(points: Point[], box: Box, maxGapMs: number): { line
 }
 
 /** Round tick values (1/2/5 × 10^k steps) between min and max inclusive. */
-export function niceTicks(min: number, max: number, count: number): number[] {
+export function niceTicks(min: number, max: number, count: number, minStep = 0): number[] {
 	if (!(max > min) || count < 1) return [min];
 	const raw = (max - min) / count;
 	const pow = 10 ** Math.floor(Math.log10(raw));
 	const e = raw / pow;
-	const step = pow * (e >= 7.07 ? 10 : e >= 3.16 ? 5 : e >= 1.41 ? 2 : 1);
+	const step = Math.max(minStep, pow * (e >= 7.07 ? 10 : e >= 3.16 ? 5 : e >= 1.41 ? 2 : 1));
 	const dp = Math.max(0, -Math.floor(Math.log10(step)) + 1);
 	const ticks: number[] = [];
 	for (let k = Math.ceil(min / step - 1e-9); k <= Math.floor(max / step + 1e-9); k++) ticks.push(+(k * step).toFixed(dp));
@@ -65,4 +65,16 @@ export function summarise(title: string, unit: string, points: Point[]): string 
 	if (!v.length) return `${title}: no data yet.`;
 	const f = (n: number) => `${+n.toFixed(2)}${unit ? ` ${unit}` : ''}`;
 	return `${title}: latest ${f(v[v.length - 1])}, lowest ${f(Math.min(...v))}, highest ${f(Math.max(...v))} over ${v.length} readings.`;
+}
+
+const HOUR = 3_600_000;
+
+/** Hourly counts with missing hours as 0, from the first row (the device's first data) to lastHour. */
+// shortcut: hours when MeshPulse itself was down also read as 0; track uptime if that misleads.
+export function fillHours(rows: { t: number; v: number }[], lastHour: number): Point[] {
+	if (!rows.length) return [];
+	const byHour = new Map(rows.map((r) => [r.t, r.v]));
+	const out: Point[] = [];
+	for (let t = rows[0].t; t <= Math.max(lastHour, rows[rows.length - 1].t); t += HOUR) out.push({ t, v: byHour.get(t) ?? 0 });
+	return out;
 }

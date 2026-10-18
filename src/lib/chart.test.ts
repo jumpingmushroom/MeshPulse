@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoRange, buildSeries, niceTicks, summarise } from './chart';
+import { autoRange, buildSeries, fillHours, niceTicks, summarise } from './chart';
 
 const box = { w: 100, h: 50, t0: 0, t1: 100, y0: 0, y1: 10 };
 
@@ -31,6 +31,8 @@ describe('niceTicks', () => {
 		expect(niceTicks(0, 100, 5)).toEqual([0, 20, 40, 60, 80, 100]);
 		expect(niceTicks(2.9, 3.1, 4)).toEqual([2.9, 2.95, 3, 3.05, 3.1]);
 		expect(niceTicks(0, 0, 5)).toEqual([0]);
+		expect(niceTicks(0, 1, 4, 1)).toEqual([0, 1]);
+		expect(niceTicks(0, 3, 4, 1)).toEqual([0, 1, 2, 3]);
 	});
 });
 
@@ -42,5 +44,14 @@ describe('autoRange and summarise', () => {
 		expect(summarise('LQI', '', [])).toBe('LQI: no data yet.');
 		expect(summarise('Battery', '%', [{ t: 0, v: 90 }, { t: 1, v: 80 }]))
 			.toBe('Battery: latest 80 %, lowest 80 %, highest 90 % over 2 readings.');
+	});
+});
+
+describe('fillHours', () => {
+	it('fills silent hours with 0 from the first row to the last full hour', () => {
+		const H = 3_600_000;
+		expect(fillHours([], 5 * H)).toEqual([]);
+		expect(fillHours([{ t: 2 * H, v: 4 }, { t: 4 * H, v: 1 }], 6 * H)).toEqual(
+			[{ t: 2 * H, v: 4 }, { t: 3 * H, v: 0 }, { t: 4 * H, v: 1 }, { t: 5 * H, v: 0 }, { t: 6 * H, v: 0 }]);
 	});
 });

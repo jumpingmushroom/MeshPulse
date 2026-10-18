@@ -106,3 +106,14 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string): [st
 		return [[k, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
 	});
 }
+
+/** Event detail as short text: "offline → online", "20% → 100%" for swaps, else "key: value" pairs. */
+export function formatDetail(kind: string, detail: Record<string, unknown> | null): string {
+	if (!detail) return '';
+	const { from, to } = detail;
+	if ('to' in detail && Object.keys(detail).every((k) => k === 'from' || k === 'to')) {
+		const u = kind === 'battery_swap' ? '%' : '';
+		return `${from ?? '—'}${from == null ? '' : u} → ${to ?? '—'}${to == null ? '' : u}`;
+	}
+	return Object.entries(detail).map(([k, v]) => `${k}: ${typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}`).join(', ');
+}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import LineChart from '../../../lib/components/LineChart.svelte';
-	import { FOREVER, formatAgo, formatTime } from '../../../lib/views';
+	import { FOREVER, formatAgo, formatDetail, formatTime } from '../../../lib/views';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -52,7 +52,7 @@
 
 <h2>Controls</h2>
 <div class="actions">
-	<form method="post" action="?/mute" use:enhance>
+	<form method="post" action="?range={data.range}&/mute" use:enhance>
 		<label>Mute
 			<select name="duration">
 				<option value="1h">1 hour</option><option value="24h">24 hours</option>
@@ -63,19 +63,19 @@
 		<button>Apply</button>
 	</form>
 	<p>{muted === FOREVER ? 'Muted forever' : muted ? `Muted until ${formatTime(muted, data.tz)}` : 'Not muted'}</p>
-	<form method="post" action="?/ignore" use:enhance>
+	<form method="post" action="?range={data.range}&/ignore" use:enhance>
 		<input type="hidden" name="on" value={d.ignored ? '0' : '1'} />
 		<button>{d.ignored ? 'Stop ignoring this device' : 'Ignore this device'}</button>
 	</form>
 </div>
 
 {#if data.events.length}
-	<h2>Last {data.events.length} events</h2>
+	<h2>{data.events.length === 1 ? 'Last event' : `Last ${data.events.length} events`}</h2>
 	<table>
 		<thead><tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Detail</th></tr></thead>
 		<tbody>
 			{#each data.events as e (e.id)}
-				<tr><td>{formatTime(e.ts, data.tz)}</td><td>{e.kind}</td><td><code>{e.detail ? JSON.stringify(e.detail) : ''}</code></td></tr>
+				<tr><td>{formatTime(e.ts, data.tz)}</td><td>{e.kind}</td><td>{formatDetail(e.kind, e.detail)}</td></tr>
 			{/each}
 		</tbody>
 	</table>

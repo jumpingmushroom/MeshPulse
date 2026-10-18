@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { counters, deviceRows, evidenceRows, formatAgo, formatVoltage, overallStatus, sortIssues, sortRows } from './views';
+import { counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, overallStatus, sortIssues, sortRows } from './views';
 import type { DeviceState } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -97,5 +97,16 @@ describe('formatVoltage', () => {
 		expect(formatVoltage(2.8)).toBe('2.8');
 		expect(formatVoltage(0.7)).toBe('0.7');
 		expect(formatVoltage(null)).toBe('—');
+	});
+});
+
+describe('formatDetail', () => {
+	it('reads from/to as arrows and other details as key: value', () => {
+		expect(formatDetail('availability', { from: 'offline', to: 'online' })).toBe('offline → online');
+		expect(formatDetail('availability', { from: null, to: 'online' })).toBe('— → online');
+		expect(formatDetail('battery_swap', { from: 20, to: 100 })).toBe('20% → 100%');
+		expect(formatDetail('bridge_restart', { reason: 'uptime', from: 5, to: 1 })).toBe('reason: uptime, from: 5, to: 1');
+		expect(formatDetail('join', { a: { b: 1 } })).toBe('a: {"b":1}');
+		expect(formatDetail('leave', null)).toBe('');
 	});
 });
