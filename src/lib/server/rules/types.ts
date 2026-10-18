@@ -23,7 +23,8 @@ export type RuleId =
 	| 'bridge.mqtt_backlog'
 	| 'device.storm'
 	| 'device.dominant'
-	| 'network.storm';
+	| 'network.storm'
+	| 'battery.stale';
 
 export interface EventRow extends NewEvent {
 	id: number;
@@ -34,6 +35,8 @@ export interface RuleContext {
 	state: AppState;
 	/** last 24 h, ascending */
 	events: EventRow[];
+	/** last max(24 h, causingWindowH), ascending; tests may leave it out (then `events`) */
+	longEvents?: EventRow[];
 	settings: Settings;
 	/** issueKey of every open issue */
 	open: Set<string>;

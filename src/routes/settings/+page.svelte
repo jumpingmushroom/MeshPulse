@@ -36,6 +36,8 @@
 		['dominantPct', 'Dominant device above', '% of messages'], ['dominantClearPct', 'Dominant device clears below', '% of messages'],
 		['dominantWindowMin', 'Dominant device window', 'min'], ['dominantClearMin', 'Dominant device clears after', 'min'],
 		['dominantMinMsgs', 'Dominant device needs', 'network msgs in window'],
+		['causingBatteryPct', 'Battery causing issues at', '%'], ['causingWindowH', 'Battery causing issues window', 'h'],
+		['staleBatteryDays', 'Battery stale after', 'days'],
 		['backlogHigh', 'MQTT backlog above', 'messages'], ['backlogClear', 'MQTT backlog clears below', 'messages']
 	];
 	const msg = (section: string) => (form?.section === section ? form : null);

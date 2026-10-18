@@ -4,7 +4,7 @@ const MIN = 60_000;
 const H = 60 * MIN;
 
 /** Non-guarded events of `kinds`, ascending. */
-const live = (ctx: RuleContext, kinds: string[]): EventRow[] => {
+export const live = (ctx: RuleContext, kinds: string[]): EventRow[] => {
 	const guarded = restartGuard(ctx);
 	return ctx.events.filter((e) => kinds.includes(e.kind) && e.ieee !== null && !guarded(e.ts));
 };
@@ -15,22 +15,30 @@ const byDevice = (evs: EventRow[]) => {
 	return m;
 };
 
+/** One device's announces and address changes, with the second announce of a rejoin dropped. */
+export function onePerRejoin(evs: EventRow[]): EventRow[] {
+	// one rejoin often sends two announces about 20 s apart: count it once
+	let prevAnnounce = -Infinity;
+	return evs.filter((e) => {
+		if (e.kind !== 'device_announce') return true;
+		const keep = e.ts - prevAnnounce >= MIN;
+		prevAnnounce = e.ts;
+		return keep;
+	});
+}
+
+/** Announces, or summed address changes, in `evs` since `since`. */
+export const countRejoins = (evs: EventRow[], since: number, kind: string) =>
+	evs.filter((e) => e.ts >= since && e.kind === kind).reduce((n, e) => n + (kind === 'address_changed' ? Number(e.detail.delta) || 1 : 1), 0);
+
 export function rejoinChurn(ctx: RuleContext): Finding[] {
 	const { now, settings: s } = ctx;
 	const out: Finding[] = [];
 	for (const [ieee, all] of byDevice(live(ctx, ['device_announce', 'address_changed']))) {
 		const d = ctx.state.devices.get(ieee);
 		if (!d) continue;
-		// one rejoin often sends two announces about 20 s apart: count it once
-		let prevAnnounce = -Infinity;
-		const evs = all.filter((e) => {
-			if (e.kind !== 'device_announce') return true;
-			const keep = e.ts - prevAnnounce >= MIN;
-			prevAnnounce = e.ts;
-			return keep;
-		});
-		const count = (since: number, kind: string) =>
-			evs.filter((e) => e.ts >= since && e.kind === kind).reduce((n, e) => n + (kind === 'address_changed' ? Number(e.detail.delta) || 1 : 1), 0);
+		const evs = onePerRejoin(all);
+		const count = (since: number, kind: string) => countRejoins(evs, since, kind);
 		const since = now - s.churnWindowH * H;
 		const announces = count(since, 'device_announce');
 		const addressChanges = count(since, 'address_changed');

@@ -6,7 +6,7 @@ const H = 3_600_000;
 const ACTION = 'Move the device closer to a router or add a router nearby';
 
 /** Mean of the hourly LQI averages over the last `hours` hours; `n` = hours with data (avg is NaN when 0). */
-function window(ctx: RuleContext, ieee: string, hours: number): { avg: number; n: number } {
+export function window(ctx: RuleContext, ieee: string, hours: number): { avg: number; n: number } {
 	const from = hourStart(ctx.now) - hours * H;
 	const avgs = (ctx.history.hourly.get(ieee) ?? []).filter((r) => r.hour >= from && r.lqiAvg !== null).map((r) => r.lqiAvg!);
 	return { avg: avgs.reduce((a, b) => a + b, 0) / avgs.length, n: avgs.length };

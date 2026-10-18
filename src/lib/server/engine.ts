@@ -37,10 +37,11 @@ const fold = (deps: EngineDeps, now: number) => (deps.foldHeld ?? ((t: number) =
 export function runOnce(deps: EngineDeps, now: number): void {
 	const { db, state, counters, config } = deps;
 	const settings = getSettings(db);
-	const evs: EventRow[] = db.select().from(events).where(gte(events.ts, now - 24 * H)).orderBy(asc(events.ts), asc(events.id)).all()
-		.map((e) => ({ ...e, kind: e.kind as EventKind, detail: e.detail ?? {} }));
+	const longEvents: EventRow[] = db.select().from(events).where(gte(events.ts, now - Math.max(24, settings.causingWindowH) * H))
+		.orderBy(asc(events.ts), asc(events.id)).all().map((e) => ({ ...e, kind: e.kind as EventKind, detail: e.detail ?? {} }));
+	const evs = longEvents.filter((e) => e.ts >= now - 24 * H);
 	const open = db.select().from(issues).where(ne(issues.state, 'resolved')).all().map(toRow);
-	const ctx = { now, state, events: evs, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
+	const ctx = { now, state, events: evs, longEvents, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
 		openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
 		history: loadHistory(db, now),
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };

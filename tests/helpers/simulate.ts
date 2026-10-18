@@ -37,7 +37,8 @@ export function simulate(msgs: MqttMsg[], opts: { until: number; settings?: Part
 			}
 		const open = issues.filter((i) => i.state !== 'resolved');
 		const recent = events.filter((e) => e.ts >= now - DAY);
-		const ctx = { now, state, events: recent, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
+		const longEvents = events.filter((e) => e.ts >= now - Math.max(DAY, settings.causingWindowH * 60 * MIN));
+		const ctx = { now, state, events: recent, longEvents, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
 			openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
 			history: { hourly: new Map(), baselines: new Map() }, health: health.slice(-2) };
 		const findings = evaluateRules(ctx);

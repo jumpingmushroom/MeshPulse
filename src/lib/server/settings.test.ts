@@ -40,7 +40,8 @@ describe('parseSettingsForm ordering', () => {
 		[{ lqiRecoverPct: '25' }], [{ lqiDegradePct: '10' }], [{ lqiMinHours: '25' }], [{ forecastWarnDays: '30' }], [{ forecastTargetPct: '101' }],
 		[{ routeFailClear: '5' }], [{ routeFailWarn: '20' }], [{ routeFailCrit: '5' }], [{ netRouteClearFactor: '3' }], [{ netRouteFactor: '1.5' }],
 		[{ massOfflineRouterPct: '101' }], [{ massOfflineClearPct: '20' }],
-		[{ churnWindowH: '13' }], [{ churnClearH: '25' }], [{ netChurnWindowMin: '61' }], [{ netChurnQuietH: '25' }], [{ backlogClear: '50' }]
+		[{ churnWindowH: '13' }], [{ churnClearH: '25' }], [{ netChurnWindowMin: '61' }], [{ netChurnQuietH: '25' }], [{ backlogClear: '50' }],
+		[{ causingBatteryPct: '20' }], [{ causingBatteryPct: '40' }]
 	])('rejects out-of-order thresholds %o', (o) => {
 		expect(parseSettingsForm(form(o))).toHaveProperty('error');
 	});
@@ -51,7 +52,7 @@ describe('parseSettingsForm ordering', () => {
 		['forecastWarnDays'], ['forecastClearDays'], ['forecastMinDays'],
 		['massOfflineRouterPct'], ['massOfflineDevices'], ['massOfflineWindowMin'], ['massOfflineClearPct'],
 		['churnAnnounce'], ['churnAddrChanges'], ['churnWindowH'], ['churnCritical'], ['churnClearH'], ['netChurnDevices'], ['netChurnWindowMin'],
-		['netChurnQuietH'], ['backlogHigh'], ['backlogClear']])(
+		['netChurnQuietH'], ['backlogHigh'], ['backlogClear'], ['causingWindowH'], ['staleBatteryDays']])(
 		'rejects zero %s', (key) => {
 			expect(parseSettingsForm(form({ [key]: '0' }))).toHaveProperty('error');
 		});

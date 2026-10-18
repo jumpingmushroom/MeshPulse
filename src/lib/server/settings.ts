@@ -67,6 +67,9 @@ export const DEFAULT_SETTINGS = {
 	dominantMinMsgs: 60,
 	netStormFactor: 4,
 	netStormClearFactor: 2,
+	causingBatteryPct: 35,
+	causingWindowH: 48,
+	staleBatteryDays: 7,
 	backlogHigh: 50,
 	backlogClear: 10,
 	heartbeatUrl: ''
@@ -84,7 +87,7 @@ export function saveSettings(db: Db, patch: Partial<Settings>): void {
 		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
 
-const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct'];
+const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
 const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
@@ -94,7 +97,7 @@ const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', '
 	'churnAnnounce', 'churnAddrChanges', 'churnWindowH', 'churnCritical', 'churnClearH', 'netChurnDevices', 'netChurnWindowMin', 'netChurnQuietH',
 	'stormFactor', 'stormMinPerMin', 'stormCritPerMin', 'stormSustainMin', 'stormClearFactor', 'stormClearMin',
 	'dominantPct', 'dominantClearPct', 'dominantWindowMin', 'dominantClearMin', 'dominantMinMsgs', 'netStormFactor', 'netStormClearFactor',
-	'backlogHigh', 'backlogClear'];
+	'backlogHigh', 'backlogClear', 'causingWindowH', 'staleBatteryDays'];
 
 /** Validates the Settings form; all-or-nothing, unknown keys ignored. */
 export function parseSettingsForm(form: FormData): { settings: Settings } | { error: string } {
@@ -119,6 +122,7 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 	const v = out as Settings;
 	const order: [boolean, string][] = [
 		[v.batteryCriticalPct < v.batteryLowPct && v.batteryLowPct < v.batteryClearPct, 'Battery thresholds must be critical < low < OK again'],
+		[v.batteryLowPct <= v.causingBatteryPct && v.causingBatteryPct < v.batteryClearPct, 'Battery causing issues must be from low up to below OK again'],
 		[v.voltageCritical < v.voltageLow && v.voltageLow < v.voltageClear, 'Coin cell thresholds must be critical < low < OK again'],
 		[v.flappingClearBelow < v.flappingCount, 'Flapping must clear below the count that raises it'],
 		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum'],

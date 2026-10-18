@@ -1,5 +1,5 @@
 import type { Finding, Rule, RuleContext, RuleId } from './types';
-import { batteryLow } from './battery';
+import { batteryLow, batteryStale } from './battery';
 import { bridgeBacklog } from './bridge-backlog';
 import { bridgeOffline } from './bridge-offline';
 import { bridgeRestarted } from './bridge-restarted';
@@ -18,7 +18,7 @@ export * from './types';
 
 export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, routeFailures, networkRouteErrors,
 	batteryForecast, massOffline, rejoinChurn, deviceLeave, networkChurn, interviewFailed, bridgeBacklog,
-	deviceStorm, deviceDominant, networkStorm];
+	deviceStorm, deviceDominant, networkStorm, batteryStale];
 
 const d = (minRuns: number, deviceLevel: boolean, notify = true) => ({ minRuns, resolveRuns: 2, deviceLevel, notify });
 export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: number; deviceLevel: boolean; notify: boolean }> = {
@@ -42,7 +42,8 @@ export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: numbe
 	'bridge.mqtt_backlog': d(2, false),
 	'device.storm': d(2, true),
 	'device.dominant': d(2, true),
-	'network.storm': d(2, false)
+	'network.storm': d(2, false),
+	'battery.stale': d(1, true, false) // UI only
 };
 
 export function evaluateRules(ctx: RuleContext): Finding[] {

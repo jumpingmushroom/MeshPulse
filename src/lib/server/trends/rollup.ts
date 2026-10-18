@@ -102,18 +102,28 @@ function batteryForecasts(db: Db, now: number) {
 	for (const e of db.select({ ieee: events.ieee, ts: events.ts }).from(events).where(and(eq(events.kind, 'battery_swap'), gte(events.ts, now - 30 * D))).orderBy(events.ts).all())
 		if (e.ieee) swaps.set(e.ieee, e.ts);
 	const pts = new Map<string, { t: number; battery: number }[]>();
+	const reports = new Map<string, number[]>();
 	for (const r of db.select().from(samplesHourly).where(and(gte(samplesHourly.hour, now - 30 * D), isNotNull(samplesHourly.batteryMin))).orderBy(samplesHourly.hour).all()) {
+		(reports.get(r.ieee) ?? reports.set(r.ieee, []).get(r.ieee)!).push(r.hour);
 		if (r.hour <= (swaps.get(r.ieee) ?? -Infinity)) continue;
 		pts.set(r.ieee, [...(pts.get(r.ieee) ?? []), { t: r.hour, battery: r.batteryMin! }]);
 	}
 	const forecasts: (typeof baselines.$inferInsert)[] = [];
 	for (const ieee of ieees) {
+		// for battery.stale; not deleted when reports age out of 30 days, so a device that stopped stays stale
+		const hours = reports.get(ieee) ?? [];
+		if (hours.length >= 2) {
+			const gaps = hours.slice(1).map((h, i) => (h - hours[i]) / H).sort((a, b) => a - b);
+			const days = Math.floor((hours[hours.length - 1] - hours[0]) / D);
+			forecasts.push({ ieee, metric: 'battery_report_gap_h', value: gaps[Math.floor(gaps.length / 2)], days, computedAt: now },
+				{ ieee, metric: 'battery_last_report', value: hours[hours.length - 1], days, computedAt: now });
+		}
 		const p = pts.get(ieee) ?? [];
 		const value = forecastDaysLeft(p, now, s.forecastTargetPct, s.forecastMinDays);
 		if (value !== null) forecasts.push({ ieee, metric: 'battery_days_left', value, days: Math.floor((p[p.length - 1].t - p[0].t) / D), computedAt: now });
 	}
 	// everything without a fresh forecast (also devices no longer battery powered) loses its row
-	const have = new Set(forecasts.map((f) => f.ieee));
+	const have = new Set(forecasts.filter((f) => f.metric === 'battery_days_left').map((f) => f.ieee));
 	const stale = db.select({ ieee: baselines.ieee }).from(baselines).where(eq(baselines.metric, 'battery_days_left')).all().map((r) => r.ieee).filter((i) => !have.has(i));
 	return { stale, forecasts };
 }
