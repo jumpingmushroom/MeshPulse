@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteryRows, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, overallStatus, sortIssues, sortRows } from './views';
+import { batteryRows, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, overallStatus, sortIssues, sortRows } from './views';
 import type { DeviceState } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -115,7 +115,7 @@ describe('batteryRows', () => {
 	const b = (ieee: string, o: Partial<DeviceState> = {}) => dev({ ieee, friendlyName: ieee, powerSource: 'Battery', battery: 50, ...o });
 
 	it('sorts by days left, unknown last', () => {
-		const rows = batteryRows([b('a', { battery: 20 }), b('b', { battery: 90 }), b('c', { battery: 10 }), b('d', { battery: 60 })],
+		const rows = batteryRows([b('a', { battery: 40 }), b('b', { battery: 90 }), b('c', { battery: 30 }), b('d', { battery: 60 })],
 			new Map([['b', 5], ['d', 40]]), new Map([['b', 123]]));
 		expect(rows.map((r) => r.ieee)).toEqual(['b', 'd', 'c', 'a']);
 		expect(rows[0]).toMatchObject({ daysLeft: 5, lastSwapAt: 123 });
@@ -125,5 +125,16 @@ describe('batteryRows', () => {
 	it('excludes mains and removed devices', () => {
 		const rows = batteryRows([b('a'), b('m', { powerSource: 'Mains (single phase)' }), b('r', { removedAt: 1 })], new Map(), new Map());
 		expect(rows.map((r) => r.ieee)).toEqual(['a']);
+	});
+
+	it('puts low-now rows first by charge, nulls last in their group', () => {
+		const rows = batteryRows([b('f', { battery: 60 }), b('x', { battery: null }), b('l2', { battery: 25 }), b('l1', { battery: 0 }), b('fl', { battery: 90, batteryLow: true }), b('n', { battery: 70 })],
+			new Map([['f', 3], ['l1', 1]]), new Map(), 25);
+		expect(rows.map((r) => r.ieee)).toEqual(['l1', 'l2', 'fl', 'f', 'n', 'x']);
+		expect(rows.map((r) => r.low)).toEqual([true, true, true, false, false, false]);
+	});
+
+	it('formats days left', () => {
+		expect([0.4, 1.2, 18.4].map(formatDaysLeft)).toEqual(['less than a day', 'about 1 day', 'about 18 days']);
 	});
 });

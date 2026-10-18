@@ -2,6 +2,7 @@ import { eq, gte, max } from 'drizzle-orm';
 import { buildSeries, summarise, type Point } from '../../lib/chart';
 import { baselines, events, samplesHourly } from '../../lib/server/db/schema';
 import { getRuntime } from '../../lib/server/runtime';
+import { getSettings } from '../../lib/server/settings';
 import { batteryRows } from '../../lib/views';
 import type { PageServerLoad } from './$types';
 
@@ -21,10 +22,10 @@ export const load: PageServerLoad = () => {
 		list.push({ t: h.hour, v: h.batteryMin });
 		hourly.set(h.ieee, list);
 	}
-	const rows = batteryRows([...state.devices.values()], daysLeft, swaps).map((r) => {
+	const rows = batteryRows([...state.devices.values()], daysLeft, swaps, getSettings(db).batteryLowPct).map((r) => {
 		const points = hourly.get(r.ieee) ?? [];
 		const box = { ...SPARK, t0, t1, y0: 0, y1: 100 };
-		return { ...r, spark: { d: buildSeries(points, box, 3 * H).line, summary: summarise('Battery, 30 days', '%', points) } };
+		return { ...r, spark: { d: points.filter((p) => p.v !== null).length >= 2 ? buildSeries(points, box, 3 * H).line : '', summary: summarise('Battery, 30 days', '%', points) } };
 	});
 	return { rows, spark: SPARK, anyForecast: daysLeft.size > 0 };
 };
