@@ -12,11 +12,13 @@ import { massOffline } from './mass-offline';
 import { mqttLost } from './mqtt-lost';
 import { permitJoinOpen } from './permit-join';
 import { networkRouteErrors, routeFailures } from './route';
+import { deviceDominant, deviceStorm, networkStorm } from './storm';
 
 export * from './types';
 
 export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, routeFailures, networkRouteErrors,
-	batteryForecast, massOffline, rejoinChurn, deviceLeave, networkChurn, interviewFailed, bridgeBacklog];
+	batteryForecast, massOffline, rejoinChurn, deviceLeave, networkChurn, interviewFailed, bridgeBacklog,
+	deviceStorm, deviceDominant, networkStorm];
 
 const d = (minRuns: number, deviceLevel: boolean, notify = true) => ({ minRuns, resolveRuns: 2, deviceLevel, notify });
 export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: number; deviceLevel: boolean; notify: boolean }> = {
@@ -37,7 +39,10 @@ export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: numbe
 	'device.leave': d(2, true),
 	'network.churn': d(2, false),
 	'device.interview_failed': d(2, true),
-	'bridge.mqtt_backlog': d(2, false)
+	'bridge.mqtt_backlog': d(2, false),
+	'device.storm': d(2, true),
+	'device.dominant': d(2, true),
+	'network.storm': d(2, false)
 };
 
 export function evaluateRules(ctx: RuleContext): Finding[] {

@@ -61,7 +61,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 		range,
 		device: {
 			ieee: d.ieee, name: d.friendlyName, type: d.type, model: d.model, vendor: d.vendor, powerSource: d.powerSource,
-			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), batteryPowered
+			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), chatty: d.tags.includes('chatty'), batteryPowered
 		},
 		charts: [
 			chart('Link quality', '', lqi, 0, 255, round, g.maxGapMs, [
@@ -94,5 +94,10 @@ export const actions: Actions = {
 		const { db, state } = getRuntime();
 		const on = (await request.formData()).get('on') === '1';
 		setTag(db, state, getDevice(params.ieee).ieee, 'ignore', on);
+	},
+	chatty: async ({ params, request }) => {
+		const { db, state } = getRuntime();
+		const on = (await request.formData()).get('on') === '1';
+		setTag(db, state, getDevice(params.ieee).ieee, 'chatty', on);
 	}
 };

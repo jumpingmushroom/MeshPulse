@@ -72,6 +72,16 @@ export function computeBaselines(db: Db, now: number): void {
 	const netDays = Math.floor(new Set(hourly.map((r) => r.hour)).size / 24);
 	const errors = evs.filter((e) => e.kind === 'route_error').length;
 	out.push({ ieee: '', metric: 'route_errors_hourly', value: errors / ((to - from) / H), days: netDays, computedAt: now });
+	const counts = new Map<string, number[]>();
+	// a 0 count is a lost counter (restart), not a quiet hour: it must not pull the baseline down
+	for (const r of hourly) if (r.msgCount > 0) counts.set(r.ieee, [...(counts.get(r.ieee) ?? []), r.msgCount]);
+	let netPerMin = 0;
+	for (const [ieee, c] of counts) {
+		const perMin = c.reduce((a, b) => a + b, 0) / c.length / 60;
+		netPerMin += perMin;
+		out.push({ ieee, metric: 'msg_per_min', value: perMin, days: Math.floor(c.length / 24), computedAt: now });
+	}
+	out.push({ ieee: '', metric: 'msg_per_min', value: netPerMin, days: netDays, computedAt: now });
 
 	const { stale, forecasts } = batteryForecasts(db, now);
 	out.push(...forecasts);

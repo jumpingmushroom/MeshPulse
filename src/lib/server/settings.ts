@@ -54,6 +54,19 @@ export const DEFAULT_SETTINGS = {
 	netChurnDevices: 5,
 	netChurnWindowMin: 15,
 	netChurnQuietH: 1,
+	stormFactor: 5,
+	stormMinPerMin: 20,
+	stormCritPerMin: 60,
+	stormSustainMin: 5,
+	stormClearFactor: 2,
+	stormClearMin: 15,
+	dominantPct: 30,
+	dominantClearPct: 15,
+	dominantWindowMin: 15,
+	dominantClearMin: 30,
+	dominantMinMsgs: 60,
+	netStormFactor: 4,
+	netStormClearFactor: 2,
 	backlogHigh: 50,
 	backlogClear: 10,
 	heartbeatUrl: ''
@@ -71,7 +84,7 @@ export function saveSettings(db: Db, patch: Partial<Settings>): void {
 		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
 
-const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct'];
+const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
 const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
@@ -79,6 +92,8 @@ const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', '
 	'routeFailWarn', 'routeFailCrit', 'routeFailClear', 'netRouteFactor', 'netRouteMin', 'netRouteClearFactor',
 	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays', 'massOfflineRouterPct', 'massOfflineDevices', 'massOfflineWindowMin', 'massOfflineClearPct',
 	'churnAnnounce', 'churnAddrChanges', 'churnWindowH', 'churnCritical', 'churnClearH', 'netChurnDevices', 'netChurnWindowMin', 'netChurnQuietH',
+	'stormFactor', 'stormMinPerMin', 'stormCritPerMin', 'stormSustainMin', 'stormClearFactor', 'stormClearMin',
+	'dominantPct', 'dominantClearPct', 'dominantWindowMin', 'dominantClearMin', 'dominantMinMsgs', 'netStormFactor', 'netStormClearFactor',
 	'backlogHigh', 'backlogClear'];
 
 /** Validates the Settings form; all-or-nothing, unknown keys ignored. */
@@ -116,7 +131,12 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours'],
 		[v.churnWindowH <= v.churnClearH && v.churnClearH <= 24, 'Rejoin churn window must not exceed its quiet time, which is at most 24 hours'],
 		[v.netChurnWindowMin <= v.netChurnQuietH * 60 && v.netChurnQuietH <= 24, 'Network churn window must not exceed its quiet time, which is at most 24 hours'],
-		[v.backlogClear < v.backlogHigh, 'MQTT backlog must clear below the queue that raises it']
+		[v.backlogClear < v.backlogHigh, 'MQTT backlog must clear below the queue that raises it'],
+		[v.stormClearFactor < v.stormFactor && v.netStormClearFactor < v.netStormFactor, 'Storms must clear below the factor that raises them'],
+		[v.stormMinPerMin < v.stormCritPerMin, 'Storm critical rate must be above the storm minimum rate'],
+		[v.dominantClearPct < v.dominantPct, 'Dominant device must clear below the share that raises it'],
+		// minute counters keep the last 60 minutes
+		[Math.max(v.stormSustainMin, v.stormClearMin, v.dominantWindowMin, v.dominantClearMin) <= 60, 'Storm and dominant windows can be at most 60 minutes']
 	];
 	const bad = order.find(([ok]) => !ok);
 	return bad ? { error: bad[1] } : { settings: v };
