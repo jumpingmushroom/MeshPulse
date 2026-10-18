@@ -231,8 +231,8 @@ describe('route', () => {
 	it('uptime drop is a restart', () => {
 		const s = createState(T);
 		const h = (ts: number, up: number) => msg(ts, 'bridge/health', { process: { uptime_sec: up } });
-		expect(route(s, h(T, 100), B)).toEqual([]);
-		expect(route(s, h(T + 1000, 200), B)).toEqual([]);
+		expect(events(route(s, h(T, 100), B))).toEqual([]);
+		expect(events(route(s, h(T + 1000, 200), B))).toEqual([]);
 		const fx = route(s, h(T + 2000, 5), B);
 		expect(events(fx)).toMatchObject([{ kind: 'bridge_restart' }]);
 		expect(s.bridge.restartedAt).toBe(T + 2000);
@@ -333,5 +333,45 @@ describe('route bridge/logging', () => {
 
 	it('emits nothing for the real fixture (its final pings are all 1/1)', () => {
 		expect(events(feed(createState(T), loadFixture('z2m-logging')))).toEqual([]);
+	});
+
+	it('live device messages count per minute; retained do not', () => {
+		const s = withDevices();
+		const live = (ts: number, retain = false) => msg(ts, 'living/lamp', { linkquality: 80 }, retain);
+		feed(s, [live(T), live(T + 1000), live(T + 2000, true), live(T + MIN)]);
+		expect(s.minutes.perMinute(LAMP, T + 2 * MIN, 2)).toEqual([2, 1]);
+	});
+
+	describe('bridge/health', () => {
+		const health = (ts: number, devices: Record<string, unknown>, extra: Obj = {}) =>
+			msg(ts, 'bridge/health', { process: { uptime_sec: 100 }, ...extra, devices });
+		type Obj = Record<string, unknown>;
+		const dev = (leave_count: number, network_address_changes: number) => ({ leave_count, network_address_changes });
+
+		it('first health sample emits no deltas', () => {
+			const s = createState(T);
+			const fx = route(s, health(T, { [LAMP]: dev(4, 2) }), B);
+			expect(events(fx)).toEqual([]);
+			expect(fx).toContainEqual({ kind: 'health', ts: T, uptimeSec: 100, mqttQueued: null, devices: { [LAMP]: { leaves: 4, addr: 2 } } });
+		});
+
+		it('leave_count and address changes increase → events; a decrease re-baselines silently', () => {
+			const s = createState(T);
+			route(s, health(T, { [LAMP]: dev(1, 1), [DOOR]: dev(0, 0) }), B);
+			const fx = route(s, health(T + MIN, { [LAMP]: dev(3, 1), [DOOR]: dev(0, 2), [TEMP]: dev(9, 9) }), B);
+			expect(events(fx)).toEqual([
+				{ ts: T + MIN, ieee: LAMP, kind: 'leave_count_up', detail: { delta: 2 } },
+				{ ts: T + MIN, ieee: DOOR, kind: 'address_changed', detail: { delta: 2 } }
+			]);
+			expect(events(route(s, health(T + 2 * MIN, { [LAMP]: dev(0, 0), [DOOR]: dev(0, 2) }), B))).toEqual([]);
+			expect(events(route(s, health(T + 3 * MIN, { [LAMP]: dev(1, 0) }), B)).map((e) => e.kind)).toEqual(['leave_count_up']);
+		});
+
+		it('stores mqtt queue, tolerating missing fields', () => {
+			const s = createState(T);
+			const fx = route(s, health(T, { [LAMP]: {}, bad: 5 }, { mqtt: { queued: 7 } }), B);
+			expect(fx).toContainEqual({ kind: 'health', ts: T, uptimeSec: 100, mqttQueued: 7, devices: { [LAMP]: { leaves: 0, addr: 0 } } });
+			expect(route(s, msg(T + 1, 'bridge/health', 'junk'), B)).toEqual([]);
+		});
 	});
 });

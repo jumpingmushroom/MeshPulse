@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { loadFixture } from '../../../tests/helpers/fixtures';
 import { openDb } from './db';
-import { devices, events, samples } from './db/schema';
+import { devices, events, healthSamples, samples } from './db/schema';
 import { route } from './mqtt/route';
 import { eq } from 'drizzle-orm';
-import { applyEffects, flushDevices, loadDevices, muteUntil, setIgnored } from './store';
+import { applyEffects, flushDevices, loadDevices, muteUntil, setTag } from './store';
 import { FOREVER } from '../views';
 import { createState } from './types';
 
@@ -59,22 +59,47 @@ describe('muteUntil', () => {
 	});
 });
 
-describe('setIgnored', () => {
-	it('setIgnored toggles tag in DB and memory', () => {
+describe('setTag', () => {
+	it('setTag toggles chatty in DB and memory', () => {
 		const { db, state, dirty } = run();
 		flushDevices(db, state, dirty);
 		const ieee = state.byName.get('temp_sensor')!;
 		const d = state.devices.get(ieee)!;
 		d.tags = ['chatty'];
 		const tags = () => db.select({ tags: devices.tags }).from(devices).where(eq(devices.ieee, ieee)).get()!.tags;
-		expect(setIgnored(db, state, ieee, true)).toBe(true);
+		expect(setTag(db, state, ieee, 'ignore', true)).toBe(true);
 		expect(d.tags).toEqual(['chatty', 'ignore']);
 		expect(tags()).toEqual({ chatty: true, ignore: true });
-		setIgnored(db, state, ieee, true); // idempotent
+		setTag(db, state, ieee, 'ignore', true); // idempotent
 		expect(d.tags).toEqual(['chatty', 'ignore']);
-		setIgnored(db, state, ieee, false);
+		setTag(db, state, ieee, 'ignore', false);
 		expect(d.tags).toEqual(['chatty']);
 		expect(tags()).toEqual({ chatty: true });
-		expect(setIgnored(db, state, 'nope', true)).toBe(false);
+		expect(setTag(db, state, 'nope', 'ignore', true)).toBe(false);
 	});
+});
+
+it('setTag toggles chatty in DB and memory (chatty)', () => {
+	const { db, state, dirty } = run();
+	flushDevices(db, state, dirty);
+	const ieee = state.byName.get('temp_sensor')!;
+	setTag(db, state, ieee, 'chatty', true);
+	expect(state.devices.get(ieee)!.tags).toEqual(['chatty']);
+	expect(db.select({ t: devices.tags }).from(devices).where(eq(devices.ieee, ieee)).get()!.t).toEqual({ chatty: true });
+	setTag(db, state, ieee, 'chatty', false);
+	expect(state.devices.get(ieee)!.tags).toEqual([]);
+});
+
+it('lastHealth survives restart via the latest sample', () => {
+	const db = openDb(':memory:');
+	const dirty = new Set<string>();
+	const h = (ts: number, leaves: number) => ({ kind: 'health' as const, ts, uptimeSec: 5, mqttQueued: 2, devices: { a: { leaves, addr: 0 } } });
+	applyEffects(db, [h(1, 1), h(2, 3)], dirty);
+	const s = createState(0);
+	loadDevices(db, s);
+	expect(s.lastHealth).toEqual({ a: { leaves: 3, addr: 0 } });
+	expect(db.select().from(healthSamples).all()[0]).toMatchObject({ mqttQueued: 2, uptimeSec: 5 });
+	const empty = createState(0);
+	loadDevices(openDb(':memory:'), empty);
+	expect(empty.lastHealth).toBeNull();
 });

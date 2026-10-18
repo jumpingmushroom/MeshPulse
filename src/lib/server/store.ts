@@ -1,6 +1,6 @@
 import { desc, eq } from 'drizzle-orm';
 import type { Db } from './db';
-import { devices, events, samples } from './db/schema';
+import { devices, events, healthSamples, samples } from './db/schema';
 import type { AppState, DeviceState, Effect } from './types';
 import { FOREVER } from '../views';
 
@@ -40,6 +40,7 @@ export function loadDevices(db: Db, state: AppState): void {
 		state.devices.set(d.ieee, d);
 		if (d.removedAt === null) state.byName.set(d.friendlyName, d.ieee);
 	}
+	state.lastHealth = db.select().from(healthSamples).orderBy(desc(healthSamples.ts)).limit(1).get()?.devices ?? null;
 }
 
 export function applyEffects(db: Db, effects: Effect[], dirty: Set<string>): void {
@@ -48,6 +49,9 @@ export function applyEffects(db: Db, effects: Effect[], dirty: Set<string>): voi
 			if (e.kind === 'event') tx.insert(events).values(e.event).run();
 			else if (e.kind === 'sample')
 				tx.insert(samples).values({ ieee: e.ieee, ts: e.ts, lqi: e.lqi, battery: e.battery, voltage: e.voltage })
+					.onConflictDoNothing().run();
+			else if (e.kind === 'health')
+				tx.insert(healthSamples).values({ ts: e.ts, uptimeSec: e.uptimeSec, mqttQueued: e.mqttQueued, devices: e.devices })
 					.onConflictDoNothing().run();
 			else dirty.add(e.ieee);
 		}
@@ -73,11 +77,11 @@ export function flushDevices(db: Db, state: AppState, dirty: Set<string>): void 
 	dirty.clear();
 }
 
-/** Sets or clears the `ignore` tag in memory (rules read it) and on the device row. */
-export function setIgnored(db: Db, state: AppState, ieee: string, on: boolean): boolean {
+/** Sets or clears a tag in memory (rules read it) and on the device row. */
+export function setTag(db: Db, state: AppState, ieee: string, tag: 'ignore' | 'chatty', on: boolean): boolean {
 	const d = state.devices.get(ieee);
 	if (!d) return false;
-	d.tags = [...d.tags.filter((t) => t !== 'ignore'), ...(on ? ['ignore'] : [])];
+	d.tags = [...d.tags.filter((t) => t !== tag), ...(on ? [tag] : [])];
 	db.update(devices).set({ tags: tagsToDb(d.tags) }).where(eq(devices.ieee, ieee)).run();
 	return true;
 }

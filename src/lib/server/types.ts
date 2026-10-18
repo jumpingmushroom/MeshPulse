@@ -1,3 +1,5 @@
+import { MinuteCounters } from './trends/minutes';
+
 export type Severity = 'info' | 'warning' | 'critical';
 
 export interface DeviceState {
@@ -70,6 +72,10 @@ export interface AppState {
 	monitor: MonitorState;
 	/** live messages per device per hour, key `${ieee}|${hourStart}`; drained by rollupHours */
 	msgCounts: Map<string, number>;
+	/** live device messages per minute (not persisted) */
+	minutes: MinuteCounters;
+	/** last bridge/health counters per device; null until the first sample */
+	lastHealth: Record<string, { leaves: number; addr: number }> | null;
 }
 
 export type EventKind =
@@ -82,7 +88,9 @@ export type EventKind =
 	| 'device_announce'
 	| 'device_interview'
 	| 'battery_swap'
-	| 'route_error';
+	| 'route_error'
+	| 'leave_count_up'
+	| 'address_changed';
 
 export interface NewEvent {
 	ts: number;
@@ -94,6 +102,7 @@ export interface NewEvent {
 export type Effect =
 	| { kind: 'event'; event: NewEvent }
 	| { kind: 'sample'; ieee: string; ts: number; lqi: number | null; battery: number | null; voltage: number | null }
+	| { kind: 'health'; ts: number; uptimeSec: number | null; mqttQueued: number | null; devices: Record<string, { leaves: number; addr: number }> }
 	| { kind: 'dirty'; ieee: string };
 
 export function createState(now: number): AppState {
@@ -118,6 +127,8 @@ export function createState(now: number): AppState {
 			restartedAt: null
 		},
 		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null },
-		msgCounts: new Map()
+		msgCounts: new Map(),
+		minutes: new MinuteCounters(),
+		lastHealth: null
 	};
 }

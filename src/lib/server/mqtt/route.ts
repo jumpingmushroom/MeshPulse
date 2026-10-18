@@ -70,7 +70,7 @@ function handle(
 		if (sub === 'devices') return onDevices(state, msg, base, payload, fx, touch);
 		if (sub === 'info') return onInfo(state, msg, payload, event);
 		if (sub === 'state') return onBridgeState(state, msg, payload, event);
-		if (sub === 'health') return onHealth(state, msg, payload, event);
+		if (sub === 'health') return onHealth(state, msg, payload, event, fx);
 		if (sub === 'event') return onBridgeEvent(state, payload, event);
 		if (sub === 'logging' && !msg.retain) return onLogging(state, payload, event);
 		return;
@@ -164,15 +164,34 @@ function onBridgeState(state: AppState, msg: MqttMsg, p: unknown, event: Emit) {
 	}
 }
 
-function onHealth(state: AppState, msg: MqttMsg, p: unknown, event: Emit) {
-	const up = isObj(p) && isObj(p.process) ? num(p.process.uptime_sec) : null;
-	if (up === null) return;
+function onHealth(state: AppState, msg: MqttMsg, p: unknown, event: Emit, fx: Effect[]) {
+	if (!isObj(p)) return;
+	const up = isObj(p.process) ? num(p.process.uptime_sec) : null;
 	const b = state.bridge;
-	if (b.lastUptimeSec !== null && up < b.lastUptimeSec) {
-		b.restartedAt = msg.ts;
-		event('bridge_restart', null, { reason: 'uptime', from: b.lastUptimeSec, to: up });
+	if (up !== null) {
+		if (b.lastUptimeSec !== null && up < b.lastUptimeSec) {
+			b.restartedAt = msg.ts;
+			event('bridge_restart', null, { reason: 'uptime', from: b.lastUptimeSec, to: up });
+		}
+		b.lastUptimeSec = up;
 	}
-	b.lastUptimeSec = up;
+	if (msg.retain) return;
+	const devices: Record<string, { leaves: number; addr: number }> = {};
+	if (isObj(p.devices))
+		for (const [ieee, v] of Object.entries(p.devices))
+			if (isObj(v)) devices[ieee] = { leaves: num(v.leave_count) ?? 0, addr: num(v.network_address_changes) ?? 0 };
+	// a counter that went down is a Z2M restart: it re-baselines without an event
+	const prev = state.lastHealth;
+	if (prev)
+		for (const [ieee, now] of Object.entries(devices)) {
+			const was = prev[ieee];
+			if (!was) continue;
+			if (now.leaves > was.leaves) event('leave_count_up', ieee, { delta: now.leaves - was.leaves });
+			if (now.addr > was.addr) event('address_changed', ieee, { delta: now.addr - was.addr });
+		}
+	state.lastHealth = devices;
+	const queued = isObj(p.mqtt) ? num(p.mqtt.queued) : null;
+	fx.push({ kind: 'health', ts: msg.ts, uptimeSec: up, mqttQueued: queued, devices });
 }
 
 function onBridgeEvent(state: AppState, p: unknown, event: Emit) {
@@ -235,6 +254,7 @@ function onDevice(
 	if (!msg.retain) {
 		const k = `${d.ieee}|${msg.ts - (msg.ts % 3_600_000)}`;
 		state.msgCounts.set(k, (state.msgCounts.get(k) ?? 0) + 1);
+		state.minutes.add(d.ieee, msg.ts);
 	}
 	if (msg.retain) {
 		// retained state is not live: only an explicit last_seen counts
