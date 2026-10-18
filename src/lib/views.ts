@@ -117,3 +117,30 @@ export function formatDetail(kind: string, detail: Record<string, unknown> | nul
 	}
 	return Object.entries(detail).map(([k, v]) => `${k}: ${typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}`).join(', ');
 }
+
+export interface BatteryRow {
+	ieee: string;
+	name: string;
+	battery: number | null;
+	voltage: number | null;
+	daysLeft: number | null;
+	lastSwapAt: number | null;
+	low: boolean;
+}
+
+/** Shopping list order: low now (lowest charge first), then by forecast days left, then the rest (lowest charge first). */
+export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, lowPct = 25): BatteryRow[] {
+	const pct = (r: BatteryRow) => r.battery ?? 101;
+	const group = (r: BatteryRow) => (r.low ? 0 : r.daysLeft !== null ? 1 : 2);
+	return devices.filter((d) => d.powerSource === 'Battery' && d.removedAt === null).map((d) => ({
+		ieee: d.ieee, name: d.friendlyName, battery: d.battery, voltage: d.voltage,
+		daysLeft: daysLeft.get(d.ieee) ?? null, lastSwapAt: lastSwap.get(d.ieee) ?? null,
+		low: d.batteryLow === true || (d.battery !== null && d.battery <= lowPct)
+	})).sort((a, b) => group(a) - group(b) || (group(a) === 1 ? a.daysLeft! - b.daysLeft! : 0) || pct(a) - pct(b));
+}
+
+/** "about 18 days", "about 1 day", "less than a day" */
+export function formatDaysLeft(days: number): string {
+	const n = Math.round(days);
+	return n < 1 ? 'less than a day' : `about ${n} ${n === 1 ? 'day' : 'days'}`;
+}

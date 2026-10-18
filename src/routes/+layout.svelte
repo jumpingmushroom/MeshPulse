@@ -6,7 +6,7 @@
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
-	const links = [['/', 'Overview'], ['/devices', 'Devices'], ['/issues', 'Issues'], ['/settings', 'Settings']];
+	const links = [['/', 'Overview'], ['/devices', 'Devices'], ['/batteries', 'Batteries'], ['/issues', 'Issues'], ['/settings', 'Settings']];
 
 	$effect(() => {
 		if (page.url.pathname === '/login') return;
