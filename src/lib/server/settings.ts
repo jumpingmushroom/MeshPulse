@@ -32,6 +32,12 @@ export const DEFAULT_SETTINGS = {
 	lqiDegradePct: 25,
 	lqiRecoverPct: 10,
 	baselineMinDays: 3,
+	routeFailWarn: 5,
+	routeFailCrit: 20,
+	routeFailClear: 2,
+	netRouteFactor: 3,
+	netRouteMin: 10,
+	netRouteClearFactor: 1.5,
 	forecastTargetPct: 10,
 	forecastWarnDays: 21,
 	forecastClearDays: 30,
@@ -56,6 +62,7 @@ const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
 const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
 	'lqiWeak', 'lqiWeakClear', 'lqiMinHours', 'lqiDegradePct', 'lqiRecoverPct', 'baselineMinDays',
+	'routeFailWarn', 'routeFailCrit', 'routeFailClear', 'netRouteFactor', 'netRouteMin', 'netRouteClearFactor',
 	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays'];
 
 /** Validates the Settings form; all-or-nothing, unknown keys ignored. */
@@ -86,6 +93,8 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum'],
 		[v.lqiWeak < v.lqiWeakClear, 'Weak link must clear above the LQI that raises it'],
 		[v.lqiRecoverPct < v.lqiDegradePct, 'Link recovered must be within less than the degrading percentage'],
+		[v.routeFailClear < v.routeFailWarn && v.routeFailWarn < v.routeFailCrit, 'Route failures must be OK again < warning < critical'],
+		[v.netRouteClearFactor < v.netRouteFactor, 'Network delivery failures must clear below the factor that raises them'],
 		[v.forecastWarnDays < v.forecastClearDays, 'Forecast must clear above the days that raise it'],
 		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours']
 	];

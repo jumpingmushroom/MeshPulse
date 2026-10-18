@@ -8,10 +8,12 @@ import { batteryForecast } from './forecast';
 import { lqiDegrading, lqiWeak } from './lqi';
 import { mqttLost } from './mqtt-lost';
 import { permitJoinOpen } from './permit-join';
+import { networkRouteErrors, routeFailures } from './route';
 
 export * from './types';
 
-export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, batteryForecast];
+export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, routeFailures, networkRouteErrors,
+	batteryForecast];
 
 const d = (minRuns: number, deviceLevel: boolean, notify = true) => ({ minRuns, resolveRuns: 2, deviceLevel, notify });
 export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: number; deviceLevel: boolean; notify: boolean }> = {

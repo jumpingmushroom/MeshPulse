@@ -273,3 +273,38 @@ describe('route', () => {
 		expect(s.msgCounts.get(`${LAMP}|${hour}`)).toBe(2);
 	});
 });
+
+describe('route bridge/logging', () => {
+	const ping = (name: string, i: number, n: number, ieee = '') =>
+		({ level: 'warning', message: `z2m: Failed to ping '${name}' (attempt ${i}/${n}, ${ieee ? `ZCL command ${ieee}/1 ` : ''}genBasic.read(["zclVersion"], {}) failed (Data request failed with error: 'MAC_NO_ACK' (0xe9)))` });
+	const log = (s: AppState, p: unknown, retain = false) => events(route(s, msg(T, 'bridge/logging', p, retain), B));
+
+	it('ping retries count once', () => {
+		const s = withDevices();
+		expect(log(s, ping('living/lamp', 1, 2, LAMP))).toEqual([]);
+		expect(log(s, ping('living/lamp', 2, 2, LAMP))).toEqual([{ ts: T, ieee: LAMP, kind: 'route_error', detail: { kind: 'ping_failed', code: 'MAC_NO_ACK' } }]);
+	});
+
+	it('resolves the device by friendly name without an IEEE', () => {
+		expect(log(withDevices(), ping('living/lamp', 1, 1))).toMatchObject([{ ieee: LAMP }]);
+	});
+
+	it('unknown device counts network-wide only', () => {
+		const s = withDevices();
+		expect(log(s, ping('nobody', 1, 1))).toMatchObject([{ ieee: null, kind: 'route_error' }]);
+		expect(log(s, ping('nobody', 1, 1, '0x0000000000000bad'))).toMatchObject([{ ieee: null }]);
+	});
+
+	it('ignores retained lines, MQTT publish echoes and failed pings of offline devices', () => {
+		const s = withDevices();
+		expect(log(s, ping('living/lamp', 1, 1, LAMP), true)).toEqual([]);
+		expect(log(s, { level: 'info', message: "z2m:mqtt: MQTT publish: topic 'zigbee2mqtt/x', payload '{\"error\":\"Failed to ping 'x' (attempt 1/1, \"}'" })).toEqual([]);
+		s.devices.get(LAMP)!.availability = 'offline';
+		expect(log(s, ping('living/lamp', 1, 1, LAMP))).toEqual([]);
+	});
+
+	it('emits nothing for the real fixture echoes and counts its final pings', () => {
+		const fx = feed(createState(T), loadFixture('z2m-logging'));
+		expect(events(fx).map((e) => e.kind)).toEqual(Array(4).fill('route_error'));
+	});
+});
