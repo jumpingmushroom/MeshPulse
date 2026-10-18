@@ -14,6 +14,7 @@
 <p>
 	State: <strong>{i.state}</strong> · opened {formatTime(i.openedAt, data.tz)}
 	{#if i.resolvedAt} · resolved {formatTime(i.resolvedAt, data.tz)}{/if}
+	{#if data.device} · device <a href="/devices/{data.device.ieee}">{data.device.name}</a>{/if}
 </p>
 
 {#if i.action}<h2>Suggested action</h2><p>{i.action}</p>{/if}

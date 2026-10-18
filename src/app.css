@@ -50,3 +50,17 @@ th, td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(
 th button { background: none; border: none; padding: 0; font-weight: bold; }
 .login { max-width: 20rem; margin: 4rem auto; }
 .login input { display: block; width: 100%; box-sizing: border-box; margin-bottom: 0.5rem; }
+
+/* charts: one blue series, hairline grid, dashed reference lines */
+.range { display: flex; gap: 1rem; }
+.charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(26rem, 1fr)); gap: 1rem; }
+.chart { margin: 0; }
+.chart figcaption { font-weight: bold; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .grid { stroke: #e6e6e6; stroke-width: 1; }
+.chart .line { fill: none; stroke: #1e6fd9; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .band { fill: #1e6fd9; fill-opacity: 0.1; }
+.chart .dot { fill: #1e6fd9; stroke: #fff; stroke-width: 2; }
+.chart .ref { stroke: #888; stroke-width: 1; stroke-dasharray: 4 3; }
+.chart .tick { font-size: 11px; fill: #666; font-variant-numeric: tabular-nums; }
+.note { border-left: 0.25rem solid var(--warning); padding: 0.25rem 0.75rem; background: #fafafa; }

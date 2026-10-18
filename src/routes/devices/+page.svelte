@@ -41,7 +41,7 @@
 		<tbody>
 			{#each rows as r (r.ieee)}
 				<tr>
-					<td>{r.name}{#if r.mutedUntil && r.mutedUntil > data.now} <span class="muted">(muted)</span>{/if}</td>
+					<td><a href="/devices/{r.ieee}">{r.name}</a>{#if r.mutedUntil && r.mutedUntil > data.now} <span class="muted">(muted)</span>{/if}</td>
 					<td>{r.type}</td>
 					<td class:bad={r.availability === 'offline'}>{r.availability ?? 'unknown'}</td>
 					<td title={formatTime(r.lastSeenAt, data.tz)}>{formatAgo(r.lastSeenAt, data.now)}</td>
