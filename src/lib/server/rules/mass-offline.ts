@@ -7,7 +7,7 @@ const MIN_ROUTERS = 3;
 export function massOffline(ctx: RuleContext): Finding[] {
 	const { now, state, settings: s } = ctx;
 	const open = ctx.open.has(issueKey('network.mass_offline', null));
-	if (inGrace(ctx)) return [];
+	if (!open && inGrace(ctx)) return []; // an open one holds through a restart
 	// one Critical per outage: a dead bridge or silent coordinator is bridge.offline's; an open one holds through it
 	if (!open && (ctx.open.has(issueKey('bridge.offline', null)) || state.bridge.state === 'offline' || deviceSilent(ctx))) return [];
 	const devices = [...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator' && !d.tags.includes('ignore'));
