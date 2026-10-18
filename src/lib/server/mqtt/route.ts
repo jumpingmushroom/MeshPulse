@@ -7,6 +7,7 @@ const SAMPLE_EVERY_MS = 5 * 60_000;
 const SEEN_KEEP = 21; // 20 gaps
 const SEEN_MIN_GAP_MS = 60_000; // a burst (button presses, multi-report) counts as one sighting
 const MIN_GAPS = 5;
+const DEVICE_GAP_MS = 2 * 60_000; // a gap this long ends a run of device messages (bridge.offline clears after 2 min of flow)
 const SWAP_JUMP = 30;
 const BRIDGE_EVENTS: readonly EventKind[] = ['device_joined', 'device_leave', 'device_announce', 'device_interview'];
 
@@ -80,6 +81,11 @@ function handle(
 		if (ieee) return onAvailability(state.devices.get(ieee)!, msg, payload, touch, event);
 	}
 	const ieee = state.byName.get(rest);
+	if (ieee && !msg.retain) {
+		const b = state.bridge;
+		if (b.lastDeviceAt === null || msg.ts - b.lastDeviceAt >= DEVICE_GAP_MS) b.deviceSince = msg.ts;
+		b.lastDeviceAt = Math.max(b.lastDeviceAt ?? 0, msg.ts);
+	}
 	if (ieee) return onDevice(state, state.devices.get(ieee)!, msg, payload, fx, touch, event);
 	if (!state.devicesLoaded) {
 		state.pending.push(msg);

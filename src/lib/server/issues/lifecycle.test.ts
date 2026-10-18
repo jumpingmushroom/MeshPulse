@@ -151,6 +151,16 @@ describe('lifecycle', () => {
 		expect(run([f()], [], c2, T + 2 * MIN).opens.map((o) => o.rule)).toEqual(['battery.low']);
 	});
 
+	it('a mass_offline finding guards: 12 device.offline findings open nothing', () => {
+		const c = counters();
+		const findings = [f('critical', 'network.mass_offline', null),
+			...Array.from({ length: 12 }, (_, i) => f('warning', 'device.offline', `0xdev${i}`))];
+		run(findings, [], c, T);
+		const r = run(findings, [], c, T + MIN);
+		expect(r.opens.map((o) => o.rule)).toEqual(['network.mass_offline']);
+		expect(r.notify).toEqual([{ key: 'network.mass_offline|', kind: 'open', severity: 'critical' }]);
+	});
+
 	it('notify:false rule opens and resolves silently', () => {
 		const c = counters();
 		const r1 = run([f('warning', 'battery.forecast')], [], c, T);

@@ -42,6 +42,10 @@ export const DEFAULT_SETTINGS = {
 	forecastWarnDays: 21,
 	forecastClearDays: 30,
 	forecastMinDays: 7,
+	massOfflineRouterPct: 20,
+	massOfflineDevices: 10,
+	massOfflineWindowMin: 5,
+	massOfflineClearPct: 5,
 	heartbeatUrl: ''
 };
 
@@ -57,13 +61,13 @@ export function saveSettings(db: Db, patch: Partial<Settings>): void {
 		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
 
-const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct'];
+const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
 const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
 	'lqiWeak', 'lqiWeakClear', 'lqiMinHours', 'lqiDegradePct', 'lqiRecoverPct', 'baselineMinDays',
 	'routeFailWarn', 'routeFailCrit', 'routeFailClear', 'netRouteFactor', 'netRouteMin', 'netRouteClearFactor',
-	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays'];
+	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays', 'massOfflineRouterPct', 'massOfflineDevices', 'massOfflineWindowMin', 'massOfflineClearPct'];
 
 /** Validates the Settings form; all-or-nothing, unknown keys ignored. */
 export function parseSettingsForm(form: FormData): { settings: Settings } | { error: string } {
@@ -96,6 +100,7 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.routeFailClear < v.routeFailWarn && v.routeFailWarn < v.routeFailCrit, 'Route failures must be OK again < warning < critical'],
 		[v.netRouteClearFactor < v.netRouteFactor, 'Network delivery failures must clear below the factor that raises them'],
 		[v.forecastWarnDays < v.forecastClearDays, 'Forecast must clear above the days that raise it'],
+		[v.massOfflineClearPct < v.massOfflineRouterPct, 'Mass offline must clear below the router percentage that raises it'],
 		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours']
 	];
 	const bad = order.find(([ok]) => !ok);

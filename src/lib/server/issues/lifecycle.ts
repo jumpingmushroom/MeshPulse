@@ -47,7 +47,7 @@ export interface LifecycleResult {
 
 export const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
 const H = 3_600_000;
-const GUARD_RULES: readonly string[] = ['bridge.offline', 'monitor.mqtt_lost'];
+const GUARD_RULES: readonly string[] = ['bridge.offline', 'monitor.mqtt_lost', 'network.mass_offline'];
 
 /** Turns this run's findings into issue changes and notifications. Mutates `counters`. */
 export function evaluate({ findings, issues, counters, mutedUntil, settings, now }: LifecycleInput): LifecycleResult {

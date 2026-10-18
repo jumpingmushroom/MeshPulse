@@ -19,7 +19,7 @@ export function ctx(): RuleContext {
 	const state = createState(T);
 	for (const m of loadFixture('startup')) route(state, m, 'zigbee2mqtt');
 	state.monitor.connected = true;
-	state.bridge.lastLiveAt = NOW;
+	Object.assign(state.bridge, { lastLiveAt: NOW, lastDeviceAt: NOW, deviceSince: T });
 	for (const d of state.devices.values()) {
 		d.availability = 'online';
 		d.offlineSince = null;

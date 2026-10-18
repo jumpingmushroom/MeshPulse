@@ -101,6 +101,24 @@ describe('route', () => {
 		expect(s.bridge.lastLiveAt).toBe(T);
 	});
 
+	it('only live device payloads set lastDeviceAt and start a device run after a 2 min gap', () => {
+		const s = withDevices();
+		feed(s, [
+			msg(T, 'living/lamp/availability', { state: 'online' }),
+			msg(T, 'bridge/health', { process: { uptime_sec: 10 } }),
+			msg(T, 'bridge/logging', { level: 'info', message: 'x' }),
+			msg(T, 'some_group', { state: 'ON' }),
+			msg(T, 'temp_sensor', { battery: 80 }, true)
+		]);
+		expect(s.bridge.lastLiveAt).toBe(T);
+		expect(s.bridge.lastDeviceAt).toBeNull();
+		route(s, msg(T + MIN, 'temp_sensor', { battery: 80 }), B);
+		route(s, msg(T + 2 * MIN, 'living/lamp', { state: 'ON' }), B);
+		expect(s.bridge).toMatchObject({ lastDeviceAt: T + 2 * MIN, deviceSince: T + MIN });
+		route(s, msg(T + 4 * MIN, 'living/lamp', { state: 'ON' }), B);
+		expect(s.bridge).toMatchObject({ lastDeviceAt: T + 4 * MIN, deviceSince: T + 4 * MIN });
+	});
+
 	it('ignores malformed payloads', () => {
 		const s = withDevices();
 		for (const p of ['ON', '', '{"a":', null, 5]) {

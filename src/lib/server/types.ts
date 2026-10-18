@@ -36,6 +36,10 @@ export interface BridgeState {
 	permitJoinSince: number | null;
 	lastUptimeSec: number | null;
 	lastLiveAt: number | null;
+	/** last live message on a device topic: Z2M's own health/log/availability traffic does not prove the mesh works */
+	lastDeviceAt: number | null;
+	/** start of the current run of device messages (no gap of 2 min or more) */
+	deviceSince: number | null;
 	restartedAt: number | null;
 }
 
@@ -104,6 +108,8 @@ export function createState(now: number): AppState {
 			permitJoinSince: null,
 			lastUptimeSec: null,
 			lastLiveAt: null,
+			lastDeviceAt: null,
+			deviceSince: null,
 			restartedAt: null
 		},
 		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null },

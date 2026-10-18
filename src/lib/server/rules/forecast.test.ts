@@ -40,7 +40,7 @@ describe('battery.forecast', () => {
 			const now = NOW + k * 60_000;
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const c = { ...setup(k < 5 ? 10 : null), now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-			c.state.bridge.lastLiveAt = now;
+			c.state.bridge.lastDeviceAt = now;
 			const r = evaluate({ findings: evaluateRules(c).filter((f) => f.rule === 'battery.forecast'), issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, false) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
