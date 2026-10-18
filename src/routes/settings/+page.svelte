@@ -16,7 +16,9 @@
 		['reminderCriticalH', 'Remind critical every', 'h'], ['reminderWarningH', 'Remind warning every', 'h'],
 		['lqiWeak', 'Weak link below', 'LQI'], ['lqiWeakClear', 'Weak link clears above', 'LQI'], ['lqiMinHours', 'Link rules need data in', 'h'],
 		['lqiDegradePct', 'Link degrading at', '% below normal'], ['lqiRecoverPct', 'Link recovered within', '% of normal'],
-		['baselineMinDays', 'Baseline needs', 'days']
+		['baselineMinDays', 'Baseline needs', 'days'],
+		['forecastTargetPct', 'Battery forecast target', '%'], ['forecastWarnDays', 'Forecast warns within', 'days'],
+		['forecastClearDays', 'Forecast clears above', 'days'], ['forecastMinDays', 'Forecast needs', 'days of data']
 	];
 	const msg = (section: string) => (form?.section === section ? form : null);
 </script>
