@@ -15,12 +15,23 @@ const byDevice = (evs: EventRow[]) => {
 	return m;
 };
 
+/** ieees of the open issues of `rule` */
+const openFor = (ctx: RuleContext, rule: string) => [...ctx.open].filter((k) => k.startsWith(`${rule}|`)).map((k) => k.slice(rule.length + 1));
+
 export function rejoinChurn(ctx: RuleContext): Finding[] {
 	const { now, settings: s } = ctx;
 	const out: Finding[] = [];
-	for (const [ieee, evs] of byDevice(live(ctx, ['device_announce', 'address_changed']))) {
+	for (const [ieee, all] of byDevice(live(ctx, ['device_announce', 'address_changed']))) {
 		const d = ctx.state.devices.get(ieee);
 		if (!d) continue;
+		// one rejoin often sends two announces about 20 s apart: count it once
+		let prevAnnounce = -Infinity;
+		const evs = all.filter((e) => {
+			if (e.kind !== 'device_announce') return true;
+			const keep = e.ts - prevAnnounce >= MIN;
+			prevAnnounce = e.ts;
+			return keep;
+		});
 		const count = (since: number, kind: string) =>
 			evs.filter((e) => e.ts >= since && e.kind === kind).reduce((n, e) => n + (kind === 'address_changed' ? Number(e.detail.delta) || 1 : 1), 0);
 		const since = now - s.churnWindowH * H;
@@ -46,10 +57,20 @@ export function rejoinChurn(ctx: RuleContext): Finding[] {
 
 export function deviceLeave(ctx: RuleContext): Finding[] {
 	const out: Finding[] = [];
-	for (const [ieee, evs] of byDevice(live(ctx, ['device_leave', 'leave_count_up']))) {
+	const h = ctx.health;
+	// a leave_count_up is stamped at the health sample, up to one sample interval after the leave
+	const slack = h.length >= 2 ? h[h.length - 1].ts - h[h.length - 2].ts : 0;
+	const leaves = byDevice(live(ctx, ['device_leave', 'leave_count_up']));
+	for (const ieee of new Set([...leaves.keys(), ...openFor(ctx, 'device.leave')])) {
 		const d = ctx.state.devices.get(ieee);
-		const leftAt = evs.at(-1)!.ts;
-		if (!d || (d.lastSeenAt ?? 0) > leftAt) continue;
+		if (!d) continue;
+		const evs = leaves.get(ieee);
+		const leftAt = evs ? Math.max(...evs.map((e) => (e.kind === 'leave_count_up' ? e.ts - slack : e.ts))) : null;
+		// no leave in 24 h (open issue aged out): any sign of life in the window came after it
+		const since = leftAt ?? ctx.now - 24 * H;
+		const back = (d.lastSeenAt ?? 0) > since ||
+			ctx.events.some((e) => e.ieee === ieee && (e.kind === 'device_announce' || e.kind === 'device_joined') && e.ts > since);
+		if (back) continue;
 		out.push({
 			rule: 'device.leave',
 			ieee,
@@ -84,17 +105,19 @@ export function interviewFailed(ctx: RuleContext): Finding[] {
 	const out: Finding[] = [];
 	// not restart-guarded: a failed interview is a real problem whenever it happens
 	const evs = ctx.events.filter((e) => e.kind === 'device_interview' && e.ieee !== null && (e.detail.status === 'failed' || e.detail.status === 'successful'));
-	for (const [ieee, list] of byDevice(evs)) {
-		const last = list.at(-1)!;
-		if (last.detail.status !== 'failed') continue;
-		const name = ctx.state.devices.get(ieee)?.friendlyName ?? (typeof last.detail.friendly_name === 'string' ? last.detail.friendly_name : ieee);
+	const byIeee = byDevice(evs);
+	// an open issue whose failure aged out of 24 h holds: a success after it would have resolved it
+	for (const ieee of new Set([...byIeee.keys(), ...openFor(ctx, 'device.interview_failed')])) {
+		const last = byIeee.get(ieee)?.at(-1);
+		if (last && last.detail.status !== 'failed') continue;
+		const name = ctx.state.devices.get(ieee)?.friendlyName ?? (typeof last?.detail.friendly_name === 'string' ? last.detail.friendly_name : ieee);
 		out.push({
 			rule: 'device.interview_failed',
 			ieee,
 			severity: 'warning',
 			summary: `${name} could not be interviewed`,
 			action: 'Re-pair the device or check its compatibility',
-			evidence: { failedAt: last.ts }
+			evidence: { failedAt: last?.ts ?? null }
 		});
 	}
 	return out;

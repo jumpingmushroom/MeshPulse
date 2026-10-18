@@ -31,4 +31,16 @@ describe('bridge.mqtt_backlog', () => {
 		expect(bridgeBacklog(with_([51, 10], true))).toHaveLength(1);
 		expect(bridgeBacklog(with_([51, 9], true))).toEqual([]);
 	});
+
+	it('when open, a missing queue value holds', () => {
+		expect(bridgeBacklog(with_([51, null], true))).toHaveLength(1);
+	});
+
+	it('samples older than 30 min: no new finding, an open issue holds', () => {
+		const c = with_([60, 60]);
+		c.now += 30 * MIN;
+		expect(bridgeBacklog(c)).toEqual([]);
+		c.open.add(issueKey('bridge.mqtt_backlog', null));
+		expect(bridgeBacklog(c)).toHaveLength(1);
+	});
 });

@@ -3,7 +3,7 @@ import { ctx, dev, DOOR, ev, H, HALL, LAMP, MIN, NOW, TEMP } from '../../../../t
 import { evaluate, newIssue, type IssueRow } from '../issues/lifecycle';
 import type { EventKind } from '../types';
 import { interviewFailed, networkChurn, rejoinChurn, deviceLeave } from './churn';
-import { evaluateRules, issueKey, type RuleContext } from './index';
+import { evaluateRules, issueKey, restartGuard, type RuleContext } from './index';
 
 const at = (c: RuleContext, kind: EventKind, ieee: string | null, ts: number, detail: Record<string, unknown> = {}) => {
 	c.events.push(ev({ ts, ieee, kind, detail }));
@@ -45,7 +45,7 @@ describe('device.rejoin_churn', () => {
 		const c = ctx();
 		announces(c, LAMP, 2);
 		expect(rejoinChurn(c)).toEqual([]);
-		announces(c, LAMP, 1, 0);
+		at(c, 'device_announce', LAMP, NOW - 30 * MIN);
 		expect(rejoinChurn(c)).toEqual([{
 			rule: 'device.rejoin_churn', ieee: LAMP, severity: 'warning',
 			summary: 'living/lamp keeps rejoining the network (3 rejoins in 6 h)',
@@ -94,7 +94,48 @@ describe('device.rejoin_churn', () => {
 	});
 });
 
+describe('device.rejoin_churn de-duplication', () => {
+	it('two announces 20 s apart are one rejoin: two pairs nothing, three separate rejoins warning', () => {
+		const c = ctx();
+		for (const t of [NOW - 60 * MIN, NOW - 30 * MIN]) {
+			at(c, 'device_announce', LAMP, t);
+			at(c, 'device_announce', LAMP, t + 20_000);
+		}
+		expect(rejoinChurn(c)).toEqual([]);
+		at(c, 'device_announce', LAMP, NOW - MIN);
+		expect(rejoinChurn(c)).toMatchObject([{ evidence: { announces: 3 } }]);
+	});
+});
+
 describe('device.leave', () => {
+	it('leave, announce, then the leave_count_up from the next health sample: no finding', () => {
+		const c = ctx();
+		c.health = [{ ts: NOW - 12 * MIN, queued: 0 }, { ts: NOW - 2 * MIN, queued: 0 }];
+		dev(c, DOOR).lastSeenAt = NOW - 30 * MIN;
+		at(c, 'device_leave', DOOR, NOW - 8 * MIN);
+		at(c, 'device_announce', DOOR, NOW - 7 * MIN);
+		at(c, 'leave_count_up', DOOR, NOW - 2 * MIN, { delta: 1 });
+		expect(deviceLeave(c)).toEqual([]);
+	});
+
+	it('a device_joined after the leave counts as seen again, even inside the restart grace', () => {
+		const c = ctx();
+		dev(c, DOOR).lastSeenAt = NOW - 30 * MIN;
+		at(c, 'device_leave', DOOR, NOW - 30 * MIN);
+		c.state.monitor.startedAt = NOW - 25 * MIN; // grace until NOW - 10 min
+		at(c, 'device_joined', DOOR, NOW - 20 * MIN);
+		expect(deviceLeave(c)).toEqual([]);
+	});
+
+	it('when open, holds after the leave ages out of 24 h until the device is seen', () => {
+		const c = ctx();
+		dev(c, DOOR).lastSeenAt = NOW - 30 * H;
+		c.open.add(issueKey('device.leave', DOOR));
+		expect(deviceLeave(c)).toMatchObject([{ ieee: DOOR, evidence: { leftAt: null } }]);
+		dev(c, DOOR).lastSeenAt = NOW - H;
+		expect(deviceLeave(c)).toEqual([]);
+	});
+
 	it('a leave event opens a warning until the device is seen again', () => {
 		const c = ctx();
 		dev(c, DOOR).lastSeenAt = NOW - 10 * MIN;
@@ -175,6 +216,14 @@ describe('device.interview_failed', () => {
 		expect(interviewFailed(c)).toEqual([]);
 	});
 
+	it('when open, holds after the failure ages out of 24 h', () => {
+		const c = ctx();
+		c.open.add(issueKey('device.interview_failed', DOOR));
+		expect(interviewFailed(c)).toMatchObject([{ ieee: DOOR, evidence: { failedAt: null } }]);
+		at(c, 'device_interview', DOOR, NOW - MIN, { status: 'successful' });
+		expect(interviewFailed(c)).toEqual([]);
+	});
+
 	it('an unknown device uses the name from the event', () => {
 		const c = ctx();
 		at(c, 'device_interview', '0xnew', NOW - MIN, { status: 'failed', friendly_name: '0xnew_name' });
@@ -183,6 +232,13 @@ describe('device.interview_failed', () => {
 });
 
 describe('restart guard', () => {
+	it('an uptime-detected restart guards around the process start and the detection, not the gap between', () => {
+		const c = ctx();
+		at(c, 'bridge_restart', null, NOW - H, { reason: 'uptime', from: 90000, to: 3 * 3600 }); // noticed 3 h after the start
+		const g = restartGuard(c);
+		expect([g(NOW - 4 * H + MIN), g(NOW - 2 * H), g(NOW - H + MIN), g(NOW - 30 * MIN)]).toEqual([true, false, true, false]);
+	});
+
 	it('restart burst opens nothing: every device announces and leaves within the grace after a restart', () => {
 		const c = ctx();
 		const restart = NOW - 3 * H;

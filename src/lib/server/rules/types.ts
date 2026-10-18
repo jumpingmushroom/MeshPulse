@@ -63,13 +63,15 @@ export function inGrace(ctx: RuleContext): boolean {
 /**
  * Whether an event at `ts` falls in a restart window, where announces, leaves and counter jumps are normal:
  * `graceMin` after MeshPulse starts or after any Z2M restart in `ctx.events`. A restart noticed from uptime
- * is dated back to when the process started, since the burst can come before the health sample shows it.
+ * also guards `graceMin` after the process start, since its burst came before the health sample showed it.
  */
 export function restartGuard(ctx: RuleContext): (ts: number) => boolean {
 	const g = ctx.settings.graceMin * 60_000;
-	const windows: [number, number][] = [[ctx.state.monitor.startedAt, ctx.state.monitor.startedAt + g]];
-	if (ctx.state.bridge.restartedAt !== null) windows.push([ctx.state.bridge.restartedAt, ctx.state.bridge.restartedAt + g]);
+	const starts = [ctx.state.monitor.startedAt, ctx.state.bridge.restartedAt ?? -Infinity];
 	for (const e of ctx.events)
-		if (e.kind === 'bridge_restart') windows.push([e.ts - (e.detail.reason === 'uptime' ? Number(e.detail.to) * 1000 || 0 : 0), e.ts + g]);
-	return (ts) => windows.some(([a, b]) => ts >= a && ts < b);
+		if (e.kind === 'bridge_restart') {
+			starts.push(e.ts);
+			if (e.detail.reason === 'uptime' && typeof e.detail.to === 'number') starts.push(e.ts - e.detail.to * 1000);
+		}
+	return (ts) => starts.some((s) => ts >= s && ts < s + g);
 }
