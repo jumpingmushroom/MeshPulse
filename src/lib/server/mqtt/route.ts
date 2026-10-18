@@ -184,7 +184,9 @@ function onLogging(state: AppState, p: unknown, event: Emit) {
 	if (r.kind === 'ping_failed' && r.attempts === 1) return; // Z2M pings devices already unavailable once (`available ? 2 : 1`)
 	const id = r.ieee ?? (r.name ? state.byName.get(r.name) : undefined);
 	const d = id ? state.devices.get(id) : undefined;
-	event('route_error', d?.ieee ?? null, { kind: r.kind, code: r.code });
+	// commands to an unpowered device fail by design; they would turn into a false route.failures once it is back
+	const ieee = r.kind === 'command_failed' && d?.availability === 'offline' ? null : d?.ieee ?? null;
+	event('route_error', ieee, { kind: r.kind, code: r.code });
 }
 
 function onAvailability(d: DeviceState, msg: MqttMsg, p: unknown, touch: (d: DeviceState) => DeviceState, event: Emit) {

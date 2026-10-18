@@ -1,4 +1,4 @@
-import { eq, gte, max } from 'drizzle-orm';
+import { and, eq, gte, isNotNull, max } from 'drizzle-orm';
 import { buildSeries, summarise, type Point } from '../../lib/chart';
 import { baselines, events, samplesHourly } from '../../lib/server/db/schema';
 import { getRuntime } from '../../lib/server/runtime';
@@ -17,7 +17,7 @@ export const load: PageServerLoad = () => {
 	const swaps = new Map(db.select({ ieee: events.ieee, ts: max(events.ts) }).from(events).where(eq(events.kind, 'battery_swap'))
 		.groupBy(events.ieee).all().flatMap((e): [string, number][] => (e.ieee && e.ts !== null ? [[e.ieee, e.ts]] : [])));
 	const hourly = new Map<string, Point[]>();
-	for (const h of db.select().from(samplesHourly).where(gte(samplesHourly.hour, t0)).orderBy(samplesHourly.hour).all()) {
+	for (const h of db.select().from(samplesHourly).where(and(gte(samplesHourly.hour, t0), isNotNull(samplesHourly.batteryMin))).orderBy(samplesHourly.hour).all()) {
 		const list = hourly.get(h.ieee) ?? [];
 		list.push({ t: h.hour, v: h.batteryMin });
 		hourly.set(h.ieee, list);

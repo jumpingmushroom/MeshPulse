@@ -54,28 +54,24 @@ export function rollupHours(db: Db, state: AppState, now: number): void {
 export function computeBaselines(db: Db, now: number): void {
 	const from = now - 8 * D;
 	const to = now - D;
-	const day = (ts: number) => Math.floor(ts / D);
 	const hourly = db.select().from(samplesHourly).where(and(gte(samplesHourly.hour, from), lt(samplesHourly.hour, to))).all();
 	const evs = db.select({ ts: events.ts, kind: events.kind }).from(events).where(and(gte(events.ts, from), lt(events.ts, to))).all();
 
 	const out: (typeof baselines.$inferInsert)[] = [];
-	const by = new Map<string, { avgs: number[]; days: Set<number> }>();
-	for (const r of hourly) {
-		const g = by.get(r.ieee) ?? { avgs: [], days: new Set() };
-		g.days.add(day(r.hour));
-		if (r.lqiAvg !== null) g.avgs.push(r.lqiAvg);
-		by.set(r.ieee, g);
-	}
-	for (const [ieee, { avgs, days }] of by) {
-		if (!avgs.length) continue;
+	// days = whole days of hours with data, so a short history is not counted as several calendar days
+	const by = new Map<string, number[]>();
+	for (const r of hourly) if (r.lqiAvg !== null) by.set(r.ieee, [...(by.get(r.ieee) ?? []), r.lqiAvg]);
+	for (const [ieee, avgs] of by) {
+		const days = Math.floor(avgs.length / 24);
 		const mean = avgs.reduce((a, b) => a + b, 0) / avgs.length;
 		const sd = Math.sqrt(avgs.reduce((a, b) => a + (b - mean) ** 2, 0) / avgs.length);
-		out.push({ ieee, metric: 'lqi_mean', value: mean, days: days.size, computedAt: now },
-			{ ieee, metric: 'lqi_stddev', value: sd, days: days.size, computedAt: now });
+		out.push({ ieee, metric: 'lqi_mean', value: mean, days, computedAt: now },
+			{ ieee, metric: 'lqi_stddev', value: sd, days, computedAt: now });
 	}
-	const netDays = new Set([...hourly.map((r) => day(r.hour)), ...evs.map((e) => day(e.ts))]);
+	// hours the monitor was collecting; route errors were only parsed since then, so events do not count
+	const netDays = Math.floor(new Set(hourly.map((r) => r.hour)).size / 24);
 	const errors = evs.filter((e) => e.kind === 'route_error').length;
-	out.push({ ieee: '', metric: 'route_errors_hourly', value: errors / ((to - from) / H), days: netDays.size, computedAt: now });
+	out.push({ ieee: '', metric: 'route_errors_hourly', value: errors / ((to - from) / H), days: netDays, computedAt: now });
 
 	const { stale, forecasts } = batteryForecasts(db, now);
 	out.push(...forecasts);

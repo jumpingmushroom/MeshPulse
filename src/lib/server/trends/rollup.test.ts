@@ -95,8 +95,41 @@ describe('computeBaselines', () => {
 		}
 		db.insert(samplesHourly).values(rows).run();
 		computeBaselines(db, T);
-		expect(get(db, IEEE, 'lqi_mean')).toMatchObject({ value: 100, days: 8, computedAt: T });
+		// 168 hours of data in the 7-day window
+		expect(get(db, IEEE, 'lqi_mean')).toMatchObject({ value: 100, days: 7, computedAt: T });
+		expect(get(db, IEEE, 'lqi_stddev')!.days).toBe(7);
 		expect(get(db, IEEE, 'lqi_stddev')!.value).toBe(0);
+	});
+
+	it('lqi baseline days are whole days of hours with LQI data', () => {
+		const { db } = setup();
+		// 38 h spanning 3 calendar days, plus hours with only a message count
+		const rows = Array.from({ length: 38 }, (_, i) => ({ ieee: IEEE, hour: hourStart(T - 3 * D) + i * H, lqiAvg: 90, msgCount: 1 }));
+		rows.push(...Array.from({ length: 20 }, (_, i) => ({ ieee: IEEE, hour: hourStart(T - 6 * D) + i * H, lqiAvg: null as unknown as number, msgCount: 1 })));
+		db.insert(samplesHourly).values(rows).run();
+		computeBaselines(db, T);
+		expect(get(db, IEEE, 'lqi_mean')!.days).toBe(1);
+		expect(get(db, IEEE, 'lqi_stddev')!.days).toBe(1);
+	});
+
+	it('route_errors_hourly days are whole days of hours with any hourly row, not events', () => {
+		const { db } = setup();
+		const start = hourStart(T - 7 * D);
+		// two devices overlap: hours 0-39 and 20-59, 60 distinct hours
+		db.insert(samplesHourly).values([
+			...Array.from({ length: 40 }, (_, i) => ({ ieee: '0xa', hour: start + i * H, msgCount: 1 })),
+			...Array.from({ length: 40 }, (_, i) => ({ ieee: '0xb', hour: start + (i + 20) * H, msgCount: 1 }))
+		]).run();
+		db.insert(events).values(Array.from({ length: 100 }, (_, i) => ({ ts: T - 8 * D + i * H, kind: 'route_error' }))).run();
+		computeBaselines(db, T);
+		expect(get(db, '', 'route_errors_hourly')!.days).toBe(2);
+	});
+
+	it('route_errors_hourly days are 0 with only events', () => {
+		const { db } = setup();
+		db.insert(events).values(Array.from({ length: 100 }, (_, i) => ({ ts: T - 8 * D + i * H, kind: 'route_error' }))).run();
+		computeBaselines(db, T);
+		expect(get(db, '', 'route_errors_hourly')!.days).toBe(0);
 	});
 
 	it('network route_errors_hourly is the mean per hour', () => {

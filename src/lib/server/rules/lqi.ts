@@ -50,13 +50,14 @@ export function lqiWeak(ctx: RuleContext): Finding[] {
 export function lqiDegrading(ctx: RuleContext): Finding[] {
 	const s = ctx.settings;
 	const out: Finding[] = [];
+	const weak = new Set(lqiWeak(ctx).map((f) => f.ieee)); // one problem, one issue: lqi.weak covers it
 	for (const d of ctx.state.devices.values()) {
 		const b = baselineOf(ctx.history, d.ieee, 'lqi_mean');
 		if (d.type === 'Coordinator' || !b) continue;
 		const day = window(ctx, d.ieee, 24);
 		const recent = window(ctx, d.ieee, 12);
 		const open = ctx.open.has(issueKey('lqi.degrading', d.ieee));
-		if (!open && b.days < s.baselineMinDays) continue;
+		if (!open && (b.days < s.baselineMinDays || weak.has(d.ieee) || ctx.open.has(issueKey('lqi.weak', d.ieee)))) continue;
 		if (!fires(open, day, recent, s.lqiMinHours,
 			(avg) => avg < b.value * (1 - s.lqiDegradePct / 100), (avg) => avg >= b.value * (1 - s.lqiRecoverPct / 100))) continue;
 		out.push({

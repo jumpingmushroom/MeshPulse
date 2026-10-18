@@ -66,7 +66,7 @@ export function counters(state: Pick<AppState, 'devices'>, batteryLowPct: number
 	return {
 		devicesOnline: online(ds), devicesTotal: ds.length,
 		routersOnline: online(routers), routersTotal: routers.length,
-		batteriesLow: ds.filter((d) => d.battery !== null && d.battery < batteryLowPct).length
+		batteriesLow: ds.filter((d) => d.battery !== null && d.battery <= batteryLowPct).length
 	};
 }
 

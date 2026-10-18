@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import LineChart from '../../../lib/components/LineChart.svelte';
-	import { FOREVER, formatAgo, formatDetail, formatTime } from '../../../lib/views';
+	import { FOREVER, formatAgo, formatDaysLeft, formatDetail, formatTime } from '../../../lib/views';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -43,7 +43,7 @@
 {#if d.batteryPowered}
 	<h2>Battery</h2>
 	<p>
-		{data.daysLeft !== null ? `About ${Math.round(data.daysLeft)} days until ${data.targetPct}%.` : 'Not enough data for a forecast yet.'}
+		{data.daysLeft !== null ? `Reaches ${data.targetPct}% in ${formatDaysLeft(data.daysLeft)}.` : 'Not enough data for a forecast yet.'}
 		Last swap: {data.lastSwapAt ? formatTime(data.lastSwapAt, data.tz) : 'none recorded'}.
 	</p>
 {/if}

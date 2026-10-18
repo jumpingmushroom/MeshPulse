@@ -40,6 +40,24 @@ describe('engine', () => {
 		expect(db.select().from(issues).all()).toMatchObject([{ id: rows[0].id, state: 'open', updatedAt: T + 180_000 }]);
 	});
 
+	it('ignoring a device resolves its issues without a notification', () => {
+		const db = openDb(':memory:');
+		const state = createState(T);
+		Object.assign(state.monitor, { connected: true, connectedAt: T });
+		const dirty = new Set<string>();
+		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		const sent: Notify[] = [];
+		const deps = { db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() },
+			notify: (_: IssueRow, n: Notify) => sent.push(n) };
+		runOnce(deps, T + 60_000);
+		runOnce(deps, T + 120_000);
+		expect(sent.map((n) => n.kind)).toEqual(['open']);
+		state.devices.get(HALL)!.tags = ['ignore'];
+		for (let k = 3; k < 10; k++) runOnce(deps, T + k * 60_000);
+		expect(db.select().from(issues).all()).toMatchObject([{ ieee: HALL, state: 'resolved' }]);
+		expect(sent.map((n) => n.kind)).toEqual(['open']);
+	});
+
 	it('feeds hourly history to the rules', () => {
 		const db = openDb(':memory:');
 		const state = createState(T);
