@@ -58,6 +58,13 @@ export const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2
 const H = 3_600_000;
 const GUARD_RULES: readonly string[] = ['bridge.offline', 'monitor.mqtt_lost'];
 
+const RELEASE_SUFFIX: Partial<Record<RuleId, string>> = {
+	'device.offline': ' — still offline after the incident',
+	'device.flapping': ' — still flapping after the incident',
+	'device.storm': ' — still noisy after the network storm',
+	'device.dominant': ' — still noisy after the network storm'
+};
+
 interface Plan { i: IssueRow; key: string; f?: Finding; patch: Partial<IssueRow>; kind: NotifyKind | null; severity: Severity }
 type Children = { names: string[]; recovered: number };
 
@@ -156,9 +163,10 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 			p.kind = null;
 			if (keyOf.has(parentId)) add(keyOf.get(parentId)!, p.i.ieee, true);
 		} else {
-			// the parent resolved: release with one normal open
-			Object.assign(p.patch, { parentIssueId: null, summary: `${p.patch.summary ?? p.i.summary} — still offline after the incident` });
-			p.kind = 'open';
+			// the parent resolved: an unannounced child still firing gets one normal open; others just lose the parent
+			p.patch.parentIssueId = null;
+			p.kind = p.f && p.i.lastNotifiedAt === null ? 'open' : null;
+			if (p.kind) p.patch.summary = `${p.f!.summary}${RELEASE_SUFFIX[p.i.rule] ?? ''}`;
 			out.released.push(p.i.id);
 		}
 	}

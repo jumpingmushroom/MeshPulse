@@ -83,7 +83,7 @@ describe('grouping', () => {
 	it('router grouping: end devices last seen within 10 min of the router going offline are its children', () => {
 		const off = T - 30 * MIN;
 		const devices: Record<string, Dev> = {
-			'0xrouter': { type: 'Router', friendlyName: 'Hall plug', lastSeenAt: off - 5 * MIN, offlineSince: off },
+			'0xrouter': { type: 'Router', friendlyName: 'Hall plug', lastSeenAt: off, offlineSince: off },
 			'0xin': { type: 'EndDevice', friendlyName: 'In', lastSeenAt: off - 10 * MIN, offlineSince: null },
 			'0xout': { type: 'EndDevice', friendlyName: 'Out', lastSeenAt: off - 11 * MIN, offlineSince: null }
 		};
@@ -96,6 +96,59 @@ describe('grouping', () => {
 		expect(h.get('device.offline', '0xout').parentIssueId).toBeNull();
 		expect(router.summary).toBe('Hall plug offline: 1 devices went silent after it');
 		expect(kinds(h.notes)).toEqual(['device.offline|0xrouter:open', 'device.offline|0xout:open']);
+	});
+
+	it('router window runs from its silence start, since Z2M marks it offline later', () => {
+		const at = (sensor: number) => (ieee: string) => ({ '0xr': { type: 'Router', lastSeenAt: T, offlineSince: T + 10 * MIN },
+			'0xe': { type: 'EndDevice', lastSeenAt: sensor, offlineSince: null } })[ieee];
+		const cand = [{ key: 'device.offline|0xr', rule: 'device.offline' as const, ieee: '0xr', openedAt: T }];
+		const child = f('device.offline', '0xe');
+		expect(parentFor(child, cand, at(T - 2 * MIN), DEFAULT_SETTINGS)).toBe('device.offline|0xr');
+		expect(parentFor(child, cand, at(T - 10 * MIN), DEFAULT_SETTINGS)).toBe('device.offline|0xr');
+		expect(parentFor(child, cand, at(T - 11 * MIN), DEFAULT_SETTINGS)).toBeNull();
+		expect(parentFor(child, cand, at(T + 20 * MIN), DEFAULT_SETTINGS)).toBe('device.offline|0xr');
+		expect(parentFor(child, cand, at(T + 21 * MIN), DEFAULT_SETTINGS)).toBeNull();
+	});
+
+	it('a child already recovering when its parent resolves sends nothing', () => {
+		const h = harness();
+		const mass = f('network.mass_offline', null, 'critical');
+		h.run([mass, f('device.offline', '0xend0')], T);
+		h.run([mass, f('device.offline', '0xend0')], T + MIN);
+		h.run([f('device.offline', '0xend0')], T + 2 * MIN); // parent missing 1
+		const r = h.run([], T + 3 * MIN); // parent resolves, child missing 1
+		expect(r.released).toHaveLength(1);
+		h.run([], T + 4 * MIN);
+		expect(h.get('device.offline', '0xend0').state).toBe('resolved');
+		expect(kinds(h.notes)).toEqual(['network.mass_offline|:open', 'network.mass_offline|:resolved']);
+	});
+
+	it('an announced child (attached retroactively) is released without a new open; its resolve notifies', () => {
+		const h = harness();
+		const off = f('device.offline', '0xend0');
+		const mass = f('network.mass_offline', null, 'critical');
+		h.run([off], T);
+		h.run([off], T + MIN);
+		h.run([off, mass], T + 2 * MIN);
+		h.run([off, mass], T + 3 * MIN);
+		h.run([off], T + 4 * MIN);
+		h.run([off], T + 5 * MIN); // parent resolves
+		expect(h.get('device.offline', '0xend0').parentIssueId).toBeNull();
+		h.run([], T + 6 * MIN);
+		h.run([], T + 7 * MIN);
+		expect(kinds(h.notes)).toEqual(['device.offline|0xend0:open', 'network.mass_offline|:open', 'network.mass_offline|:resolved', 'device.offline|0xend0:resolved']);
+	});
+
+	it('released storm children say they are still noisy', () => {
+		const h = harness();
+		const storm = f('network.storm', null);
+		const child = f('device.storm', '0xa');
+		h.run([storm, child], T);
+		h.run([storm, child], T + MIN);
+		h.run([child], T + 2 * MIN);
+		h.run([child], T + 3 * MIN);
+		expect(h.get('device.storm', '0xa').summary).toBe('device.storm 0xa — still noisy after the network storm');
+		expect(kinds(h.notes)).toEqual(['network.storm|:open', 'network.storm|:resolved', 'device.storm|0xa:open']);
 	});
 
 	it('router offline time falls back to the evidence offlineSince', () => {

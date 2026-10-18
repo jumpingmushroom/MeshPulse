@@ -22,9 +22,14 @@ export function parentFor(child: Pick<Finding, 'rule' | 'ieee'>, candidates: Can
 		if (PARENT_RULES[p.rule]?.includes(child.rule)) return true;
 		if (child.rule !== 'device.offline' || child.ieee === null || !isRouterOffline(p.rule, p.ieee, devices)) return false;
 		// shortcut: timing only, no real parent links; upgrade with the Phase 4 network map
-		const since = devices(p.ieee!)?.offlineSince ?? p.offlineSince ?? null;
+		// from the router's silence start (Z2M's offline event lags by its availability timeout) to its offline time
+		const r = devices(p.ieee!);
+		const since = r?.offlineSince ?? p.offlineSince ?? null;
+		const from = r?.lastSeenAt ?? since;
+		const to = since ?? from;
+		const w = settings.routerGroupWindowMin * 60_000;
 		const c = devices(child.ieee);
-		return since !== null && c?.type === 'EndDevice' && c.lastSeenAt !== null && Math.abs(c.lastSeenAt - since) <= settings.routerGroupWindowMin * 60_000;
+		return from !== null && to !== null && c?.type === 'EndDevice' && c.lastSeenAt !== null && c.lastSeenAt >= from - w && c.lastSeenAt <= to + w;
 	};
 	let best: Candidate | null = null;
 	for (const p of candidates) if (matches(p) && (!best || p.openedAt < best.openedAt)) best = p;
