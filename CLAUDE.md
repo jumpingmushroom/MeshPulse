@@ -72,7 +72,7 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 - SvelteKit 3: use `$app/env`, not `$app/environment`. adapter-node has no `ORIGIN` env; origin comes from the `Host` header or `PROTOCOL_HEADER`/`HOST_HEADER`.
 - No dependency beyond the stack (SvelteKit 3, Svelte 5, TS, Vite, Drizzle, better-sqlite3, mqtt, better-auth, vitest, adapter-node) without asking.
 - Severity values: `'info' | 'warning' | 'critical'`.
-- Design doc is the authority: `docs/superpowers/specs/2026-10-16-meshpulse-mvp-design.md`; plan in `docs/superpowers/plans/`.
+- Design docs are the authority: `docs/superpowers/specs/2026-10-16-meshpulse-mvp-design.md`, `2026-10-18-meshpulse-phase2-design.md`, `2026-10-18-meshpulse-phase3-design.md` (same folder; the later phase wins); plan in `docs/superpowers/plans/`.
 
 ## Workflow
 

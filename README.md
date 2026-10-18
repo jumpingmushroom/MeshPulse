@@ -49,7 +49,7 @@ Phase 3 rules work from live message counts and `bridge/health` data. Thresholds
 | Dominant device (`device.dominant`) | One device sends most of the network's messages. | More than 30% over 15 minutes and at least 60 messages; clears below 15% for 30 minutes |
 | Network storm (`network.storm`) | Total traffic exceeds the network baseline. Critical; the evidence lists the top contributors. | 4 times normal for 5 minutes; clears below 2 times |
 | Mass offline (`network.mass_offline`) | Many devices go offline together. Critical. | 20% of routers (at least 3) or 10 devices within 5 minutes |
-| Battery causing issues | A `battery.low` issue becomes Critical with "Replace battery" wording when the device also shows instability. | Battery at or below 35% and instability in the last 48 hours |
+| Battery causing issues | A `battery.low` issue becomes Critical with "Replace battery" wording when the device also shows instability. | Battery at or below 35%, or the device reports `battery_low`, or a coin cell is at or below the low-voltage setting, and instability in the last 48 hours |
 | Stale battery (`battery.stale`) | A daily-reporting battery device has sent no battery value for a while. Shown in the interface only; it never notifies. | 7 days |
 
 The storm rules need 3 days of history for a baseline. The rules that depend on announces, leaves, or message rates don't run during the grace period (15 minutes by default) after a MeshPulse or Zigbee2MQTT restart.
