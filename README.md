@@ -23,11 +23,12 @@ health:
   interval: 10
   reset_on_check: false
 advanced:
-  log_output: [console, file, mqtt]
   log_level: info
 ```
 
-`log_output` with `mqtt` publishes the Zigbee2MQTT log on `bridge/logging`. MeshPulse checks that it is enabled so that future route-failure rules can use it.
+Zigbee2MQTT 2.x always publishes its log on `bridge/logging`, so no `log_output` change is needed. On Zigbee2MQTT 1.x, add `mqtt` to `advanced.log_output`. Future route-failure rules will read this log.
+
+If you run the Home Assistant add-on, these settings go in Zigbee2MQTT's own `configuration.yaml` (or its web UI under **Settings**), not on the add-on's Configuration tab, which only accepts the add-on's own options.
 
 ## Set up
 

@@ -27,6 +27,10 @@ describe('checkPrereqs', () => {
 	it('health missing is not ok', () => {
 		expect(oks({ config: { ...good.config, health: undefined } }).health).toBe(false);
 	});
+	it('Z2M 2.x always logs to MQTT, whatever log_output says', () => {
+		expect(oks({ version: '2.14.2', config: { ...good.config, advanced: { log_output: ['console', 'file'] } } }).mqtt_log).toBe(true);
+	});
+
 	it('log_output without mqtt is not ok', () => {
 		expect(oks({ config: { ...good.config, advanced: { log_output: ['console'] } } }).mqtt_log).toBe(false);
 	});
