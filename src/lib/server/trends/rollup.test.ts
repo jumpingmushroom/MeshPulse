@@ -125,6 +125,21 @@ describe('computeBaselines', () => {
 		expect(get(db, '', 'route_errors_hourly')!.days).toBe(2);
 	});
 
+	it('msg_per_min is the mean hourly msgCount / 60 per device, network the sum of device means', () => {
+		const { db } = setup();
+		const start = hourStart(T - 7 * D);
+		// 0xa: 72 h alternating 60/180 msgs (mean 120 -> 2/min, 3 days); 0xb: 30 h of 30 msgs (0.5/min, 1 day)
+		db.insert(samplesHourly).values([
+			...Array.from({ length: 72 }, (_, i) => ({ ieee: '0xa', hour: start + i * H, msgCount: i % 2 ? 180 : 60 })),
+			...Array.from({ length: 30 }, (_, i) => ({ ieee: '0xb', hour: start + i * H, msgCount: 30 })),
+			{ ieee: '0xa', hour: T - D, msgCount: 10_000 } // last 24 h: not in the baseline
+		]).run();
+		computeBaselines(db, T);
+		expect(get(db, '0xa', 'msg_per_min')).toMatchObject({ value: 2, days: 3 });
+		expect(get(db, '0xb', 'msg_per_min')).toMatchObject({ value: 0.5, days: 1 });
+		expect(get(db, '', 'msg_per_min')).toMatchObject({ value: 2.5, days: 3 });
+	});
+
 	it('route_errors_hourly days are 0 with only events', () => {
 		const { db } = setup();
 		db.insert(events).values(Array.from({ length: 100 }, (_, i) => ({ ts: T - 8 * D + i * H, kind: 'route_error' }))).run();

@@ -20,7 +20,10 @@ export type RuleId =
 	| 'device.leave'
 	| 'network.churn'
 	| 'device.interview_failed'
-	| 'bridge.mqtt_backlog';
+	| 'bridge.mqtt_backlog'
+	| 'device.storm'
+	| 'device.dominant'
+	| 'network.storm';
 
 export interface EventRow extends NewEvent {
 	id: number;
@@ -67,11 +70,20 @@ export function inGrace(ctx: RuleContext): boolean {
  */
 export function restartGuard(ctx: RuleContext): (ts: number) => boolean {
 	const g = ctx.settings.graceMin * 60_000;
+	const starts = restartStarts(ctx);
+	return (ts) => starts.some((s) => ts >= s && ts < s + g);
+}
+
+/** Start of every restart window `restartGuard` knows. */
+export function restartStarts(ctx: RuleContext): number[] {
 	const starts = [ctx.state.monitor.startedAt, ctx.state.bridge.restartedAt ?? -Infinity];
 	for (const e of ctx.events)
 		if (e.kind === 'bridge_restart') {
 			starts.push(e.ts);
 			if (e.detail.reason === 'uptime' && typeof e.detail.to === 'number') starts.push(e.ts - e.detail.to * 1000);
 		}
-	return (ts) => starts.some((s) => ts >= s && ts < s + g);
+	return starts;
 }
+
+/** ieees of the open issues of `rule` */
+export const openFor = (ctx: RuleContext, rule: string) => [...ctx.open].filter((k) => k.startsWith(`${rule}|`)).map((k) => k.slice(rule.length + 1));

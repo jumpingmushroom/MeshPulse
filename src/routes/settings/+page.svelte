@@ -29,6 +29,13 @@
 		['churnWindowH', 'Rejoin churn window', 'h'], ['churnCritical', 'Rejoin churn critical at', 'rejoins in 24 h'],
 		['churnClearH', 'Rejoin churn clears after', 'h quiet'], ['netChurnDevices', 'Network churn at', 'devices'],
 		['netChurnWindowMin', 'Network churn window', 'min'], ['netChurnQuietH', 'Network churn clears after', 'h quiet'],
+		['stormFactor', 'Device storm above', '× normal'], ['stormMinPerMin', 'Device storm at least', 'msgs/min'],
+		['stormCritPerMin', 'Device storm critical above', 'msgs/min'], ['stormSustainMin', 'Storm lasts at least', 'min'],
+		['stormClearFactor', 'Device storm clears below', '× normal'], ['stormClearMin', 'Storm clears after', 'min'],
+		['netStormFactor', 'Network storm above', '× normal'], ['netStormClearFactor', 'Network storm clears below', '× normal'],
+		['dominantPct', 'Dominant device above', '% of messages'], ['dominantClearPct', 'Dominant device clears below', '% of messages'],
+		['dominantWindowMin', 'Dominant device window', 'min'], ['dominantClearMin', 'Dominant device clears after', 'min'],
+		['dominantMinMsgs', 'Dominant device needs', 'network msgs in window'],
 		['backlogHigh', 'MQTT backlog above', 'messages'], ['backlogClear', 'MQTT backlog clears below', 'messages']
 	];
 	const msg = (section: string) => (form?.section === section ? form : null);

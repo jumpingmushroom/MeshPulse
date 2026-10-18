@@ -22,6 +22,7 @@
 </dl>
 
 {#if d.ignored}<p class="note">Ignored — no rules run for this device.</p>{/if}
+{#if d.chatty}<p class="note">Chatty — expected to send many messages, never reported as dominant.</p>{/if}
 
 <h2>Open issues</h2>
 {#if data.issues.length}
@@ -66,6 +67,10 @@
 	<form method="post" action="?range={data.range}&/ignore" use:enhance>
 		<input type="hidden" name="on" value={d.ignored ? '0' : '1'} />
 		<button>{d.ignored ? 'Stop ignoring this device' : 'Ignore this device'}</button>
+	</form>
+	<form method="post" action="?range={data.range}&/chatty" use:enhance>
+		<input type="hidden" name="on" value={d.chatty ? '0' : '1'} />
+		<button>{d.chatty ? 'Unmark as chatty' : 'Mark as chatty'}</button>
 	</form>
 </div>
 

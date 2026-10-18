@@ -1,4 +1,4 @@
-import { issueKey, restartGuard, type EventRow, type Finding, type RuleContext } from './types';
+import { issueKey, openFor, restartGuard, type EventRow, type Finding, type RuleContext } from './types';
 
 const MIN = 60_000;
 const H = 60 * MIN;
@@ -14,9 +14,6 @@ const byDevice = (evs: EventRow[]) => {
 	for (const e of evs) m.set(e.ieee!, [...(m.get(e.ieee!) ?? []), e]);
 	return m;
 };
-
-/** ieees of the open issues of `rule` */
-const openFor = (ctx: RuleContext, rule: string) => [...ctx.open].filter((k) => k.startsWith(`${rule}|`)).map((k) => k.slice(rule.length + 1));
 
 export function rejoinChurn(ctx: RuleContext): Finding[] {
 	const { now, settings: s } = ctx;
