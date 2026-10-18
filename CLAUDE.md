@@ -1,6 +1,6 @@
 # MeshPulse
 
-Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issues, notifies via Discord.
+Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issues, notifies via Discord and Apprise.
 
 ## Commands
 
@@ -13,7 +13,7 @@ Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issu
 
 ## Architecture
 
-One Node process (SvelteKit, adapter-node). `src/hooks.server.ts` starts once: the collector (mqtt.js on `${Z2M_BASE_TOPIC}/#`, keeps state in memory, writes SQLite, never publishes), the rules loop (60 s: rules, then lifecycle), the outbox worker (2 s), and the heartbeat (60 s).
+One Node process (SvelteKit, adapter-node). `src/hooks.server.ts` starts once: the collector (mqtt.js on `${Z2M_BASE_TOPIC}/#`, keeps state in memory, writes SQLite, never publishes), the rules loop (60 s: rules, then lifecycle; hourly trend job: rollups, baselines, battery forecasts), the outbox worker (2 s), and the heartbeat (60 s).
 
 ```
 src/hooks.server.ts                  init -> startRuntime(); handle -> auth + login guard
@@ -25,12 +25,12 @@ src/lib/server/settings.ts           DEFAULT_SETTINGS, getSettings, saveSettings
 src/lib/server/types.ts              AppState, DeviceState, Finding, IssueRow, Message, Severity, Effect
 src/lib/server/mqtt/route.ts         route(state, msg, baseTopic) -> Effect[]
 src/lib/server/mqtt/parse.ts         parseJson, parseAvailability, parseLastSeen, normaliseVoltage
-src/lib/server/mqtt/logparse.ts     bridge/logging -> route_error events
+src/lib/server/mqtt/logparse.ts     parseRouteError: parses bridge/logging lines (route.ts emits route_error events)
 src/lib/server/mqtt/collector.ts     startCollector(deps) - mqtt.js + effect persistence
 src/lib/server/prereqs.ts            checkPrereqs(config) -> Prereq[]
 src/lib/server/rules/*.ts            one file per rule + index.ts (RULES, RULE_DEFAULTS)
 src/lib/server/rules/{lqi,route,forecast}.ts  lqi.weak/degrading, route.failures, network.route_errors, battery.forecast
-src/lib/server/trends/               rollup.ts (hourly samples), forecast.ts, history.ts (baselines)
+src/lib/server/trends/               rollup.ts (hourly samples + baselines), forecast.ts, history.ts (per-run snapshot the rules read)
 src/lib/server/rules/types.ts        RuleId, RuleContext, Finding, issueKey, inGrace
 src/lib/server/issues/lifecycle.ts   evaluate(input) -> LifecycleResult
 src/lib/server/issues/quiet.ts       isQuietHours(now, settings, tz)
