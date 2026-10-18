@@ -131,6 +131,21 @@ describe('battery.low causing issues', () => {
 		expect(batteryLow(d)[0].severity).toBe('warning');
 	});
 
+	it('silence and flapping are not instability during a mass outage or a router outage', () => {
+		const silent = () => low(18, { typicalGapMs: H, lastSeenAt: NOW - 3 * H });
+		const a = silent();
+		a.open.add(issueKey('network.mass_offline', null));
+		expect(batteryLow(a)[0].severity).toBe('warning');
+		const b = silent();
+		const router = [...b.state.devices.values()].find((d) => d.type === 'Router')!;
+		b.open.add(issueKey('device.offline', router.ieee));
+		expect(batteryLow(b)[0].severity).toBe('warning');
+		const c = low(18);
+		for (let i = 0; i < 4; i++) at(c, 'availability', DOOR, NOW - (i + 1) * H, { from: i % 2 ? 'online' : 'offline', to: i % 2 ? 'offline' : 'online' });
+		c.open.add(issueKey('network.mass_offline', null));
+		expect(batteryLow(c)[0].severity).toBe('warning');
+	});
+
 	it('never escalates a mains device', () => {
 		const c = ctx();
 		Object.assign(dev(c, HALL), { battery: 20 });

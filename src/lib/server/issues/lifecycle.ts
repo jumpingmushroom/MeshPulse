@@ -151,7 +151,9 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		const parentId = p.i.parentIssueId;
 		if (parentId === null) {
 			if (resolving.has(p.i.id) || tops.some((t) => t.key === p.key) || !fresh.length) continue;
-			const parent = parentFor(p.i, fresh, device, settings);
+			// an old offline/flapping issue is not part of a new incident
+			const stale = (t: Candidate) => (p.i.rule === 'device.offline' || p.i.rule === 'device.flapping') && p.i.openedAt < t.openedAt - settings.massOfflineWindowMin * 60_000;
+			const parent = parentFor(p.i, fresh.filter((t) => !stale(t)), device, settings);
 			if (parent === null) continue;
 			out.parentOf.set(p.key, parent); // retroactive: update only
 			p.kind = null;

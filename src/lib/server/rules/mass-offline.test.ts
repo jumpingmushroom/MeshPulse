@@ -95,6 +95,14 @@ describe('network.mass_offline', () => {
 		expect(massOffline(c)).toEqual([]);
 	});
 
+	it('an open issue holds through a MeshPulse restart', () => {
+		const { c, ends } = setup(12);
+		drop(c, ends);
+		c.open.add(issueKey('network.mass_offline', null));
+		c.state.monitor.startedAt = NOW - MIN;
+		expect(massOffline(c)).toHaveLength(1);
+	});
+
 	it('when open, holds until offline devices and routers drop below the clear thresholds', () => {
 		const { c, ends, routers } = setup(10, 18); // 20 routers
 		drop(c, ends);

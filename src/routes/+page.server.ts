@@ -4,7 +4,7 @@ import { checkPrereqs } from '../lib/server/prereqs';
 import { getRuntime } from '../lib/server/runtime';
 import { getSettings } from '../lib/server/settings';
 import { buildSeries, summarise } from '../lib/chart';
-import { networkScore } from '../lib/server/score';
+import { networkScore } from '../lib/score';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
 import { counters, formatDuration, sortIssues } from '../lib/views';
 import type { PageServerLoad } from './$types';
@@ -16,6 +16,7 @@ export const load: PageServerLoad = () => {
 	const { db, state } = getRuntime();
 	const open = sortIssues(db.select().from(issues).where(ne(issues.state, 'resolved')).all());
 	const ids = new Set(open.map((i) => i.id)); // a child whose parent is not open shows at top level
+	const list = open.filter((i) => i.parentIssueId === null || !ids.has(i.parentIssueId));
 	const now = Date.now();
 	const msgs = networkMsgPerMin(db, now);
 	const box = { ...SPARK, t0: now - 24 * H, t1: now, y0: 0, y1: Math.max(1, ...msgs.map((p) => p.v)) };
@@ -23,9 +24,9 @@ export const load: PageServerLoad = () => {
 	const info = bridge.info;
 	return {
 		...networkScore(open),
-		topLevel: open.filter((i) => i.parentIssueId === null).length,
+		topLevel: list.length,
 		spark: { w: SPARK.w, h: SPARK.h, d: msgs.length >= 2 ? buildSeries(msgs, box, 3 * H).line : '', summary: summarise('Messages per minute, 24 h', '/min', msgs) },
-		issues: open.filter((i) => i.parentIssueId === null || !ids.has(i.parentIssueId)).map(({ id, severity, state, summary, openedAt }) =>
+		issues: list.map(({ id, severity, state, summary, openedAt }) =>
 			({ id, severity, state, summary, openedAt, children: open.filter((c) => c.parentIssueId === id).map(({ id, summary }) => ({ id, summary })) })),
 		counters: counters(state, getSettings(db).batteryLowPct),
 		prereqs: checkPrereqs(info).filter((p) => !p.ok),

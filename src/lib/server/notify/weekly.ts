@@ -4,14 +4,13 @@ import { baselines, channels, events, healthScores, issues, outbox, samplesHourl
 import { countRejoins, onePerRejoin } from '../rules/churn';
 import type { EventRow } from '../rules/types';
 import type { AppState, EventKind } from '../types';
+import { GREEN } from '../../score';
 import { batteryRows } from '../../views';
 import { getSettings } from '../settings';
 import type { Message } from './channel';
 
 const H = 3_600_000;
 const DAY = 24 * H;
-// the network score's green threshold (score.ts keeps it inline)
-const GREEN = 85;
 const KEY = 'weeklyDigestWeek';
 
 /** ISO week id (`2026-W43`) of the Sunday 18:00 (in `tz`) that most recently passed, or null if `lastWeek` already has it. */
