@@ -40,6 +40,7 @@
 			</label>
 		{/each}
 	</div>
+	<p class="muted">Bridge silence: on a small or very quiet mesh, raise this. It is the time without any device message before "Zigbee network silent" fires.</p>
 	<h2>Quiet hours</h2>
 	<div class="grid">
 		<label><input name="quietEnabled" type="checkbox" checked={s.quietEnabled} /> Hold non-critical messages during quiet hours</label>

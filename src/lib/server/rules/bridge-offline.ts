@@ -2,12 +2,13 @@ import { inGrace, issueKey, type Finding, type RuleContext } from './types';
 
 const CLEAR_MS = 2 * 60_000;
 
-/** No live device message for bridgeSilenceMin, counted from the later of the last one, (re)connect, start and Z2M restart. */
-export function deviceSilent(ctx: RuleContext): boolean {
+/** No live device message for `ms`, counted from the later of the last one, (re)connect, start and Z2M restart. */
+export function deviceSilentFor(ctx: RuleContext, ms: number): boolean {
 	const { bridge: b, monitor: m } = ctx.state;
-	const since = Math.max(b.lastDeviceAt ?? 0, m.connectedAt ?? 0, m.startedAt, b.restartedAt ?? 0);
-	return !inGrace(ctx) && ctx.now - since >= ctx.settings.bridgeSilenceMin * 60_000;
+	return ctx.now - Math.max(b.lastDeviceAt ?? 0, m.connectedAt ?? 0, m.startedAt, b.restartedAt ?? 0) >= ms;
 }
+
+export const deviceSilent = (ctx: RuleContext) => !inGrace(ctx) && deviceSilentFor(ctx, ctx.settings.bridgeSilenceMin * 60_000);
 
 export function bridgeOffline(ctx: RuleContext): Finding[] {
 	const { now, state } = ctx;

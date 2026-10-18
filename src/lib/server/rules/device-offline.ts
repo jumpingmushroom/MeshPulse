@@ -1,3 +1,4 @@
+import { deviceSilentFor } from './bridge-offline';
 import { inGrace, issueKey, type Finding, type RuleContext } from './types';
 
 const H = 3_600_000;
@@ -5,6 +6,10 @@ const H = 3_600_000;
 export function deviceOffline(ctx: RuleContext): Finding[] {
 	const { now, settings: s } = ctx;
 	const grace = inGrace(ctx);
+	// Z2M marks devices offline when the coordinator stops hearing them: during a network silence that is not the device
+	const quiet = deviceSilentFor(ctx, 60_000);
+	const { deviceSince } = ctx.state.bridge;
+	const recovering = deviceSince !== null && now < deviceSince + s.graceMin * 60_000;
 	const out: Finding[] = [];
 	for (const d of ctx.state.devices.values()) {
 		if (d.type === 'Coordinator') continue;
@@ -17,10 +22,13 @@ export function deviceOffline(ctx: RuleContext): Finding[] {
 			: d.lastSeenAt === null ? null
 			: Math.max(d.lastSeenAt, ctx.state.monitor.connectedAt ?? 0, ctx.state.bridge.restartedAt ?? 0);
 		const silent = d.type !== 'Router' && threshold !== null && since !== null && now - since > threshold && (open || !grace);
-		const offline = d.availability === 'offline';
-		if (!offline && !silent) continue;
+		if (d.availability !== 'offline' && !silent) continue;
 		const last = ctx.events.findLast((e) => e.kind === 'availability' && e.ieee === d.ieee);
 		const offlineSince = d.offlineSince ?? (last?.detail.to === 'offline' ? last.ts : null) ?? d.lastSeenAt;
+		// after a network silence, devices marked offline before traffic resumed get graceMin to come back
+		const held = !open && (quiet || (recovering && offlineSince !== null && offlineSince < deviceSince!));
+		const offline = d.availability === 'offline' && !held;
+		if (!offline && !silent) continue;
 		out.push({
 			rule: 'device.offline',
 			ieee: d.ieee,

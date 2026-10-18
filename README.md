@@ -137,7 +137,7 @@ To get alerted when MeshPulse itself stops, create a **Push** monitor in Uptime 
 
 ## Tuning for the first week
 
-- The default bridge silence threshold is 5 minutes. A very quiet mesh may exceed it without a real problem. If you see "No messages from Zigbee2MQTT" issues, raise **Bridge silence** in **Settings**.
+- The default bridge silence threshold is 5 minutes. On a small or very quiet mesh, raise **Bridge silence** in **Settings**. It is the time without any device message before "Zigbee network silent" fires. Messages from Zigbee2MQTT itself (health, logs, availability) do not count.
 - A Zigbee2MQTT restart that takes longer than 1 to 2 minutes raises `bridge.offline`. This is expected.
 
 ## Recording traffic

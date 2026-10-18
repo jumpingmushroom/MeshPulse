@@ -89,14 +89,13 @@ describe('network.mass_offline', () => {
 	it('when open, holds until offline devices and routers drop below the clear thresholds', () => {
 		const { c, ends, routers } = setup(10, 18); // 20 routers
 		drop(c, ends);
-		c.events = []; // long ago: only current availability matters once open
+		c.now += 60 * MIN; // out of the window: once open, offline devices with an event in 24 h count
 		c.open.add(issueKey('network.mass_offline', null));
 		expect(massOffline(c)).toMatchObject([{ summary: '10 devices are still offline', evidence: { count: 10 } }]);
 		dev(c, ends[0]).availability = 'online';
 		expect(massOffline(c)).toEqual([]);
 		dev(c, ends[1]).availability = 'online';
 		drop(c, routers.slice(0, 1)); // 1 of 20 routers = 5 %
-		c.events = [];
 		expect(massOffline(c)).toHaveLength(1);
 		dev(c, routers[0]).availability = 'online';
 		expect(massOffline(c)).toEqual([]);
@@ -121,5 +120,51 @@ describe('network.mass_offline', () => {
 		}
 		expect(notes).toEqual(['network.mass_offline|:open:critical', 'network.mass_offline|:resolved:critical']);
 		expect(issues.map((i) => i.rule)).toEqual(['network.mass_offline']);
+	});
+
+	it('skips ignored devices', () => {
+		const { c, ends } = setup(10);
+		drop(c, ends);
+		dev(c, ends[0]).tags = ['ignore'];
+		expect(massOffline(c)).toEqual([]);
+	});
+
+	it('when open, long-dead devices without an offline event in 24 h do not hold it', () => {
+		const { c, ends, routers } = setup(10, 18); // 20 routers
+		for (const r of routers.slice(0, 3)) Object.assign(dev(c, r), { availability: 'offline', offlineSince: NOW - 72 * 60 * MIN });
+		drop(c, ends);
+		c.open.add(issueKey('network.mass_offline', null));
+		expect(massOffline(c)).toHaveLength(1);
+		for (const e of ends) dev(c, e).availability = 'online'; // incident over, 3 of 20 routers still dead
+		expect(massOffline(c)).toEqual([]);
+	});
+
+	it('when open, holds through bridge.offline and device silence', () => {
+		const { c, ends } = setup(12);
+		drop(c, ends);
+		c.open.add(issueKey('network.mass_offline', null));
+		c.open.add(issueKey('bridge.offline', null));
+		c.state.bridge.lastDeviceAt = NOW - 10 * MIN;
+		expect(massOffline(c)).toHaveLength(1);
+	});
+
+	it('opened while devices chat, then the network goes silent: stays open, no resolved', () => {
+		const { c, ends } = setup(12);
+		const issues: IssueRow[] = [];
+		const counters = { seen: new Map(), missing: new Map() };
+		const notes: string[] = [];
+		for (let k = 0; k < 30; k++) {
+			const now = NOW + k * MIN;
+			if (k < 6) c.state.bridge.lastDeviceAt = now; // silent from minute 6
+			if (k === 1) drop({ ...c, now }, ends, 0.9);
+			const open = issues.filter((i) => i.state !== 'resolved');
+			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
+			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now });
+			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
+			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
+			notes.push(...r.notify.map((n) => `${n.key}:${n.kind}`));
+		}
+		expect(notes).toEqual(['network.mass_offline|:open', 'bridge.offline|:open']);
+		expect(issues.find((i) => i.rule === 'network.mass_offline')?.state).toBe('open');
 	});
 });

@@ -12,6 +12,8 @@ describe('replay', () => {
 	it('replays a fixture into issues and notifications', () => {
 		const r = replay([
 			...fixture,
+			// device traffic every minute: a mesh with none reads as a silent network and holds new offline findings
+			...Array.from({ length: 31 }, (_, k) => msg(k, 'zigbee2mqtt/temp_sensor', { temperature: 21 })),
 			msg(10, 'zigbee2mqtt/living/lamp/availability', { state: 'offline' }),
 			msg(13, 'zigbee2mqtt/living/lamp/availability', '{"state":"online"}'),
 			msg(30, 'zigbee2mqtt/bridge/state', { state: 'online' })
