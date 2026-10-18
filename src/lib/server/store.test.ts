@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { loadFixture } from '../../../tests/helpers/fixtures';
 import { openDb } from './db';
-import { events, samples } from './db/schema';
+import { devices, events, samples } from './db/schema';
 import { route } from './mqtt/route';
-import { applyEffects, flushDevices, loadDevices, muteUntil } from './store';
+import { eq } from 'drizzle-orm';
+import { applyEffects, flushDevices, loadDevices, muteUntil, setIgnored } from './store';
 import { FOREVER } from '../views';
 import { createState } from './types';
 
@@ -55,5 +56,25 @@ describe('muteUntil', () => {
 		expect(muteUntil('unmute', 5)).toBeNull();
 		for (const bad of ['toString', 'constructor', '__proto__', 'hasOwnProperty', '2h', ''])
 			expect(muteUntil(bad, 5)).toBeUndefined();
+	});
+});
+
+describe('setIgnored', () => {
+	it('setIgnored toggles tag in DB and memory', () => {
+		const { db, state, dirty } = run();
+		flushDevices(db, state, dirty);
+		const ieee = state.byName.get('temp_sensor')!;
+		const d = state.devices.get(ieee)!;
+		d.tags = ['chatty'];
+		const tags = () => db.select({ tags: devices.tags }).from(devices).where(eq(devices.ieee, ieee)).get()!.tags;
+		expect(setIgnored(db, state, ieee, true)).toBe(true);
+		expect(d.tags).toEqual(['chatty', 'ignore']);
+		expect(tags()).toEqual({ chatty: true, ignore: true });
+		setIgnored(db, state, ieee, true); // idempotent
+		expect(d.tags).toEqual(['chatty', 'ignore']);
+		setIgnored(db, state, ieee, false);
+		expect(d.tags).toEqual(['chatty']);
+		expect(tags()).toEqual({ chatty: true });
+		expect(setIgnored(db, state, 'nope', true)).toBe(false);
 	});
 });

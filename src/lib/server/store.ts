@@ -73,6 +73,15 @@ export function flushDevices(db: Db, state: AppState, dirty: Set<string>): void 
 	dirty.clear();
 }
 
+/** Sets or clears the `ignore` tag in memory (rules read it) and on the device row. */
+export function setIgnored(db: Db, state: AppState, ieee: string, on: boolean): boolean {
+	const d = state.devices.get(ieee);
+	if (!d) return false;
+	d.tags = [...d.tags.filter((t) => t !== 'ignore'), ...(on ? ['ignore'] : [])];
+	db.update(devices).set({ tags: tagsToDb(d.tags) }).where(eq(devices.ieee, ieee)).run();
+	return true;
+}
+
 const H = 3_600_000;
 const MUTE = new Map<string, number | null>([['1h', H], ['24h', 24 * H], ['7d', 168 * H], ['forever', FOREVER], ['unmute', null]]);
 
