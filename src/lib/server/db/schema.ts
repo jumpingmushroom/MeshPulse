@@ -131,3 +131,15 @@ export const settings = sqliteTable('settings', {
 	key: text('key').primaryKey(),
 	value: text('value', { mode: 'json' }).$type<unknown>().notNull()
 });
+
+export const healthSamples = sqliteTable('health_samples', {
+	ts: integer('ts').primaryKey(),
+	uptimeSec: integer('uptime_sec'),
+	mqttQueued: integer('mqtt_queued'),
+	devices: text('devices', { mode: 'json' }).$type<Record<string, { leaves: number; addr: number }>>().notNull()
+});
+
+export const healthScores = sqliteTable('health_scores', {
+	ts: integer('ts').primaryKey(),
+	score: integer('score').notNull()
+});

@@ -6,7 +6,7 @@ import { baselines, devices, events, issues, samples, samplesHourly } from '../.
 import { getRuntime } from '../../../lib/server/runtime';
 import { getSettings } from '../../../lib/server/settings';
 import { hourStart } from '../../../lib/server/trends/rollup';
-import { muteUntil, setIgnored } from '../../../lib/server/store';
+import { muteUntil, setTag } from '../../../lib/server/store';
 import type { Actions, PageServerLoad } from './$types';
 
 const H = 3_600_000;
@@ -93,6 +93,6 @@ export const actions: Actions = {
 	ignore: async ({ params, request }) => {
 		const { db, state } = getRuntime();
 		const on = (await request.formData()).get('on') === '1';
-		setIgnored(db, state, getDevice(params.ieee).ieee, on);
+		setTag(db, state, getDevice(params.ieee).ieee, 'ignore', on);
 	}
 };

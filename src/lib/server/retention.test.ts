@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db/index';
-import { events, issues, outbox, samples, samplesHourly } from './db/schema';
+import { events, healthSamples, healthScores, issues, outbox, samples, samplesHourly } from './db/schema';
 import { prune } from './retention';
 
 const D = 86_400_000;
@@ -39,4 +39,15 @@ it('prunes samples_hourly after 365 days', () => {
 	db.insert(samplesHourly).values([{ ieee: 'a', hour: now - 366 * D, msgCount: 1 }, { ieee: 'a', hour: now - 364 * D, msgCount: 1 }]).run();
 	prune(db, now);
 	expect(db.select().from(samplesHourly).all().map((r) => r.hour)).toEqual([now - 364 * D]);
+});
+
+it('prunes health_samples after 14 days and health_scores after 365', () => {
+	const db = openDb(':memory:');
+	const now = 1000 * D;
+	const dev = { devices: {} };
+	db.insert(healthSamples).values([{ ts: now - 15 * D, ...dev }, { ts: now - 13 * D, ...dev }]).run();
+	db.insert(healthScores).values([{ ts: now - 366 * D, score: 1 }, { ts: now - 364 * D, score: 1 }]).run();
+	prune(db, now);
+	expect(db.select().from(healthSamples).all().map((r) => r.ts)).toEqual([now - 13 * D]);
+	expect(db.select().from(healthScores).all().map((r) => r.ts)).toEqual([now - 364 * D]);
 });
