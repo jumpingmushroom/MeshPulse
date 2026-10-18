@@ -78,7 +78,10 @@ export function sendWeekly(db: Db, state: AppState, now: number, tz: string, qui
 	const week = shouldSendWeekly(now, typeof last === 'string' && last ? last : null, tz);
 	if (!week) return;
 	const record = () => db.insert(settings).values({ key: KEY, value: week }).onConflictDoUpdate({ target: settings.key, set: { value: week } }).run();
-	if (!last) return record(); // fresh install: no catch-up digest, the first one goes out next Sunday 18:00
+	if (!last) {
+		record();
+		return;
+	} // fresh install: no catch-up digest, the first one goes out next Sunday 18:00
 	const message = weeklyDigest(db, state, now);
 	for (const ch of db.select().from(channels).where(eq(channels.enabled, true)).all())
 		if (ch.config?.weeklyDigest ?? ch.kind === 'discord')
