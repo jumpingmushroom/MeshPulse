@@ -39,6 +39,35 @@ export const samples = sqliteTable(
 	(t) => [primaryKey({ columns: [t.ieee, t.ts] }), index('samples_ts_idx').on(t.ts)]
 );
 
+export const samplesHourly = sqliteTable(
+	'samples_hourly',
+	{
+		ieee: text('ieee').notNull(),
+		hour: integer('hour').notNull(),
+		lqiMin: integer('lqi_min'),
+		lqiAvg: real('lqi_avg'),
+		lqiMax: integer('lqi_max'),
+		batteryMin: real('battery_min'),
+		voltageMin: real('voltage_min'),
+		msgCount: integer('msg_count').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.ieee, t.hour] }), index('samples_hourly_hour_idx').on(t.hour)]
+);
+
+export type BaselineMetric = 'lqi_mean' | 'lqi_stddev' | 'route_errors_hourly' | 'battery_days_left';
+
+export const baselines = sqliteTable(
+	'baselines',
+	{
+		ieee: text('ieee').notNull(), // '' = network
+		metric: text('metric').$type<BaselineMetric>().notNull(),
+		value: real('value').notNull(),
+		days: integer('days').notNull(),
+		computedAt: integer('computed_at').notNull()
+	},
+	(t) => [primaryKey({ columns: [t.ieee, t.metric] })]
+);
+
 export const events = sqliteTable(
 	'events',
 	{

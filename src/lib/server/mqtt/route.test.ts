@@ -264,4 +264,12 @@ describe('route', () => {
 		expect(fx.filter((e) => e.kind === 'dirty')).toEqual([{ kind: 'dirty', ieee: TEMP }]);
 		expect(route(s, msg(T, 'bridge/devices', loadFixture('devices')[0].payload), B)).toEqual([]);
 	});
+
+	it('counts live device messages per hour', () => {
+		const s = withDevices();
+		const hour = Math.floor(T / 3_600_000) * 3_600_000;
+		feed(s, [msg(T, 'living/lamp', { linkquality: 50 }), msg(T + MIN, 'living/lamp', { linkquality: 51 }),
+			msg(T + 2 * MIN, 'living/lamp', { linkquality: 52 }, true)]);
+		expect(s.msgCounts.get(`${LAMP}|${hour}`)).toBe(2);
+	});
 });

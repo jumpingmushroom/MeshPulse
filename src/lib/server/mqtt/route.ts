@@ -78,7 +78,7 @@ function handle(
 		if (ieee) return onAvailability(state.devices.get(ieee)!, msg, payload, touch, event);
 	}
 	const ieee = state.byName.get(rest);
-	if (ieee) return onDevice(state.devices.get(ieee)!, msg, payload, fx, touch, event);
+	if (ieee) return onDevice(state, state.devices.get(ieee)!, msg, payload, fx, touch, event);
 	if (!state.devicesLoaded) {
 		state.pending.push(msg);
 		if (state.pending.length > PENDING_CAP) state.pending.shift();
@@ -186,6 +186,7 @@ function onAvailability(d: DeviceState, msg: MqttMsg, p: unknown, touch: (d: Dev
 }
 
 function onDevice(
+	state: AppState,
 	d: DeviceState,
 	msg: MqttMsg,
 	p: unknown,
@@ -210,6 +211,10 @@ function onDevice(
 	}
 	if (typeof p.battery_low === 'boolean') d.batteryLow = p.battery_low;
 
+	if (!msg.retain) {
+		const k = `${d.ieee}|${msg.ts - (msg.ts % 3_600_000)}`;
+		state.msgCounts.set(k, (state.msgCounts.get(k) ?? 0) + 1);
+	}
 	if (msg.retain) {
 		// retained state is not live: only an explicit last_seen counts
 		const seen = parseLastSeen(p.last_seen, NaN);
