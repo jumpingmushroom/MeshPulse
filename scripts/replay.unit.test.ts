@@ -27,4 +27,8 @@ describe('replay', () => {
 		const r = replay(fixture.map((m) => ({ ...m, retain: true })).concat(msg(3, 'zigbee2mqtt/bridge/state', { state: 'online' }, true)));
 		expect(r.issues.filter((i) => i.rule === 'bridge.offline' && i.severity === 'critical')).toEqual([]);
 	});
+
+	it('returns an empty report for empty input', () => {
+		expect(replay([])).toMatchObject({ messages: 0, issues: [], notifications: [] });
+	});
 });

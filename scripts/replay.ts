@@ -21,7 +21,9 @@ export interface ReplayReport {
 
 /** Feeds a capture through the real router, DB-backed engine and trend jobs on capture time; nothing is sent. */
 export function replay(lines: MqttMsg[], opts: { settings?: Partial<Settings> } = {}): ReplayReport {
-	const msgs = [...lines].sort((a, b) => a.ts - b.ts);
+	if (!lines.length) return { from: 0, to: 0, messages: 0, issues: [], notifications: [] };
+	// captures are in order; copy and sort only when not (avoids a 1.2 M element copy)
+	const msgs = lines.every((m, i) => i === 0 || lines[i - 1].ts <= m.ts) ? lines : [...lines].sort((a, b) => a.ts - b.ts);
 	const from = msgs[0].ts;
 	const to = msgs[msgs.length - 1].ts;
 	const config = loadConfig({ SECRET_KEY: 'replay', TZ: process.env.TZ });
