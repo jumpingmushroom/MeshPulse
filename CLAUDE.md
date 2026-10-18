@@ -9,6 +9,7 @@ Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issu
 - `npm run check` - svelte-check / tsc
 - `npx drizzle-kit generate` - generate SQL migrations after schema changes
 - `npm run capture` - record `zigbee2mqtt/#` traffic to JSONL (`scripts/capture.ts`)
+- `REPLAY=<capture.jsonl> npm run replay` - replay a capture through router, rules and lifecycle; writes `<capture>.report.txt` (`scripts/replay.ts`)
 - `docker compose up -d --build` - build and run the container (needs `.env`, see `.env.example`)
 
 ## Architecture
@@ -30,13 +31,16 @@ src/lib/server/mqtt/collector.ts     startCollector(deps) - mqtt.js + effect per
 src/lib/server/prereqs.ts            checkPrereqs(config) -> Prereq[]
 src/lib/server/rules/*.ts            one file per rule + index.ts (RULES, RULE_DEFAULTS)
 src/lib/server/rules/{lqi,route,forecast}.ts  lqi.weak/degrading, route.failures, network.route_errors, battery.forecast
-src/lib/server/trends/               rollup.ts (hourly samples + baselines), forecast.ts, history.ts (per-run snapshot the rules read)
+src/lib/server/trends/               minutes.ts (in-memory per-minute counters), rollup.ts (hourly samples + baselines), forecast.ts, history.ts (per-run snapshot the rules read)
+src/lib/server/rules/{churn,storm,mass-offline,bridge-backlog}.ts  rejoin/network churn, leave, interview; device/network storm, dominant; mass offline; mqtt backlog
 src/lib/server/rules/types.ts        RuleId, RuleContext, Finding, issueKey, inGrace
 src/lib/server/issues/lifecycle.ts   evaluate(input) -> LifecycleResult
 src/lib/server/issues/quiet.ts       isQuietHours(now, settings, tz)
 src/lib/server/issues/grouping.ts    PARENT_RULES, parentFor (child issues under incidents)
+src/lib/score.ts                     deviceScore, networkScore (top-level issues only)
 src/lib/server/engine.ts             runOnce(deps, now); startEngine(deps)
 src/lib/server/notify/*.ts           channel registry, discord, apprise, outbox worker
+src/lib/server/notify/weekly.ts     weekly digest (Sunday 18:00 TZ, once per ISO week)
 src/lib/server/crypto.ts             encrypt, decrypt
 src/lib/server/retention.ts          prune(db, now)
 src/lib/server/heartbeat.ts          heartbeatTick(deps, now); startHeartbeat(deps)
@@ -47,12 +51,15 @@ src/lib/chart.ts                     chart scale/path helpers
 src/lib/components/LineChart.svelte  SVG line chart
 src/lib/views.ts                     pure view helpers for pages (status, formatTime, FOREVER)
 src/lib/server/runtime.ts            startRuntime(), runtime singleton (state, db, config)
-src/routes/...                       pages (devices/[ieee], batteries), api/health
+src/routes/...                       pages (devices/[ieee], batteries, events), api/health
+scripts/replay.ts                    replay(lines) -> report; formatReport
 Tables added in Phase 2: samples_hourly, baselines
 scripts/capture.ts                   record zigbee2mqtt/# to JSONL
 tests/fixtures/*.jsonl               fixture traffic (line: {"ts","topic","payload","retain"})
 tests/helpers/simulate.ts            pure replay harness: router -> rules -> lifecycle
 ```
+
+Parent/child lifecycle: `network.mass_offline`, `network.storm` and a Router's `device.offline` are parents (`issues/grouping.ts`). A matching device issue that opens under an open parent gets `parent_issue_id` and never notifies; when the parent resolves, still-open children are released and notify once. Children don't count toward the network score.
 
 Rules and lifecycle are pure; test them with fixtures, not mocks.
 
@@ -69,5 +76,6 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 
 ## Workflow
 
+- Replay gate: before a rule change merges, replay a real 24 h capture. A normal day must produce no Critical, and every would-be notification in the report goes in the PR description.
 - One git branch per milestone (`feat/mNN-<slug>`), conventional commits, PRs squash-merged (`gh pr merge --squash --delete-branch`). No AI attribution in commits or PRs.
 - Record progress with `paseo-progress` (milestones T02-T12): update the ticket stage at start, each stage, and done.

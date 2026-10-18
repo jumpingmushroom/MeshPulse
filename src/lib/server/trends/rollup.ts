@@ -2,7 +2,7 @@ import { and, eq, gte, inArray, isNotNull, lt, sql } from 'drizzle-orm';
 import type { Db } from '../db/index';
 import { forecastDaysLeft } from './forecast';
 import { baselines, devices, events, healthScores, samples, samplesHourly } from '../db/schema';
-import { networkScore } from '../score';
+import { networkScore } from '../../score';
 import { getSettings } from '../settings';
 import type { AppState, Severity } from '../types';
 

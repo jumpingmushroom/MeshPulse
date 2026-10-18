@@ -1,5 +1,5 @@
 // Pure view helpers shared by the pages (server loads and components).
-import { deviceScore } from './server/score';
+import { deviceScore } from './score';
 import type { AppState, DeviceState, Severity } from './server/types';
 
 export const FOREVER = 253402300799000; // 9999-12-31, the "mute forever" sentinel

@@ -4,7 +4,7 @@ import { checkPrereqs } from '../lib/server/prereqs';
 import { getRuntime } from '../lib/server/runtime';
 import { getSettings } from '../lib/server/settings';
 import { buildSeries, summarise } from '../lib/chart';
-import { networkScore } from '../lib/server/score';
+import { networkScore } from '../lib/score';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
 import { counters, formatDuration, sortIssues } from '../lib/views';
 import type { PageServerLoad } from './$types';
