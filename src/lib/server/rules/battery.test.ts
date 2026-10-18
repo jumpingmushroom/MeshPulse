@@ -173,6 +173,12 @@ describe('battery.low causing issues', () => {
 		expect(batteryLow(c)[0].severity).toBe('warning');
 	});
 
+	it('silence counts from the end of a real silence (plus grace), not from before it', () => {
+		const c = low(30, { typicalGapMs: H, lastSeenAt: NOW - 3.5 * H });
+		Object.assign(c.state.bridge, { silenceEndedAt: NOW - 20 * MIN, silenceMs: 3 * H });
+		expect(batteryLow(c)).toEqual([]);
+	});
+
 	it('a coin cell escalates only at or below voltageLow', () => {
 		const c = ctx();
 		Object.assign(dev(c, TEMP), { battery: 50, voltage: 2.85 });

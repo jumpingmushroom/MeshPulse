@@ -47,9 +47,10 @@ function instabilities(ctx: RuleContext, d: DeviceState): [string, string][] {
 	const mass = (ts: number) => new Set(all.filter((e) => e.kind === 'availability' && Math.abs(e.ts - ts) <= s.massOfflineWindowMin * MIN).map((e) => e.ieee)).size >= s.massOfflineDevices;
 	const flaps = mine.filter((e) => e.kind === 'availability' && e.detail.from != null && !mass(e.ts)).length;
 	if (flaps >= s.flappingCount) out.push(['flapping', `dropped off ${flaps} times in ${s.causingWindowH} h`]);
-	// as device.offline: counted from reconnect / Z2M restart, never in grace or an outage
+	// as device.offline: counted from reconnect / Z2M restart / the end of an outage (with its grace), never in grace or an outage
 	// shortcut: silence and LQI are judged now, not over the window; a past gap is forgotten once the device reports again
-	const seen = d.lastSeenAt === null ? null : Math.max(d.lastSeenAt, ctx.state.monitor.connectedAt ?? 0, ctx.state.bridge.restartedAt ?? 0);
+	const seen = d.lastSeenAt === null ? null : Math.max(d.lastSeenAt, ctx.state.monitor.connectedAt ?? 0, ctx.state.bridge.restartedAt ?? 0,
+		...down.map(([, b]) => (b === Infinity ? 0 : b)));
 	// 2 × gap alone would call a 10-minute reporter unstable after 20 min: also at least silenceMinH
 	if (seen !== null && d.typicalGapMs !== null && !inGrace(ctx) && !down.some(([, b]) => b === Infinity) &&
 		now - seen > Math.max(2 * d.typicalGapMs, s.silenceMinH * H)) out.push(['silence', `silent for ${Math.round((now - seen) / H)} h`]);
