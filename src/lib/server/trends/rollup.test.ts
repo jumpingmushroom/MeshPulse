@@ -191,6 +191,15 @@ describe('computeBaselines', () => {
 			expect(get(db, IEEE, 'battery_days_left')).toBeUndefined();
 		});
 
+		it('stores the median battery report gap and the last report over 30 days', () => {
+			const { db } = setup();
+			addDevice(db);
+			db.insert(samplesHourly).values([0, 2, 4, 10, 40 * 24].map((ago) => ({ ieee: IEEE, hour: T - 9 * D - ago * H, batteryMin: 50, msgCount: 1 }))).run();
+			computeBaselines(db, T);
+			expect(get(db, IEEE, 'battery_report_gap_h')).toMatchObject({ value: 2 }); // gaps 6, 2, 2 (the 40-day-old row is outside)
+			expect(get(db, IEEE, 'battery_last_report')).toMatchObject({ value: T - 9 * D });
+		});
+
 		it('deletes a stale row and ignores mains devices', () => {
 			const { db } = setup();
 			addDevice(db);
