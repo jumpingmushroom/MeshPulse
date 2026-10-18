@@ -67,7 +67,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		const def = RULE_DEFAULTS[f.rule];
 		if (seen < def.minRuns || (guard && def.deviceLevel)) continue;
 		out.opens.push(f);
-		if (!muted(f.ieee)) out.notify.push({ key, kind: 'open', severity: f.severity });
+		if (def.notify && !muted(f.ieee)) out.notify.push({ key, kind: 'open', severity: f.severity });
 	}
 
 	for (const [key, i] of byKey) {
@@ -94,7 +94,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 				evidence: { ...i.evidence, durationMs: now - i.openedAt } });
 			if (!unannounced) kind = 'resolved'; // never announced: resolve silently
 		}
-		if (kind && !muted(i.ieee)) {
+		if (kind && RULE_DEFAULTS[i.rule].notify && !muted(i.ieee)) {
 			patch.lastNotifiedAt = now;
 			out.notify.push({ key, kind, severity });
 		}

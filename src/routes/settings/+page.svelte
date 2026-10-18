@@ -13,7 +13,10 @@
 		['mqttLostSec', 'MQTT lost after', 's'], ['restartWarnCount', 'Bridge restarts warning', 'per day'],
 		['silenceMultiplier', 'Silent after typical gap ×', ''], ['silenceMinH', 'Silence at least', 'h'], ['silenceMaxH', 'Silence at most', 'h'],
 		['flappingCount', 'Flapping at', 'drops'], ['flappingClearBelow', 'Flapping clears below', 'drops'], ['flappingWindowH', 'Flapping window', 'h'],
-		['reminderCriticalH', 'Remind critical every', 'h'], ['reminderWarningH', 'Remind warning every', 'h']
+		['reminderCriticalH', 'Remind critical every', 'h'], ['reminderWarningH', 'Remind warning every', 'h'],
+		['lqiWeak', 'Weak link below', 'LQI'], ['lqiWeakClear', 'Weak link clears above', 'LQI'], ['lqiMinHours', 'Link rules need data in', 'h'],
+		['lqiDegradePct', 'Link degrading at', '% below normal'], ['lqiRecoverPct', 'Link recovered within', '% of normal'],
+		['baselineMinDays', 'Baseline needs', 'days']
 	];
 	const msg = (section: string) => (form?.section === section ? form : null);
 </script>

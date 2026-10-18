@@ -26,6 +26,12 @@ export const DEFAULT_SETTINGS = {
 	quietEnd: '07:00',
 	reminderCriticalH: 6,
 	reminderWarningH: 24,
+	lqiWeak: 30,
+	lqiWeakClear: 40,
+	lqiMinHours: 6,
+	lqiDegradePct: 25,
+	lqiRecoverPct: 10,
+	baselineMinDays: 3,
 	heartbeatUrl: ''
 };
 
@@ -41,10 +47,11 @@ export function saveSettings(db: Db, patch: Partial<Settings>): void {
 		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
 
-const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct'];
+const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
-const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec'];
+const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
+	'lqiWeak', 'lqiWeakClear', 'lqiMinHours', 'lqiDegradePct', 'lqiRecoverPct', 'baselineMinDays'];
 
 /** Validates the Settings form; all-or-nothing, unknown keys ignored. */
 export function parseSettingsForm(form: FormData): { settings: Settings } | { error: string } {
@@ -71,7 +78,10 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.batteryCriticalPct < v.batteryLowPct && v.batteryLowPct < v.batteryClearPct, 'Battery thresholds must be critical < low < OK again'],
 		[v.voltageCritical < v.voltageLow && v.voltageLow < v.voltageClear, 'Coin cell thresholds must be critical < low < OK again'],
 		[v.flappingClearBelow < v.flappingCount, 'Flapping must clear below the count that raises it'],
-		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum']
+		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum'],
+		[v.lqiWeak < v.lqiWeakClear, 'Weak link must clear above the LQI that raises it'],
+		[v.lqiRecoverPct < v.lqiDegradePct, 'Link recovered must be within less than the degrading percentage'],
+		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours']
 	];
 	const bad = order.find(([ok]) => !ok);
 	return bad ? { error: bad[1] } : { settings: v };

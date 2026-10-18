@@ -1,4 +1,5 @@
 import type { Settings } from '../settings';
+import type { History } from '../trends/history';
 import type { AppState, NewEvent, Severity } from '../types';
 
 export type RuleId =
@@ -8,7 +9,12 @@ export type RuleId =
 	| 'monitor.mqtt_lost'
 	| 'device.offline'
 	| 'device.flapping'
-	| 'battery.low';
+	| 'battery.low'
+	| 'lqi.weak'
+	| 'lqi.degrading'
+	| 'route.failures'
+	| 'network.route_errors'
+	| 'battery.forecast';
 
 export interface EventRow extends NewEvent {
 	id: number;
@@ -22,6 +28,7 @@ export interface RuleContext {
 	settings: Settings;
 	/** issueKey of every open issue */
 	open: Set<string>;
+	history: History;
 }
 
 export interface Finding {
