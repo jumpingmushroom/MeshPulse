@@ -3,7 +3,7 @@ import type { DeviceState } from '../types';
 import { deviceSilent } from './bridge-offline';
 import { countRejoins, live, onePerRejoin } from './churn';
 import { window } from './lqi';
-import { inGrace, issueKey, type EventRow, type Finding, type RuleContext } from './types';
+import { inGrace, issueKey, openFor, type EventRow, type Finding, type RuleContext } from './types';
 
 const MIN = 60_000;
 const H = 60 * MIN;
@@ -38,6 +38,9 @@ function instabilities(ctx: RuleContext, d: DeviceState): [string, string][] {
 	const mine = live({ ...ctx, events: all }, ['device_announce', 'address_changed', 'availability', 'route_error'])
 		.filter((e) => e.ieee === d.ieee && e.ts >= since && !down.some(([a, b]) => e.ts >= a && e.ts < b));
 	const out: [string, string][] = [];
+	// an incident explains silence and availability flips; they say nothing about this battery
+	const incident = ctx.open.has(issueKey('network.mass_offline', null)) ||
+		openFor(ctx, 'device.offline').some((ieee) => ctx.state.devices.get(ieee)?.type === 'Router');
 	const rejoins = onePerRejoin(mine.filter((e) => e.kind === 'device_announce' || e.kind === 'address_changed'));
 	const announces = countRejoins(rejoins, since, 'device_announce');
 	const addr = countRejoins(rejoins, since, 'address_changed');
@@ -46,13 +49,13 @@ function instabilities(ctx: RuleContext, d: DeviceState): [string, string][] {
 	// a change at the same time as many other devices is a mass outage (network.mass_offline), not this battery
 	const mass = (ts: number) => new Set(all.filter((e) => e.kind === 'availability' && Math.abs(e.ts - ts) <= s.massOfflineWindowMin * MIN).map((e) => e.ieee)).size >= s.massOfflineDevices;
 	const flaps = mine.filter((e) => e.kind === 'availability' && e.detail.from != null && !mass(e.ts)).length;
-	if (flaps >= s.flappingCount) out.push(['flapping', `dropped off ${flaps} times in ${s.causingWindowH} h`]);
+	if (!incident && flaps >= s.flappingCount) out.push(['flapping', `dropped off ${flaps} times in ${s.causingWindowH} h`]);
 	// as device.offline: counted from reconnect / Z2M restart / the end of an outage (with its grace), never in grace or an outage
 	// shortcut: silence and LQI are judged now, not over the window; a past gap is forgotten once the device reports again
 	const seen = d.lastSeenAt === null ? null : Math.max(d.lastSeenAt, ctx.state.monitor.connectedAt ?? 0, ctx.state.bridge.restartedAt ?? 0,
 		...down.map(([, b]) => (b === Infinity ? 0 : b)));
 	// 2 × gap alone would call a 10-minute reporter unstable after 20 min: also at least silenceMinH
-	if (seen !== null && d.typicalGapMs !== null && !inGrace(ctx) && !down.some(([, b]) => b === Infinity) &&
+	if (!incident && seen !== null && d.typicalGapMs !== null && !inGrace(ctx) && !down.some(([, b]) => b === Infinity) &&
 		now - seen > Math.max(2 * d.typicalGapMs, s.silenceMinH * H)) out.push(['silence', `silent for ${Math.round((now - seen) / H)} h`]);
 	const b = baselineOf(ctx.history, d.ieee, 'lqi_mean');
 	const day = window(ctx, d.ieee, 24);
