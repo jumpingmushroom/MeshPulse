@@ -42,10 +42,12 @@ export function simulate(msgs: MqttMsg[], opts: { until: number; settings?: Part
 			openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
 			history: { hourly: new Map(), baselines: new Map() }, health: health.slice(-2) };
 		const findings = evaluateRules(ctx);
-		const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), mutedUntil: (ieee) => state.devices.get(ieee)?.mutedUntil ?? null });
+		const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee), mutedUntil: (ieee) => state.devices.get(ieee)?.mutedUntil ?? null });
 		for (const f of r.opens)
 			issues.push({ id: issues.length + 1, ...newIssue(f, now, r.notify.some((n) => n.key === issueKey(f.rule, f.ieee))) });
 		for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
+		const at = (k: string) => issues.find((i) => i.state !== 'resolved' && issueKey(i.rule, i.ieee) === k)!;
+		for (const [c, p] of r.parentOf) at(c).parentIssueId = at(p).id;
 		notifies.push(...r.notify.map((n) => ({ ...n, at: now })));
 		state.monitor.lastRulesRunAt = now;
 	}

@@ -110,7 +110,7 @@ describe('network.mass_offline', () => {
 		expect(massOffline(c)).toEqual([]);
 	});
 
-	it('an outage of 12 devices opens one Critical, no device issues, resolves once and never reopens', () => {
+	it('an outage of 12 devices sends one Critical open and resolve, its device issues stay silent children, never reopens', () => {
 		const { c, ends } = setup(12);
 		const issues: IssueRow[] = [];
 		const counters = { seen: new Map(), missing: new Map() };
@@ -122,14 +122,18 @@ describe('network.mass_offline', () => {
 			if (k === 15) for (const e of ends) Object.assign(dev(c, e), { availability: 'online', offlineSince: null, lastSeenAt: now });
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+			const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
 				networkQuiet: deviceSilentFor(run, 60_000) });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
+			for (const [ck, pk] of r.parentOf) issues.find((i) => issueKey(i.rule, i.ieee) === ck)!.parentIssueId = issues.find((i) => issueKey(i.rule, i.ieee) === pk)!.id;
 			notes.push(...r.notify.map((n) => `${n.key}:${n.kind}:${n.severity}`));
 		}
 		expect(notes).toEqual(['network.mass_offline|:open:critical', 'network.mass_offline|:resolved:critical']);
-		expect(issues.map((i) => i.rule)).toEqual(['network.mass_offline']);
+		const children = issues.filter((i) => i.rule !== 'network.mass_offline');
+		expect(issues[0].rule).toBe('network.mass_offline');
+		expect(children.length).toBeGreaterThan(0);
+		expect(children.every((i) => i.parentIssueId === 1 && i.state === 'resolved')).toBe(true);
 	});
 
 	it('skips ignored devices', () => {
@@ -169,7 +173,7 @@ describe('network.mass_offline', () => {
 			if (k === 1) drop({ ...c, now }, ends, 0.9);
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
-			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+			const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
 				networkQuiet: deviceSilentFor(run, 60_000) });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);

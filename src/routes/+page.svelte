@@ -31,6 +31,12 @@
 				<a href="/issues/{i.id}">{i.summary}</a>
 				{#if i.state === 'acknowledged'}<span class="muted">acknowledged</span>{/if}
 				<span class="muted">{formatAgo(i.openedAt, data.now)}</span>
+				{#if i.children.length}
+					<details>
+						<summary>{i.children.length} grouped issue{i.children.length === 1 ? '' : 's'}</summary>
+						<ul>{#each i.children as ch (ch.id)}<li><a href="/issues/{ch.id}">{ch.summary}</a></li>{/each}</ul>
+					</details>
+				{/if}
 			</li>
 		{/each}
 	</ul>

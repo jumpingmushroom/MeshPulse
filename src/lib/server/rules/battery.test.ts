@@ -204,7 +204,7 @@ describe('battery.low causing issues', () => {
 			const open = issues.filter((i) => i.state !== 'resolved');
 			c.open = new Set(open.map((i) => issueKey(i.rule, i.ieee)));
 			c.openCritical = new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee)));
-			const r = evaluate({ findings: batteryLow(c), issues: open, counters, mutedUntil: () => null, settings: c.settings, now: c.now, networkQuiet: false });
+			const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: batteryLow(c), issues: open, counters, mutedUntil: () => null, settings: c.settings, now: c.now, networkQuiet: false });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, c.now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
 			notes.push(...r.notify.map((x) => `${x.kind}:${x.severity}`));
@@ -244,7 +244,7 @@ describe('battery.stale', () => {
 	it('never notifies', () => {
 		const c = stale(1, 8);
 		const counters = { seen: new Map(), missing: new Map() };
-		const input = { issues: [], counters, mutedUntil: () => null, settings: c.settings, networkQuiet: false };
+		const input = { issues: [], counters, mutedUntil: () => null, settings: c.settings, networkQuiet: false, device: () => undefined };
 		evaluate({ ...input, findings: batteryStale(c), now: NOW });
 		const r = evaluate({ ...input, findings: batteryStale(c), now: NOW + MIN });
 		expect(r.opens).toHaveLength(1);

@@ -77,7 +77,7 @@ describe('route.failures', () => {
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
 			c.state.bridge.lastDeviceAt = now;
-			const r = evaluate({ findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now, networkQuiet: false });
+			const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now, networkQuiet: false });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
 			kinds.push(...r.notify.filter((n) => n.key.startsWith('route.failures|')).map((n) => n.kind));

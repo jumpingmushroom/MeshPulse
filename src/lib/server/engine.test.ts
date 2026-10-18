@@ -41,6 +41,31 @@ describe('engine', () => {
 		expect(db.select().from(issues).all()).toMatchObject([{ id: rows[0].id, state: 'open', updatedAt: T + 180_000 }]);
 	});
 
+	it('stores parent links: a child is never sent while its router is offline, and is released with one open', () => {
+		const db = openDb(':memory:');
+		const state = createState(T);
+		Object.assign(state.monitor, { connected: true, connectedAt: T });
+		const dirty = new Set<string>();
+		for (const m of loadFixture('startup')) applyEffects(db, route(state, m, 'zigbee2mqtt'), dirty);
+		state.bridge.lastDeviceAt = T + 10 * 60_000;
+		const DOOR = '0x00124b0000000004';
+		const hall = state.devices.get(HALL)!;
+		Object.assign(state.devices.get(DOOR)!, { availability: 'offline', lastSeenAt: hall.offlineSince });
+		const sent: { issue: IssueRow; n: Notify }[] = [];
+		const deps = { db, state, dirty, config: loadConfig({ SECRET_KEY: 'x' }), counters: { seen: new Map(), missing: new Map() },
+			notify: (issue: IssueRow, n: Notify) => sent.push({ issue: { ...issue }, n }) };
+		runOnce(deps, T + 60_000);
+		runOnce(deps, T + 120_000);
+		const row = (ieee: string) => db.select().from(issues).all().find((i) => i.ieee === ieee)!;
+		expect(row(DOOR).parentIssueId).toBe(row(HALL).id);
+		expect(sent.map((s) => `${s.n.kind} ${s.issue.summary}`)).toEqual(['open hall_plug offline: 1 devices went silent after it']);
+		Object.assign(hall, { availability: 'online', offlineSince: null });
+		for (let k = 3; k < 6; k++) runOnce(deps, T + k * 60_000);
+		expect(row(DOOR).parentIssueId).toBeNull();
+		expect(sent.slice(1).map((s) => `${s.n.kind} ${s.issue.ieee}`)).toEqual([`resolved ${HALL}`, `open ${DOOR}`]);
+		expect(sent[2].issue.summary).toBe('door_sensor is offline — still offline after the incident');
+	});
+
 	it('ignoring a device resolves its issues without a notification', () => {
 		const db = openDb(':memory:');
 		const state = createState(T);

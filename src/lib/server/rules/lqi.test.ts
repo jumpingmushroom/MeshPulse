@@ -129,7 +129,7 @@ describe('lqi rules through the lifecycle', () => {
 			const open = issues.filter((i) => i.state !== 'resolved');
 			const c = { ...(k < 3 ? bad : good), now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
 			c.state.bridge.lastDeviceAt = now; // keep the bridge live as time advances
-			const r = evaluate({ findings: evaluateRules(c), issues: open, counters, mutedUntil: () => null, settings: c.settings, now, networkQuiet: false });
+			const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(c), issues: open, counters, mutedUntil: () => null, settings: c.settings, now, networkQuiet: false });
 			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, true) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
 			kinds.push(...r.notify.map((n) => `${n.key.split('|')[0]} ${n.kind}`));

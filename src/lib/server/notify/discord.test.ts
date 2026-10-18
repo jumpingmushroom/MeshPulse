@@ -7,7 +7,7 @@ import { toDiscordPayload, WEBHOOK_RE } from './discord';
 const T = Date.parse('2026-10-16T10:00:00Z');
 const issue = (p: Partial<IssueRow> = {}): IssueRow => ({
 	id: 7, rule: 'battery.low', ieee: '0x1', severity: 'warning', state: 'open', openedAt: T, updatedAt: T, resolvedAt: null,
-	summary: 'Battery low in Bad sensor', action: 'Replace the battery', evidence: {}, lastNotifiedAt: null, ...p
+	summary: 'Battery low in Bad sensor', action: 'Replace the battery', evidence: {}, lastNotifiedAt: null, parentIssueId: null, ...p
 });
 const dev = { friendlyName: 'Bad sensor', lqi: 42, battery: 12, voltage: null, lastSeenAt: T } as DeviceState;
 
