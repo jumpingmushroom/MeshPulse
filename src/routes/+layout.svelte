@@ -7,7 +7,7 @@
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
-	const links = [['/', 'Overview'], ['/devices', 'Devices'], ['/batteries', 'Batteries'], ['/issues', 'Issues'], ['/events', 'Events'], ['/settings', 'Settings']];
+	const links = $derived([['/', 'Overview'], ['/devices', 'Devices'], ['/batteries', 'Batteries'], ['/issues', 'Issues'], ['/events', 'Events'], ...(data.wifi ? [['/wifi', 'Wi-Fi']] : []), ['/settings', 'Settings']]);
 
 	const hm = (ms: number | null) => (ms === null ? '—' : new Date(ms).toLocaleTimeString('en-GB', { timeZone: data.tz, hour: '2-digit', minute: '2-digit' }));
 	const hms = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { timeZone: data.tz });
