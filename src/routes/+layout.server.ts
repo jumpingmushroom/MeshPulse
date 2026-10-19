@@ -6,6 +6,8 @@ import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = ({ locals }) => {
 	const { config, db, state } = getRuntime();
+	// signed-out visitors (/login) get no issue data
+	if (!locals.user) return { tz: config.tz, user: null, now: Date.now(), nav: navSummary([], { connected: true, downSince: null, startedAt: 0 }), lastMessageAt: null };
 	const open = db.select({ severity: issues.severity, parentIssueId: issues.parentIssueId }).from(issues).where(ne(issues.state, 'resolved')).all();
 	return {
 		tz: config.tz, user: locals.user?.email ?? null, now: Date.now(),
