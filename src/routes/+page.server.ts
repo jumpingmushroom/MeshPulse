@@ -4,6 +4,8 @@ import { checkPrereqs } from '../lib/server/prereqs';
 import { getRuntime } from '../lib/server/runtime';
 import { buildSeries, summarise } from '../lib/chart';
 import { networkScore } from '../lib/score';
+import { getSettings } from '../lib/server/settings';
+import { loadWifiSnapshot } from '../lib/server/wifi/snapshot';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
 import { batteriesDue, banner, counters, learning, peakQuiet, formatDuration, sortIssues, wifiApName } from '../lib/views';
 import type { PageServerLoad } from './$types';
@@ -25,7 +27,10 @@ export const load: PageServerLoad = () => {
 	const name = (ieee: string | null) => (ieee && state.devices.get(ieee)?.friendlyName) || undefined;
 	const due = batteriesDue(db.select({ ieee: baselines.ieee, days: baselines.value }).from(baselines).where(eq(baselines.metric, 'battery_days_left')).all(), state);
 	const first = db.select({ h: min(samplesHourly.hour) }).from(samplesHourly).get()?.h ?? null;
+	const wifiSnap = getSettings(db).wifiEnabled ? loadWifiSnapshot(db, state, now) : null;
+	const wifiOverlap = wifiSnap?.aps.filter((a) => a.overlaps).length ?? 0;
 	return {
+		wifi: wifiSnap && { zigbeeChannel: wifiSnap.zigbeeChannel, aps: wifiSnap.aps.filter((a) => a.channel !== null).length, overlap: wifiOverlap },
 		...networkScore(open),
 		banner: banner(list),
 		learning: learning(first, now),

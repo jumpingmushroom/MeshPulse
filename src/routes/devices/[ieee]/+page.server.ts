@@ -4,9 +4,11 @@ import { EVENT_KINDS } from '../../../lib/server/events-page';
 import { deviceScore } from '../../../lib/score';
 import { latestParents, parentChanged } from '../../../lib/server/active/parents';
 import { deviceCharts, type Range } from '../../../lib/server/device-history';
-import { baselines, devices, events, issues } from '../../../lib/server/db/schema';
+import { baselines, devices, events, issues, wifiAreas } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
 import { getSettings } from '../../../lib/server/settings';
+import { areaOf } from '../../../lib/server/wifi/areas';
+import { loadWifiSnapshot } from '../../../lib/server/wifi/snapshot';
 import { muteUntil, setTag } from '../../../lib/server/store';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -41,8 +43,15 @@ export const load: PageServerLoad = ({ params, url }) => {
 	} : null;
 	const routed = scan && d.type === 'Router' ? [...scan.parents.values()].filter((v) => v.parent === d.ieee).length : null;
 
+	// no areas configured (or none matching): "whole network", every AP is nearby
+	const mine = areaOf(d.friendlyName, db.select().from(wifiAreas).all());
+	const nearbyWifi = settings.wifiEnabled
+		? loadWifiSnapshot(db, state, t1).aps.filter((a) => a.channel !== null && (!mine.length || a.area === null || mine.includes(a.area)))
+			.map((a) => ({ name: a.name, channel: a.channel!, overlaps: a.overlaps, busy: a.cuTotal === null ? null : Math.round(a.cuTotal) }))
+		: [];
 	return {
 		range,
+		nearbyWifi,
 		parent, routed,
 		device: {
 			ieee: d.ieee, name: d.friendlyName, type: d.type, model: d.model, vendor: d.vendor, powerSource: d.powerSource,
