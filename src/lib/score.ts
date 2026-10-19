@@ -10,8 +10,9 @@ const score = (issues: { severity: Severity }[]) => Math.max(0, 100 - issues.red
 export const deviceScore = score;
 
 /** Network: top-level issues only (one incident, one deduction). Green needs >= 85 and no critical; red is < 60 or any critical. */
-export function networkScore(issues: { severity: Severity; parentIssueId: number | null }[]): { score: number; status: Status } {
-	const top = issues.filter((i) => i.parentIssueId === null);
+export function networkScore(issues: { severity: Severity; parentIssueId: number | null; rule?: string }[]): { score: number; status: Status } {
+	// Wi-Fi issues stay listed and notified but are not Zigbee health
+	const top = issues.filter((i) => i.parentIssueId === null && !i.rule?.startsWith('wifi.'));
 	const s = score(top);
 	const status = s < 60 || top.some((i) => i.severity === 'critical') ? 'red' : s >= GREEN && !top.some((i) => i.severity === 'warning') ? 'green' : 'amber';
 	return { score: s, status };

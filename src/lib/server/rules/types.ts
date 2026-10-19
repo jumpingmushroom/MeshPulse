@@ -51,9 +51,9 @@ export interface RuleContext {
 	history: History;
 	/** last two health samples, newest last */
 	health: { ts: number; queued: number | null }[];
-	/** from the active checks; missingRouters is from the latest ok coordinator check, null if none */
 	/** from the UniFi poller; absent in tests that do not use it */
 	wifi?: WifiSnapshot & { enabled: boolean; failures: number; lastError: string | null };
+	/** from the active checks; missingRouters is from the latest ok coordinator check, null if none */
 	active?: { missingRouters: string[] | null; scanFailStreak: number; baseTopic?: string };
 }
 

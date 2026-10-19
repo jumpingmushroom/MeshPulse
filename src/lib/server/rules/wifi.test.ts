@@ -7,7 +7,7 @@ import type { WifiApSnap } from '../wifi/snapshot';
 const AP: WifiApSnap = { mac: 'aa', name: 'Kitchen AP', area: 'Kitchen', channel: 1, width: 20, overlaps: true, cuTotal: 70, cuMaxHour: 70, busyFor: 0, clearFor: 0, changedAt: null };
 const withWifi = (aps: Partial<WifiApSnap>[], over: Record<string, unknown> = {}) => {
 	const c = ctx();
-	c.wifi = { zigbeeChannel: 11, fresh: true, enabled: true, failures: 0, lastError: null, aps: aps.map((a) => ({ ...AP, ...a })), ...over };
+	c.wifi = { zigbeeChannel: 11, lastZigbeeChannel: 11, fresh: true, enabled: true, failures: 0, lastError: null, aps: aps.map((a) => ({ ...AP, ...a })), ...over };
 	return c;
 };
 
@@ -37,6 +37,15 @@ describe('wifi rules', () => {
 		expect(wifiBusyAir(open)).toHaveLength(1);
 		open.wifi!.aps[0].clearFor = 30;
 		expect(wifiBusyAir(open)).toEqual([]);
+	});
+	it('holds open issues, and opens none, while the Zigbee channel is missing', () => {
+		const c = withWifi([{}, { mac: 'bb', name: 'Hall' }], { zigbeeChannel: null });
+		expect(wifiChannelOverlap(c)).toEqual([]);
+		c.open.add(issueKey('wifi.channel_overlap', 'wifi:aa'));
+		expect(wifiChannelOverlap(c).map((f) => f.ieee)).toEqual(['wifi:aa']);
+		const none = withWifi([{}], { zigbeeChannel: null, lastZigbeeChannel: null });
+		none.open.add(issueKey('wifi.channel_overlap', 'wifi:aa'));
+		expect(wifiChannelOverlap(none)).toEqual([]); // never knew a channel
 	});
 	it('unreachable after 3 failures, only when enabled', () => {
 		expect(wifiUnreachable(withWifi([], { failures: 2 }))).toEqual([]);

@@ -296,11 +296,11 @@ export function batteriesDue(rows: { ieee: string; days: number }[], state: Pick
 	}).sort((a, b) => a.days - b.days);
 }
 
-/** The device an issue page may act on: present and not removed. */
 /** Wi-Fi issues use `wifi:<mac>` in the ieee slot; the AP name is in the evidence. */
 export const isWifiKey = (ieee: string | null) => !!ieee?.startsWith('wifi:');
 export const wifiApName = (ieee: string | null, evidence: Record<string, unknown> | null) => (isWifiKey(ieee) ? String(evidence?.ap ?? ieee!.slice(5)) : undefined);
 
+/** The device an issue page may act on: present and not removed. */
 export function liveDevice<D extends { removedAt: number | null }>(devices: Map<string, D>, ieee: string | null): D | undefined {
 	const d = ieee ? devices.get(ieee) : undefined;
 	return d && d.removedAt === null ? d : undefined;

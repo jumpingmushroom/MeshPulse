@@ -11,7 +11,7 @@ import { lastPing } from '../../lib/server/heartbeat';
 import { checkPrereqs } from '../../lib/server/prereqs';
 import { getRuntime } from '../../lib/server/runtime';
 import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveFormSettings } from '../../lib/server/settings';
-import { candidateAreas, saveAreas, suggestArea } from '../../lib/server/wifi/areas';
+import { candidateAreas, parseAreasForm, saveAreas, suggestArea } from '../../lib/server/wifi/areas';
 import { getWifiConfig, getWifiForm, saveWifiConfig } from '../../lib/server/wifi/config';
 import { exclusive } from '../../lib/server/wifi/poller';
 import { createUnifi } from '../../lib/server/wifi/unifi';
@@ -36,12 +36,12 @@ function activeInfo(kind: 'coordinator_check' | 'networkmap', at: '03:30' | '04:
 }
 
 /** Areas, APs with a hint against the saved areas, and area suggestions from device names. */
-function wifiAreas0(db: ReturnType<typeof getRuntime>['db']) {
+function areaSettings(db: ReturnType<typeof getRuntime>['db']) {
 	const areas = db.select().from(wifiAreas).all();
 	return {
 		areas,
 		aps: db.select().from(wifiAps).all().map((a) => ({ mac: a.mac, name: a.name, model: a.model, area: a.area, hint: a.area ? null : suggestArea(a.name, areas.map((r) => r.name)) })),
-		suggested: candidateAreas([...getRuntime().state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator').map((d) => d.friendlyName))
+		suggested: candidateAreas([...getRuntime().state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator' && !d.tags.includes('ignore')).map((d) => d.friendlyName))
 	};
 }
 
@@ -61,7 +61,7 @@ export const load: PageServerLoad = () => {
 		})(),
 		active: { check: activeInfo('coordinator_check', '03:30'), scan: activeInfo('networkmap', '04:00'), devices: [...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator').length },
 		wifi: { ...getWifiForm(db), enabled: getSettings(db).wifiEnabled, status: { ...state.wifi } },
-		areas: wifiAreas0(db),
+		areas: areaSettings(db),
 		prereqs: checkPrereqs(state.bridge.info),
 		failed: db.select().from(outbox).where(eq(outbox.status, 'failed')).orderBy(desc(outbox.createdAt)).limit(50).all()
 			.map((r) => ({ id: r.id, createdAt: r.createdAt, title: (r.message as Message).title, lastError: r.lastError }))
@@ -119,12 +119,9 @@ export const actions: Actions = {
 		return r.ok ? { section: 'wifi', tested: r.text, wifiValues: values } : fail(400, { section: 'wifi', error: r.text, wifiValues: values });
 	},
 	saveAreas: async ({ request }) => {
-		const form = await request.formData();
-		const names = form.getAll('areaName').map(String);
-		const matches = form.getAll('areaMatch').map(String);
-		const apAreas: Record<string, string | null> = {};
-		for (const mac of form.getAll('apMac').map(String)) apAreas[mac] = String(form.get(`ap:${mac}`) ?? '') || null;
-		saveAreas(getRuntime().db, names.map((name, i) => ({ name, match: matches[i] ?? '' })), apAreas);
+		const r = parseAreasForm(await request.formData());
+		if ('error' in r) return fail(400, { section: 'areas', error: r.error });
+		saveAreas(getRuntime().db, r.areas, r.apAreas);
 		return { section: 'areas', saved: true };
 	},
 	saveChannel: async ({ request }) => {

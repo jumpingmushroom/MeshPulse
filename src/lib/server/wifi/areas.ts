@@ -59,3 +59,24 @@ export function saveAreas(db: Db, areas: { name: string; match: string }[], apAr
 		for (const [mac, area] of Object.entries(apAreas)) tx.update(wifiAps).set({ area: area && rows.has(area) ? area : null }).where(eq(wifiAps.mac, mac)).run();
 	});
 }
+
+/** Validates the Areas form. Rows carry a stable `areaId`, and an AP's select holds an id, so a rename keeps its APs. */
+export function parseAreasForm(form: FormData): { error: string } | { areas: { name: string; match: string }[]; apAreas: Record<string, string | null> } {
+	const ids = form.getAll('areaId').map(String);
+	const names = form.getAll('areaName').map((v) => String(v).trim());
+	const matches = form.getAll('areaMatch').map(String);
+	const seen = new Set<string>();
+	for (const n of names) {
+		if (!n) return { error: 'Every area needs a name. Fill it in or remove the row.' };
+		if (seen.has(n.toLowerCase())) return { error: `Area names must be unique, "${n}" appears twice.` };
+		seen.add(n.toLowerCase());
+	}
+	const apAreas: Record<string, string | null> = {};
+	for (const mac of form.getAll('apMac').map(String)) {
+		const v = String(form.get(`ap:${mac}`) ?? '');
+		const i = ids.indexOf(v);
+		if (v && i < 0) return { error: 'An access point has an area that does not exist. Pick one from the list or Whole network.' };
+		apAreas[mac] = v ? names[i] : null;
+	}
+	return { areas: names.map((name, i) => ({ name, match: matches[i] ?? '' })), apAreas };
+}

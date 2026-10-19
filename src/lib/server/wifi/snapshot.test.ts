@@ -14,6 +14,7 @@ const setup = () => {
 	const db = openDb(':memory:');
 	const state = createState(0);
 	state.bridge.info = { network: { channel: 11 } };
+	saveSettings(db, { wifiEnabled: true });
 	const poll = async (aps: WifiAp[], now: number) => pollWifi({ db, state, client: { devices: async () => aps } as unknown as WifiClient }, now);
 	return { db, state, poll };
 };
@@ -53,5 +54,33 @@ describe('loadWifiSnapshot', () => {
 		const s = loadWifiSnapshot(db, state, 5 * MIN);
 		expect(s.aps).toHaveLength(1);
 		expect(s.aps[0]).toMatchObject({ name: 'Renamed', area: 'Kitchen' });
+	});
+	it('breaks busy and clear runs across a polling gap', async () => {
+		const { db, state, poll } = setup();
+		await poll([ap(1, 70)], 0);
+		await poll([ap(1, 70)], 5 * MIN);
+		for (let i = 0; i < 4; i++) await poll([ap(1, 70)], (95 + 5 * i) * MIN);
+		expect(loadWifiSnapshot(db, state, 110 * MIN).aps[0].busyFor).toBe(15); // not 110
+		await poll([ap(1, 70)], 200 * MIN);
+		expect(loadWifiSnapshot(db, state, 200 * MIN).aps[0].busyFor).toBe(0);
+		await poll([ap(1, 10)], 300 * MIN);
+		expect(loadWifiSnapshot(db, state, 300 * MIN).aps[0].clearFor).toBe(0);
+	});
+	it('remembers the last Zigbee channel and drops the APs of an empty successful poll', async () => {
+		const { db, state, poll } = setup();
+		await poll([ap(1, 20)], 0);
+		expect(loadWifiSnapshot(db, state, 0).lastZigbeeChannel).toBe(11);
+		state.bridge.info = null;
+		const s = loadWifiSnapshot(db, state, MIN);
+		expect(s).toMatchObject({ zigbeeChannel: null, lastZigbeeChannel: 11 });
+		expect(s.aps[0].overlaps).toBe(true);
+		await poll([], 5 * MIN);
+		expect(loadWifiSnapshot(db, state, 5 * MIN).aps).toEqual([]);
+	});
+	it('reads nothing when Wi-Fi is off', async () => {
+		const { db, state, poll } = setup();
+		await poll([ap(1, 20)], 0);
+		saveSettings(db, { wifiEnabled: false });
+		expect(loadWifiSnapshot(db, state, 0).aps).toEqual([]);
 	});
 });

@@ -7,13 +7,16 @@ const CLEAR_FOR = 30;
 /** Wi-Fi issues key on `wifi:<mac>` in the ieee slot: they are not devices. */
 export const wifiKey = (mac: string) => `wifi:${mac}`;
 
-const on = (ctx: RuleContext) => (ctx.wifi?.enabled && ctx.wifi.zigbeeChannel !== null ? ctx.wifi : null);
+/** With the Zigbee channel missing (bridge/info not seen yet) only already-open issues are held, on the last known channel. */
+const on = (ctx: RuleContext) => (ctx.wifi?.enabled && (ctx.wifi.zigbeeChannel ?? ctx.wifi.lastZigbeeChannel) !== null ? ctx.wifi : null);
+const zigbee = (w: NonNullable<RuleContext['wifi']>) => (w.zigbeeChannel ?? w.lastZigbeeChannel)!;
+const keep = (ctx: RuleContext, rule: string, mac: string) => ctx.wifi!.zigbeeChannel !== null || ctx.open.has(issueKey(rule, wifiKey(mac)));
 
 export function wifiChannelOverlap(ctx: RuleContext): Finding[] {
 	const w = on(ctx);
 	if (!w) return [];
-	const z = w.zigbeeChannel!;
-	return w.aps.filter((a) => a.overlaps && a.channel !== null).map((a) => ({
+	const z = zigbee(w);
+	return w.aps.filter((a) => a.overlaps && a.channel !== null && keep(ctx, 'wifi.channel_overlap', a.mac)).map((a) => ({
 		rule: 'wifi.channel_overlap', ieee: wifiKey(a.mac), severity: 'warning',
 		summary: `${a.name} uses Wi-Fi channel ${a.channel}, which overlaps Zigbee channel ${z}`,
 		action: `Move the AP's 2.4 GHz radio to channel ${freeChannels(z).join(' or ')} in UniFi`,
@@ -25,8 +28,8 @@ export function wifiChannelOverlap(ctx: RuleContext): Finding[] {
 export function wifiBusyAir(ctx: RuleContext): Finding[] {
 	const w = on(ctx);
 	if (!w) return [];
-	const z = w.zigbeeChannel!;
-	return w.aps.filter((a) => a.overlaps && (ctx.open.has(issueKey('wifi.busy_air', wifiKey(a.mac))) ? a.clearFor < CLEAR_FOR : a.busyFor >= BUSY_FOR)).map((a) => ({
+	const z = zigbee(w);
+	return w.aps.filter((a) => a.overlaps && keep(ctx, 'wifi.busy_air', a.mac) && (ctx.open.has(issueKey('wifi.busy_air', wifiKey(a.mac))) ? a.clearFor < CLEAR_FOR : a.busyFor >= BUSY_FOR)).map((a) => ({
 		rule: 'wifi.busy_air', ieee: wifiKey(a.mac), severity: 'info',
 		summary: `${a.name} is busy on Wi-Fi channel ${a.channel} (${Math.round(a.cuTotal ?? 0)} % channel use), which overlaps Zigbee channel ${z}`,
 		action: `Move the AP's 2.4 GHz radio to channel ${freeChannels(z).join(' or ')} in UniFi, or reduce its load`,

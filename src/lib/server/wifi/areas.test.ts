@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from '../db/index';
 import { wifiAps, wifiAreas } from '../db/schema';
-import { areaOf, candidateAreas, saveAreas, suggestArea } from './areas';
+import { areaOf, candidateAreas, parseAreasForm, saveAreas, suggestArea } from './areas';
 
 const AREAS = ['Kitchen', 'Basement', 'Living room', 'Datacenter', 'Bathroom'];
 
@@ -21,7 +21,7 @@ describe('suggestArea', () => {
 		expect(suggestArea('Kitchen AP', [])).toBeNull();
 	});
 	it('gives no hint when ambiguous', () => {
-		expect(suggestArea('ba-ap', ['Bathroom', 'Basement'])).toBeNull();
+		expect(suggestArea('bat-ap', ['Bathroom', 'Battery room'])).toBeNull();
 		expect(suggestArea('bsm-ap', ['Basement', 'Bosom'])).toBeNull();
 		expect(suggestArea('Kitchen', ['Kitchen', 'Kitchen annex'])).toBe('Kitchen');
 	});
@@ -52,5 +52,23 @@ describe('saveAreas', () => {
 		saveAreas(db, [{ name: 'Kitchen', match: '' }, { name: ' ', match: 'x' }, { name: 'Kitchen', match: 'dup' }], { a: 'Old', b: 'Kitchen' });
 		expect(db.select().from(wifiAreas).all()).toEqual([{ name: 'Kitchen', match: 'Kitchen' }]);
 		expect(db.select().from(wifiAps).all().map((r) => r.area)).toEqual([null, 'Kitchen']);
+	});
+});
+
+describe('parseAreasForm', () => {
+	const form = (rows: [string, string, string][], aps: Record<string, string> = {}) => {
+		const f = new FormData();
+		for (const [id, name, match] of rows) { f.append('areaId', id); f.append('areaName', name); f.append('areaMatch', match); }
+		for (const [mac, v] of Object.entries(aps)) { f.append('apMac', mac); f.set(`ap:${mac}`, v); }
+		return f;
+	};
+	it('trims, and carries AP assignments over a rename by row id', () => {
+		const r = parseAreasForm(form([['s0', ' Lounge ', '']], { a: 's0', b: '' }));
+		expect(r).toEqual({ areas: [{ name: 'Lounge', match: '' }], apAreas: { a: 'Lounge', b: null } });
+	});
+	it('rejects empty and duplicate names, and an unknown AP area', () => {
+		expect('error' in parseAreasForm(form([['s0', '  ', '']]))).toBe(true);
+		expect('error' in parseAreasForm(form([['s0', 'Kitchen', ''], ['s1', 'kitchen', '']]))).toBe(true);
+		expect('error' in parseAreasForm(form([['s0', 'Kitchen', '']], { a: 'nope' }))).toBe(true);
 	});
 });

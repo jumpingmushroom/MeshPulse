@@ -15,6 +15,10 @@ describe('score', () => {
 		expect(r).toEqual({ score: 92, status: 'amber' });
 	});
 
+	it('Wi-Fi issues do not move the network score', () => {
+		expect(networkScore([{ severity: 'warning', parentIssueId: null, rule: 'wifi.channel_overlap' }])).toEqual({ score: 100, status: 'green' });
+	});
+
 	it('colour bands', () => {
 		expect(networkScore([])).toEqual({ score: 100, status: 'green' });
 		expect(networkScore([top('info')])).toEqual({ score: 99, status: 'green' });
