@@ -64,3 +64,14 @@ describe('batteryTrend', () => {
 		expect(batteryTrend([{ t: 1, v: 80 }], 96, 22, 5000)).toBe('');
 	});
 });
+
+describe('buildSeries breaks', () => {
+	const pts = [{ t: 0, v: 1 }, { t: 4 * 3_600_000, v: 2 }];
+	const b = { w: 100, h: 50, t0: 0, t1: 4 * 3_600_000, y0: 0, y1: 10 };
+	it('keeps one line across a long quiet gap without spans', () => {
+		expect(buildSeries(pts, b, Infinity).line.match(/M/g)).toHaveLength(1);
+	});
+	it('splits where a span lies between points', () => {
+		expect(buildSeries(pts, b, Infinity, [{ from: 3_600_000, to: 7_200_000 }]).line.match(/M/g)).toHaveLength(2);
+	});
+});
