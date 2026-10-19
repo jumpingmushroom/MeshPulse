@@ -1,6 +1,7 @@
 import { ensureAdmin, getAuth } from './auth';
 import { loadConfig, type Config } from './config';
 import { getDb, type Db } from './db';
+import { startActive } from './active/loop';
 import { startEngine } from './engine';
 import { startHeartbeat } from './heartbeat';
 import type { Counters } from './issues/lifecycle';
@@ -33,7 +34,8 @@ export function startRuntime(): Runtime {
 		collector.stop,
 		startEngine({ db, state, counters, config, dirty }).stop,
 		startOutbox({ db, secretKey: config.secretKey }).stop,
-		startHeartbeat({ state, db, config }).stop
+		startHeartbeat({ state, db, config }).stop,
+		startActive({ db, state, requester: collector.requester, config }).stop
 	];
 	// adapter-node closes the HTTP server on SIGTERM, then emits this; timers and MQTT would keep the process alive
 	process.once('sveltekit:shutdown', () => {

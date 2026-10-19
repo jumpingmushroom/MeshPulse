@@ -24,7 +24,8 @@ export type RuleId =
 	| 'device.storm'
 	| 'device.dominant'
 	| 'network.storm'
-	| 'battery.stale';
+	| 'battery.stale'
+	| 'coordinator.missing_router';
 
 export interface EventRow extends NewEvent {
 	id: number;
@@ -45,6 +46,8 @@ export interface RuleContext {
 	history: History;
 	/** last two health samples, newest last */
 	health: { ts: number; queued: number | null }[];
+	/** from the active checks; missingRouters is from the latest ok coordinator check, null if none */
+	active?: { missingRouters: string[] | null; scanFailStreak: number };
 }
 
 export interface Finding {

@@ -2,6 +2,7 @@ import { asc, desc, eq, gte, ne } from 'drizzle-orm';
 import type { Config } from './config';
 import type { Db } from './db/index';
 import { events, healthSamples, issues } from './db/schema';
+import { loadActive } from './active/run';
 import { evaluate, newIssue, type Counters, type IssueRow, type Notify } from './issues/lifecycle';
 import { isQuietHours } from './issues/quiet';
 import { enqueue, foldHeld } from './notify/outbox';
@@ -44,7 +45,7 @@ export function runOnce(deps: EngineDeps, now: number): void {
 	const open = db.select().from(issues).where(ne(issues.state, 'resolved')).all().map(toRow);
 	const ctx = { now, state, events: evs, longEvents, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
 		openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
-		history: loadHistory(db, now),
+		history: loadHistory(db, now), active: loadActive(db),
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };
 	const findings = evaluateRules(ctx);
 	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee),
