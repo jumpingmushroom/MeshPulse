@@ -74,7 +74,9 @@ export const DEFAULT_SETTINGS = {
 	staleBatteryDays: 7,
 	backlogHigh: 50,
 	backlogClear: 10,
-	heartbeatUrl: ''
+	heartbeatUrl: '',
+	activeCoordinatorCheck: false,
+	activeNetworkScan: false
 };
 
 export type Settings = typeof DEFAULT_SETTINGS;
@@ -87,6 +89,12 @@ export function getSettings(db: Db): Settings {
 export function saveSettings(db: Db, patch: Partial<Settings>): void {
 	for (const [key, value] of Object.entries(patch))
 		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
+}
+
+/** Saves the Settings form. The active switches live in their own form: an absent checkbox here must not turn them off. */
+export function saveFormSettings(db: Db, s: Settings): void {
+	const { activeCoordinatorCheck: _c, activeNetworkScan: _n, ...rest } = s;
+	saveSettings(db, rest);
 }
 
 const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct'];

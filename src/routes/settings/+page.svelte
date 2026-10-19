@@ -28,6 +28,7 @@
 			<a href="#heartbeat">Heartbeat{#if nHeart}<span class="sev is-crit" aria-label="{nHeart} errors">{nHeart}</span>{/if}</a>
 			<a href="#z2m">Zigbee2MQTT</a>
 			<a href="#failed">Failed notifications</a>
+			<a href="#active">Active features</a>
 		</nav>
 		<div class="stack" style="gap: var(--space-12)">
 			<form method="post" action="?/save" class="stack" style="gap: var(--space-12)" use:enhance={keep}>
@@ -177,6 +178,27 @@
 				{:else}
 					<p class="muted">None.</p>
 				{/if}
+			</section>
+			<section id="active" class="stack">
+				<h2>Active features</h2>
+				<p class="muted">These send requests into your Zigbee network. Everything else MeshPulse does is read-only. Off by default.</p>
+				<form method="post" action="?/saveActive" class="stack" use:enhance={keep}>
+					{#each [
+						{ name: 'activeCoordinatorCheck', label: 'Daily coordinator check', help: 'Runs at 03:30. Asks the coordinator which routers it no longer knows.', info: data.active.check },
+						{ name: 'activeNetworkScan', label: 'Nightly network scan', help: `Runs at 04:00. A scan of ${data.active.devices} devices takes 2–4 minutes and briefly loads the mesh.`, info: data.active.scan }
+					] as f (f.name)}
+						<div class="field">
+							<label class="toggle"><input name={f.name} type="checkbox" checked={s[f.name as 'activeCoordinatorCheck' | 'activeNetworkScan']} /><span class="track"></span>{f.label}</label>
+							<span class="field-help">{f.help}</span>
+							<span class="field-help">
+								Last run: {#if f.info.last}{formatTime(f.info.last.at, data.tz)}, {f.info.last.status}{#if f.info.last.reason} ({f.info.last.reason}){/if}{:else}never{/if}.
+								{#if s[f.name as 'activeCoordinatorCheck' | 'activeNetworkScan']}Next run: {f.info.next}.{/if}
+							</span>
+						</div>
+					{/each}
+					{#if msg('active')?.saved}<p role="status">Saved.</p>{/if}
+					<div class="form-actions"><button class="btn btn-primary">Save</button></div>
+				</form>
 			</section>
 		</div>
 	</div>

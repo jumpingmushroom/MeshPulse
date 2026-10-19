@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db/index';
-import { events, healthSamples, healthScores, issues, outbox, samples, samplesHourly } from './db/schema';
+import { events, healthSamples, healthScores, issues, outbox, samples, samplesHourly, scanLinks, scans } from './db/schema';
 import { prune } from './retention';
 
 const D = 86_400_000;
@@ -50,4 +50,15 @@ it('prunes health_samples after 14 days and health_scores after 365', () => {
 	prune(db, now);
 	expect(db.select().from(healthSamples).all().map((r) => r.ts)).toEqual([now - 13 * D]);
 	expect(db.select().from(healthScores).all().map((r) => r.ts)).toEqual([now - 364 * D]);
+});
+
+it('prunes scans and their links after 30 days', () => {
+	const db = openDb(':memory:');
+	const now = 1000 * D;
+	const s = { kind: 'networkmap', trigger: 'scheduled' as const, status: 'ok' as const };
+	db.insert(scans).values([{ id: 1, ...s, startedAt: now - 31 * D }, { id: 2, ...s, startedAt: now - 29 * D }]).run();
+	db.insert(scanLinks).values([{ scanId: 1, sourceIeee: 'a', targetIeee: 'b' }, { scanId: 2, sourceIeee: 'a', targetIeee: 'b' }]).run();
+	prune(db, now);
+	expect(db.select().from(scans).all().map((r) => r.id)).toEqual([2]);
+	expect(db.select().from(scanLinks).all().map((r) => r.scanId)).toEqual([2]);
 });

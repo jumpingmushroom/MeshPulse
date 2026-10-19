@@ -143,3 +143,26 @@ export const healthScores = sqliteTable('health_scores', {
 	ts: integer('ts').primaryKey(),
 	score: integer('score').notNull()
 });
+
+export const scans = sqliteTable('scans', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	kind: text('kind').notNull(),
+	trigger: text('trigger').$type<'scheduled' | 'manual'>().notNull(),
+	startedAt: integer('started_at').notNull(),
+	finishedAt: integer('finished_at'),
+	status: text('status').$type<'ok' | 'failed' | 'skipped'>().notNull(),
+	reason: text('reason'),
+	nodes: integer('nodes'),
+	links: integer('links'),
+	/** coordinator_check: routers missing from the coordinator; networkmap: routers that did not answer */
+	missing: text('missing', { mode: 'json' }).$type<string[]>()
+}, (t) => [index('scans_kind_started').on(t.kind, t.startedAt)]);
+
+export const scanLinks = sqliteTable('scan_links', {
+	scanId: integer('scan_id').notNull(),
+	sourceIeee: text('source_ieee').notNull(),
+	targetIeee: text('target_ieee').notNull(),
+	lqi: integer('lqi'),
+	depth: integer('depth'),
+	relationship: integer('relationship')
+}, (t) => [index('scan_links_scan').on(t.scanId)]);

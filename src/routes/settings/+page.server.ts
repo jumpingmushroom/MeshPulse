@@ -1,21 +1,33 @@
 import { fail } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 import { encrypt } from '../../lib/server/crypto';
-import { channels, outbox } from '../../lib/server/db/schema';
+import { channels, outbox, scans } from '../../lib/server/db/schema';
 import type { Message } from '../../lib/server/notify/channel';
 import { parseAppriseForm } from '../../lib/server/notify/apprise';
 import { WEBHOOK_RE } from '../../lib/server/notify/discord';
 import { sendTest } from '../../lib/server/notify/outbox';
+import { due, lastDay, setActive } from '../../lib/server/active/schedule';
 import { lastPing } from '../../lib/server/heartbeat';
 import { checkPrereqs } from '../../lib/server/prereqs';
 import { getRuntime } from '../../lib/server/runtime';
-import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveSettings } from '../../lib/server/settings';
+import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveFormSettings } from '../../lib/server/settings';
 import type { Severity } from '../../lib/server/types';
 import type { Actions, PageServerLoad } from './$types';
 
 const SEVERITIES: Severity[] = ['info', 'warning', 'critical'];
 const channelOf = (kind: string) => getRuntime().db.select().from(channels).where(eq(channels.kind, kind)).get();
 const discordChannel = () => channelOf('discord');
+
+function activeInfo(kind: 'coordinator_check' | 'networkmap', at: '03:30' | '04:00') {
+	const { db, config } = getRuntime();
+	const now = Date.now();
+	const last = db.select().from(scans).where(and(eq(scans.kind, kind), ne(scans.trigger, 'manual'))).orderBy(desc(scans.startedAt)).limit(1).get();
+	// past `at` with no finished run today: the loop retries on its next tick
+	const retrying = due(now, at, lastDay(db, kind), config.tz) !== null;
+	const early = new Date(now).toLocaleTimeString('en-GB', { timeZone: config.tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) < at;
+	const next = retrying ? 'at the next check' : `${early ? 'today' : 'tomorrow'} at ${at}`;
+	return { last: last ? { at: last.startedAt, status: last.status, reason: last.reason } : null, next };
+}
 
 export const load: PageServerLoad = () => {
 	const { db, state } = getRuntime();
@@ -31,6 +43,7 @@ export const load: PageServerLoad = () => {
 			return a ? { apiUrl: String(a.config?.apiUrl ?? ''), key: String(a.config?.key ?? ''), urlsConfigured: !!a.config?.urls, weeklyDigest: a.config?.weeklyDigest === true,
 				minSeverity: a.minSeverity, enabled: a.enabled } : null;
 		})(),
+		active: { check: activeInfo('coordinator_check', '03:30'), scan: activeInfo('networkmap', '04:00'), devices: [...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator').length },
 		prereqs: checkPrereqs(state.bridge.info),
 		failed: db.select().from(outbox).where(eq(outbox.status, 'failed')).orderBy(desc(outbox.createdAt)).limit(50).all()
 			.map((r) => ({ id: r.id, createdAt: r.createdAt, title: (r.message as Message).title, lastError: r.lastError }))
@@ -42,8 +55,14 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const r = parseSettingsForm(form);
 		if ('error' in r) return fail(400, { section: 'settings', error: r.error, errors: r.errors, values: Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map((k) => [k, String(form.get(k) ?? '')])) });
-		saveSettings(getRuntime().db, r.settings);
+		saveFormSettings(getRuntime().db, r.settings);
 		return { section: 'settings', saved: true };
+	},
+	saveActive: async ({ request }) => {
+		const { db, config } = getRuntime();
+		const form = await request.formData();
+		setActive(db, { activeCoordinatorCheck: form.get('activeCoordinatorCheck') === 'on', activeNetworkScan: form.get('activeNetworkScan') === 'on' }, Date.now(), config.tz);
+		return { section: 'active', saved: true };
 	},
 	saveChannel: async ({ request }) => {
 		const { db, config } = getRuntime();
