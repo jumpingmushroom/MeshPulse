@@ -120,7 +120,7 @@ export const EVIDENCE_LABELS: Record<string, string> = {
 	offlineSince: 'Offline since', lastSeenAt: 'Last seen', typicalGapMs: 'Typical gap', thresholdMs: 'Threshold',
 	availability: 'Availability', avg: 'Average LQI', avg12h: 'Average LQI, 12 h', hours: 'Hours of data', hours12h: 'Hours of data, 12 h',
 	threshold: 'Threshold', clearAbove: 'Clears above', baseline: 'Baseline', baselineDays: 'Baseline days',
-	battery: 'Battery', voltage: 'Voltage', daysLeft: 'Days left', basedOnDays: 'Based on days', count: 'Count',
+	battery: 'Battery', voltage: 'Voltage', daysLeft: 'Days left', drop: 'Drop since it went in', basedOnDays: 'Based on days', count: 'Count',
 	perMin: 'Messages per minute', factor: 'Factor', windowH: 'Window (h)', windowMin: 'Window (min)', changes: 'Changes',
 	announces: 'Announces', leftAt: 'Left at', failedAt: 'Failed at', names: 'Devices', devices: 'Device count', top: 'Top senders', downSince: 'Down since',
 	wifi: 'Wi-Fi at the time', routersOffline: 'Routers offline', routersTotal: 'Routers total', lastReportAt: 'Last report', typicalGapH: 'Typical gap (h)'
@@ -156,6 +156,7 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 		if (typeof v === 'number' && k.endsWith('Ms')) return [[l, formatDuration(v)]];
 		if (typeof v === 'boolean') return [[l, v ? 'Yes' : 'No']];
 		if (k === 'battery' && typeof v === 'number') return [[l, `${v} %`]];
+		if (k === 'drop' && typeof v === 'number') return [[l, `${v} points`]];
 		return [[l, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
 	});
 }
@@ -190,14 +191,14 @@ export interface BatteryRow {
 }
 
 /** Shopping list order: low now (lowest charge first), then by forecast days left, then the rest (lowest charge first). */
-export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, lowPct = 25, trends: Map<string, string> = new Map()): BatteryRow[] {
+export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, lowPct: (d: DeviceState) => number = () => 25, trends: Map<string, string> = new Map()): BatteryRow[] {
 	const pct = (r: BatteryRow) => r.battery ?? 101;
 	const group = (r: BatteryRow) => (r.low ? 0 : r.daysLeft !== null ? 1 : 2);
 	return devices.filter((d) => d.powerSource === 'Battery' && d.removedAt === null).map((d) => ({
 		ieee: d.ieee, name: d.friendlyName, battery: d.battery, voltage: d.voltage,
 		daysLeft: daysLeft.get(d.ieee) ?? null, lastSwapAt: lastSwap.get(d.ieee) ?? null,
 		trend: trends.get(d.ieee) ?? '',
-		low: d.batteryLow === true || (d.battery !== null && d.battery <= lowPct)
+		low: d.batteryLow === true || (d.battery !== null && d.battery <= lowPct(d))
 	})).sort((a, b) => group(a) - group(b) || (group(a) === 1 ? a.daysLeft! - b.daysLeft! : 0) || pct(a) - pct(b));
 }
 
@@ -233,6 +234,7 @@ export const RULE_LABELS: Record<RuleId, string> = {
 	'device.offline': 'Device offline',
 	'device.flapping': 'Device flapping',
 	'battery.low': 'Battery low',
+	'battery.dropping': 'Rechargeable dropping',
 	'lqi.weak': 'Weak link',
 	'lqi.degrading': 'Degrading link',
 	'route.failures': 'Route failures',

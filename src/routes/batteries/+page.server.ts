@@ -2,6 +2,7 @@ import { and, eq, gte, isNotNull, max } from 'drizzle-orm';
 import { batteryTrend, type Point } from '../../lib/chart';
 import { baselines, events, samplesHourly } from '../../lib/server/db/schema';
 import { getRuntime } from '../../lib/server/runtime';
+import { lowPctFor } from '../../lib/server/rules/battery';
 import { getSettings } from '../../lib/server/settings';
 import { batteryRows, splitBatteries } from '../../lib/views';
 import type { PageServerLoad } from './$types';
@@ -30,6 +31,6 @@ export const load: PageServerLoad = () => {
 		trends.set(ieee, batteryTrend(pts, SPARK.w, SPARK.h, 3 * H));
 		labels[ieee] = `30-day battery trend, ${Math.round(vs[0])} % to ${Math.round(vs[vs.length - 1])} %`;
 	}
-	const rows = batteryRows([...state.devices.values()], daysLeft, swaps, getSettings(db).batteryLowPct, trends);
+	const rows = batteryRows([...state.devices.values()], daysLeft, swaps, lowPctFor(getSettings(db)), trends);
 	return { ...splitBatteries(rows), total: rows.length, spark: SPARK, labels, anyForecast: daysLeft.size > 0 };
 };

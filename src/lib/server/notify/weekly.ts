@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, sql } from 'drizzle-orm';
 import type { Db } from '../db/index';
 import { baselines, channels, events, healthScores, issues, outbox, samplesHourly, settings } from '../db/schema';
+import { lowPctFor } from '../rules/battery';
 import { countRejoins, onePerRejoin } from '../rules/churn';
 import type { EventRow } from '../rules/types';
 import type { AppState, EventKind } from '../types';
@@ -41,7 +42,7 @@ export function weeklyDigest(db: Db, state: AppState, now: number): Message {
 	if (openCount) fields.push({ name: 'Open issues', value: (['critical', 'warning', 'info'] as const).flatMap((s) => open.filter((o) => o.severity === s).map((o) => `${o.n} ${s}`)).join(', ') });
 
 	const daysLeft = new Map(db.select().from(baselines).where(eq(baselines.metric, 'battery_days_left')).all().map((b) => [b.ieee, b.value]));
-	const buy = batteryRows([...state.devices.values()], daysLeft, new Map(), getSettings(db).batteryLowPct).filter((r) => r.low || (r.daysLeft !== null && r.daysLeft <= 30));
+	const buy = batteryRows([...state.devices.values()], daysLeft, new Map(), lowPctFor(getSettings(db))).filter((r) => r.low || (r.daysLeft !== null && r.daysLeft <= 30));
 	if (buy.length) fields.push({ name: 'Batteries to buy', value: list(buy.map((r) => `${r.name} (${r.battery ?? '?'}%${r.daysLeft !== null ? `, about ${Math.round(r.daysLeft)} days left` : ''})`)) });
 
 	const weak = db.select({ ieee: samplesHourly.ieee, lqi: sql<number>`avg(${samplesHourly.lqiAvg})` }).from(samplesHourly)

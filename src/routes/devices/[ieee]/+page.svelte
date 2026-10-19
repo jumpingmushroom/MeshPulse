@@ -36,6 +36,7 @@
 			<span class="tag tag-outline">Health {data.score}</span>
 			{#if d.ignored}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>ignored</span>{/if}
 			{#if d.chatty}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>chatty</span>{/if}
+			{#if d.rechargeable}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>rechargeable</span>{/if}
 		</div>
 	</header>
 
@@ -114,6 +115,14 @@
 					<p class="field-help">Leaves this device out of the 'dominant' check.</p>
 					<noscript><button class="btn btn-sm">Apply</button></noscript>
 				</form>
+				{#if d.batteryPowered}
+					<hr class="rule" />
+					<form method="post" action="?range={data.range}&/rechargeable" use:enhance class="stack" style="gap:6px">
+						<label class="toggle"><input type="checkbox" role="switch" name="on" value="1" checked={d.rechargeable} onchange={submit} /><span class="track"></span>Rechargeable battery</label>
+						<p class="field-help">For NiMH cells, which read low from the day they go in: uses the rechargeable thresholds, warns on a sudden drop, skips the forecast.</p>
+						<noscript><button class="btn btn-sm">Apply</button></noscript>
+					</form>
+				{/if}
 			</section>
 		</aside>
 	</div>

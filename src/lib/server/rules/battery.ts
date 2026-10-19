@@ -1,4 +1,5 @@
 import { baselineOf } from '../trends/history';
+import type { Settings } from '../settings';
 import type { DeviceState } from '../types';
 import { deviceSilent } from './bridge-offline';
 import { countRejoins, live, onePerRejoin } from './churn';
@@ -66,23 +67,33 @@ function instabilities(ctx: RuleContext, d: DeviceState): [string, string][] {
 	return out;
 }
 
+/** Percentage thresholds for `d`: NiMH reads low on an alkaline scale from the day it goes in, so tagged devices get their own. */
+export function batteryLevels(d: DeviceState, s: Settings) {
+	return d.tags.includes('rechargeable')
+		? { low: s.rechargeableLowPct, critical: s.rechargeableCriticalPct, clear: s.rechargeableClearPct, causing: s.rechargeableLowPct }
+		: { low: s.batteryLowPct, critical: s.batteryCriticalPct, clear: s.batteryClearPct, causing: s.causingBatteryPct };
+}
+
+export const lowPctFor = (s: Settings) => (d: DeviceState) => batteryLevels(d, s).low;
+
 export function batteryLow(ctx: RuleContext): Finding[] {
 	const s = ctx.settings;
 	const out: Finding[] = [];
 	for (const d of ctx.state.devices.values()) {
 		const pct = d.battery;
+		const lv = batteryLevels(d, s);
 		const coin = d.powerSource === 'Battery' && d.maxVoltage !== null && d.maxVoltage <= s.coinCellMaxV;
 		const v = coin ? d.voltage : null; // voltage only means something for coin cells
 		const causing = d.powerSource === 'Battery' &&
-			(d.batteryLow === true || (pct !== null && pct <= s.causingBatteryPct) || (v !== null && v <= s.voltageLow))
+			(d.batteryLow === true || (pct !== null && pct <= lv.causing) || (v !== null && v <= s.voltageLow))
 			? instabilities(ctx, d) : [];
 		const bad = causing.length > 0 || (ctx.open.has(issueKey('battery.low', d.ieee))
-			? d.batteryLow === true || (pct !== null && pct <= s.batteryClearPct) || (v !== null && v <= s.voltageClear) ||
+			? d.batteryLow === true || (pct !== null && pct <= lv.clear) || (v !== null && v <= s.voltageClear) ||
 				// nothing known yet (e.g. a row from before battery_low was stored): hold until the device reports
 				(d.powerSource === 'Battery' && d.batteryLow === null && pct === null && d.voltage === null)
-			: d.batteryLow === true || (pct !== null && pct <= s.batteryLowPct) || (v !== null && v <= s.voltageLow));
+			: d.batteryLow === true || (pct !== null && pct <= lv.low) || (v !== null && v <= s.voltageLow));
 		if (!bad) continue;
-		const critical = causing.length > 0 || (pct !== null && pct <= s.batteryCriticalPct) || (v !== null && v <= s.voltageCritical);
+		const critical = causing.length > 0 || (pct !== null && pct <= lv.critical) || (v !== null && v <= s.voltageCritical);
 		const readings = [pct !== null && `${pct}%`, d.voltage !== null && `${d.voltage} V`].filter(Boolean).join(' / ');
 		out.push({
 			rule: 'battery.low',
@@ -94,6 +105,29 @@ export function batteryLow(ctx: RuleContext): Finding[] {
 			action: 'Replace the battery',
 			evidence: { level: critical ? 'battery.critical' : 'battery.low', battery: pct, voltage: d.voltage, batteryLow: d.batteryLow, coinCell: coin,
 				...(causing.length && { causingIssues: causing.map(([label]) => label) }) }
+		});
+	}
+	return out;
+}
+
+/** A tagged rechargeable that has fallen off its flat curve: points lost since it went in (hourly baseline). */
+export function batteryDropping(ctx: RuleContext): Finding[] {
+	const s = ctx.settings;
+	const out: Finding[] = [];
+	for (const d of ctx.state.devices.values()) {
+		const b = baselineOf(ctx.history, d.ieee, 'battery_drop');
+		if (d.powerSource !== 'Battery' || !d.tags.includes('rechargeable') || !b) continue;
+		if (d.battery !== null && d.battery <= s.rechargeableLowPct) continue; // battery.low has it
+		// hysteresis: hold down to half the drop that opened it, which in practice means until a recharge or swap
+		if (b.value < (ctx.open.has(issueKey('battery.dropping', d.ieee)) ? Math.round(s.rechargeableDropPct / 2) : s.rechargeableDropPct)) continue;
+		const drop = Math.round(b.value);
+		out.push({
+			rule: 'battery.dropping',
+			ieee: d.ieee,
+			severity: 'warning',
+			summary: `Rechargeable battery in ${d.friendlyName} dropped ${drop} points${d.battery !== null ? ` to ${d.battery}%` : ''}`,
+			action: 'Recharge or replace the battery soon',
+			evidence: { battery: d.battery, drop }
 		});
 	}
 	return out;

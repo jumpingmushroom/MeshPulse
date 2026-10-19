@@ -1,5 +1,5 @@
 import type { Finding, Rule, RuleContext, RuleId } from './types';
-import { batteryLow, batteryStale } from './battery';
+import { batteryDropping, batteryLow, batteryStale } from './battery';
 import { bridgeBacklog } from './bridge-backlog';
 import { bridgeOffline } from './bridge-offline';
 import { bridgeRestarted } from './bridge-restarted';
@@ -19,7 +19,7 @@ import { deviceDominant, deviceStorm, networkStorm } from './storm';
 
 export * from './types';
 
-export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, routeFailures, networkRouteErrors,
+export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, batteryDropping, lqiWeak, lqiDegrading, routeFailures, networkRouteErrors,
 	batteryForecast, massOffline, rejoinChurn, deviceLeave, networkChurn, interviewFailed, bridgeBacklog,
 	deviceStorm, deviceDominant, networkStorm, batteryStale, missingRouter, scanFailing, wifiChannelOverlap, wifiBusyAir, wifiUnreachable];
 
@@ -32,6 +32,7 @@ export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: numbe
 	'device.offline': d(2, true),
 	'device.flapping': d(2, true),
 	'battery.low': d(2, true),
+	'battery.dropping': d(2, true),
 	'lqi.weak': d(2, true),
 	'lqi.degrading': d(2, true),
 	'route.failures': d(2, true),

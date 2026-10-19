@@ -27,6 +27,12 @@ describe('battery.forecast', () => {
 		expect(batteryForecast(setup(31, true))).toEqual([]);
 		expect(batteryForecast(setup(null, true))).toEqual([]);
 	});
+	it('skips rechargeable devices', () => {
+		const c = setup(5);
+		c.state.devices.get(DOOR)!.tags = ['rechargeable'];
+		expect(batteryForecast(c)).toEqual([]);
+	});
+
 	it('ignores devices that are not battery powered', () => {
 		const c = setup(5);
 		c.state.devices.get(DOOR)!.powerSource = 'Mains (single phase)';

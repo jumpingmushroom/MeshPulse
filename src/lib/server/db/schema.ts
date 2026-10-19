@@ -21,7 +21,7 @@ export const devices = sqliteTable('devices', {
 	firstSeenAt: integer('first_seen_at'),
 	removedAt: integer('removed_at'),
 	mutedUntil: integer('muted_until'),
-	tags: text('tags', { mode: 'json' }).$type<{ chatty?: boolean; ignore?: boolean }>(),
+	tags: text('tags', { mode: 'json' }).$type<{ chatty?: boolean; ignore?: boolean; rechargeable?: boolean }>(),
 	ignoreRules: text('ignore_rules', { mode: 'json' }).$type<string[]>(),
 	typicalGapMs: integer('typical_gap_ms'),
 	maxVoltage: real('max_voltage'),
@@ -55,7 +55,7 @@ export const samplesHourly = sqliteTable(
 	(t) => [primaryKey({ columns: [t.ieee, t.hour] }), index('samples_hourly_hour_idx').on(t.hour)]
 );
 
-export type BaselineMetric = 'lqi_mean' | 'lqi_stddev' | 'route_errors_hourly' | 'battery_days_left' | 'msg_per_min' | 'battery_report_gap_h' | 'battery_last_report';
+export type BaselineMetric = 'lqi_mean' | 'lqi_stddev' | 'route_errors_hourly' | 'battery_days_left' | 'msg_per_min' | 'battery_report_gap_h' | 'battery_last_report' | 'battery_drop';
 
 export const baselines = sqliteTable(
 	'baselines',

@@ -200,6 +200,17 @@ describe('computeBaselines', () => {
 			expect(get(db, IEEE, 'battery_last_report')).toMatchObject({ value: T - 9 * D });
 		});
 
+		it('battery_drop is the peak since the last swap minus the latest reading', () => {
+			const { db } = setup();
+			addDevice(db);
+			battery(db, T - 10 * D, 5, 90, 2); // old battery, before the swap
+			db.insert(events).values({ ts: T - 5 * D, ieee: IEEE, kind: 'battery_swap', detail: {} }).run();
+			battery(db, T - 5 * D + H, 4, 38, 0); // flat NiMH
+			battery(db, T - D + H, 1, 30, 10); // the cliff: 30 -> ~20.4
+			computeBaselines(db, T);
+			expect(get(db, IEEE, 'battery_drop')!.value).toBeCloseTo(38 - (30 - (10 * 23) / 24), 5);
+		});
+
 		it('deletes a stale row and ignores mains devices', () => {
 			const { db } = setup();
 			addDevice(db);
@@ -208,6 +219,7 @@ describe('computeBaselines', () => {
 			db.update(devices).set({ powerSource: 'Mains' }).run();
 			computeBaselines(db, T);
 			expect(get(db, IEEE, 'battery_days_left')).toBeUndefined();
+			expect(get(db, IEEE, 'battery_drop')).toBeUndefined();
 		});
 	});
 });
