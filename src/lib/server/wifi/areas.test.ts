@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from '../db/index';
 import { wifiAps, wifiAreas } from '../db/schema';
-import { areaOf, candidateAreas, parseAreasForm, saveAreas, suggestArea } from './areas';
+import { apsNear, areaOf, candidateAreas, parseAreasForm, saveAreas, suggestArea } from './areas';
 
 const AREAS = ['Kitchen', 'Basement', 'Living room', 'Datacenter', 'Bathroom'];
 
@@ -71,4 +71,10 @@ describe('parseAreasForm', () => {
 		expect('error' in parseAreasForm(form([['s0', 'Kitchen', ''], ['s1', 'kitchen', '']]))).toBe(true);
 		expect('error' in parseAreasForm(form([['s0', 'Kitchen', '']], { a: 'nope' }))).toBe(true);
 	});
+});
+
+describe('apsNear', () => {
+	const aps = [{ area: null }, { area: 'Kitchen' }, { area: 'Bedroom' }];
+	it('returns all APs when the device has no area', () => expect(apsNear(aps, [])).toHaveLength(3));
+	it('keeps APs without an area and in the device areas', () => expect(apsNear(aps, ['Kitchen'])).toEqual([aps[0], aps[1]]));
 });

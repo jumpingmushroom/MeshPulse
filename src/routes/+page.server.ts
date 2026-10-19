@@ -4,6 +4,8 @@ import { checkPrereqs } from '../lib/server/prereqs';
 import { getRuntime } from '../lib/server/runtime';
 import { buildSeries, summarise } from '../lib/chart';
 import { networkScore } from '../lib/score';
+import { getSettings } from '../lib/server/settings';
+import { loadWifiSnapshot } from '../lib/server/wifi/snapshot';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
 import { batteriesDue, banner, counters, learning, peakQuiet, formatDuration, sortIssues, wifiApName } from '../lib/views';
 import type { PageServerLoad } from './$types';
@@ -25,7 +27,13 @@ export const load: PageServerLoad = () => {
 	const name = (ieee: string | null) => (ieee && state.devices.get(ieee)?.friendlyName) || undefined;
 	const due = batteriesDue(db.select({ ieee: baselines.ieee, days: baselines.value }).from(baselines).where(eq(baselines.metric, 'battery_days_left')).all(), state);
 	const first = db.select({ h: min(samplesHourly.hour) }).from(samplesHourly).get()?.h ?? null;
+	const w = state.wifi;
+	const wifiSnap = getSettings(db).wifiEnabled ? loadWifiSnapshot(db, state, now) : null;
+	// never "No overlap" without current data, and no overlap judgement while the Zigbee channel is unknown
+	const wifiState = !wifiSnap ? null : w.failures > 0 ? 'failed' : w.lastOkAt === null ? 'none' : now - w.lastOkAt > 15 * 60_000 ? 'stale'
+		: wifiSnap.zigbeeChannel === null ? 'unknown' : 'ok';
 	return {
+		wifi: wifiSnap && { state: wifiState!, zigbeeChannel: wifiSnap.zigbeeChannel, overlap: wifiSnap.aps.filter((a) => a.overlaps).length },
 		...networkScore(open),
 		banner: banner(list),
 		learning: learning(first, now),

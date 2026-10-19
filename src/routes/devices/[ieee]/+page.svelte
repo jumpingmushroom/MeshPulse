@@ -29,6 +29,9 @@
 			{#if d.model || d.vendor}<span class="muted">{[d.model, d.vendor].filter(Boolean).join(' · ')}</span>{/if}
 			{#if d.powerSource}<span class="muted">{d.powerSource}</span>{/if}
 			{#if data.parent}<span class="tag tag-outline">Parent {#if data.parent.name}<a href="/devices/{data.parent.ieee}">{data.parent.name}</a>{:else}{data.parent.ieee}{/if} · LQI {data.parent.lqi}{data.parent.changed ? ' · changed since previous scan' : ''}</span>{/if}
+			{#if data.nearbyAll && data.nearbyWifi.length > 1}
+				<span class="tag tag-outline">Nearby Wi-Fi: <a href="/wifi">all {data.nearbyWifi.length} APs</a>{data.nearbyWifi.some((w) => w.overlaps) ? ` · ${data.nearbyWifi.filter((w) => w.overlaps).length} overlap` : ''}{data.wifiRecent ? '' : ' · no recent data'}</span>
+			{:else}{#each data.nearbyWifi as w (w.mac)}<span class="tag tag-outline">Nearby Wi-Fi: <a href="/wifi">{w.name}</a> · channel {w.channel}{w.overlaps ? ' (overlaps)' : ''}{w.busy === null ? ' · no recent data' : ` · ${w.busy} % busy`}</span>{/each}{/if}
 			{#if data.routed}<span class="tag tag-outline">{data.routed} {data.routed === 1 ? 'device routes' : 'devices route'} through this router</span>{/if}
 			<span class="tag tag-outline">Health {data.score}</span>
 			{#if d.ignored}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>ignored</span>{/if}

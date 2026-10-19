@@ -80,3 +80,7 @@ export function parseAreasForm(form: FormData): { error: string } | { areas: { n
 	}
 	return { areas: names.map((name, i) => ({ name, match: matches[i] ?? '' })), apAreas };
 }
+
+/** The APs near a device: all of them when it has no area; else those without an area (whole network) or in one of its areas. */
+export const apsNear = <T extends { area: string | null }>(aps: T[], deviceAreas: string[]): T[] =>
+	aps.filter((a) => !deviceAreas.length || a.area === null || deviceAreas.includes(a.area));
