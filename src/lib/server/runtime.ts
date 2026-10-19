@@ -19,12 +19,13 @@ export function startRuntime(): Runtime {
 	const g = globalThis as G; // survives Vite HMR module reloads
 	if (g.__meshpulse) return g.__meshpulse;
 	const config = loadConfig();
+	console.log(`secret key: ${config.secretSource}`);
 	const db = getDb();
 	const state = createState(Date.now());
 	loadDevices(db, state);
 	ensureAdmin(getAuth(), config.adminEmail, config.adminPassword)
 		.then((r) => {
-			if (r === 'skipped') console.warn('auth: ADMIN_EMAIL or ADMIN_PASSWORD not set, nobody can log in');
+			if (r === 'skipped') console.warn('auth: no ADMIN_EMAIL/ADMIN_PASSWORD; open MeshPulse in a browser to create the admin account');
 			else console.log(`auth: admin account ${r}`);
 		})
 		.catch((e) => console.error('auth: admin seeding failed', e));

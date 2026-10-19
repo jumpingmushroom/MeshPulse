@@ -66,7 +66,7 @@ README:
 
 ## Testing
 
-- `config.test.ts`: env key wins and no file is written; file reused; key generated with mode 0600 and reused on the next load; short env key still rejected.
+- `config.test.ts`: env key wins and no file is written; file reused; key generated with mode 0600 and reused on the next load; any non-empty env key accepted, as today.
 - `setup.test.ts`: `needsSetup` true with zero users, false after; guard redirects only while needed; `/setup` 404 afterwards; two concurrent submits create exactly one user; password and email validation.
 - Setup panel: view helper test for both messages and for no panel when data flows; credentials are stripped from the shown URL.
 - Release workflow: one run on a throwaway tag `v0.0.0-test` while the repo is still private (the package stays private); the tag and the package version are deleted afterwards.
