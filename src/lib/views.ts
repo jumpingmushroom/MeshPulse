@@ -216,3 +216,11 @@ export function peakQuiet(points: { t: number; v: number }[], tz: string): { now
 	const quiet = points.reduce((a, p) => (p.v < a.v ? p : a));
 	return { now: Math.round(points[points.length - 1].v), peak: `${Math.round(peak.v)}/min at ${hm(peak.t)}`, quiet: hm(quiet.t) };
 }
+
+/** Battery forecasts within `within` days for devices that exist and are not removed, soonest first. */
+export function batteriesDue(rows: { ieee: string; days: number }[], state: Pick<AppState, 'devices'>, within = 30): { name: string; days: number }[] {
+	return rows.flatMap((r) => {
+		const d = state.devices.get(r.ieee);
+		return d && d.removedAt === null && r.days <= within ? [{ name: d.friendlyName, days: Math.round(r.days) }] : [];
+	}).sort((a, b) => a.days - b.days);
+}

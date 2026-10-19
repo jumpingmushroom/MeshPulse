@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
+import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -174,4 +174,10 @@ it('peakQuiet', () => {
 	expect(peakQuiet([], 'Europe/Oslo')).toBeNull();
 	const H = 3_600_000, t = Date.UTC(2026, 9, 18, 5);
 	expect(peakQuiet([{ t, v: 312 }, { t: t + H, v: 40 }, { t: t + 2 * H, v: 142 }], 'Europe/Oslo')).toEqual({ now: 142, peak: '312/min at 07:00', quiet: '08:00' });
+});
+
+it('batteriesDue', () => {
+	const st = state([dev({ ieee: 'a', friendlyName: 'A' }), dev({ ieee: 'b', friendlyName: 'B' }), dev({ ieee: 'c', friendlyName: 'C', removedAt: 1 })]);
+	const rows = [{ ieee: 'b', days: 12.4 }, { ieee: 'a', days: 3 }, { ieee: 'c', days: 1 }, { ieee: 'x', days: 2 }, { ieee: 'a2', days: 40 }];
+	expect(batteriesDue(rows, st)).toEqual([{ name: 'A', days: 3 }, { name: 'B', days: 12 }]);
 });

@@ -1,4 +1,4 @@
-import { and, eq, lte, min, ne } from 'drizzle-orm';
+import { eq, min, ne } from 'drizzle-orm';
 import { baselines, issues, samplesHourly } from '../lib/server/db/schema';
 import { checkPrereqs } from '../lib/server/prereqs';
 import { getRuntime } from '../lib/server/runtime';
@@ -6,7 +6,7 @@ import { getSettings } from '../lib/server/settings';
 import { buildSeries, summarise } from '../lib/chart';
 import { networkScore } from '../lib/score';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
-import { banner, counters, learning, peakQuiet, formatDuration, sortIssues } from '../lib/views';
+import { batteriesDue, banner, counters, learning, peakQuiet, formatDuration, sortIssues } from '../lib/views';
 import type { PageServerLoad } from './$types';
 
 const H = 3_600_000;
@@ -24,8 +24,7 @@ export const load: PageServerLoad = () => {
 	const info = bridge.info;
 	const watched = [...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator');
 	const name = (ieee: string | null) => (ieee && state.devices.get(ieee)?.friendlyName) || undefined;
-	const soonest = db.select({ ieee: baselines.ieee, days: baselines.value }).from(baselines)
-		.where(and(eq(baselines.metric, 'battery_days_left'), lte(baselines.value, 30))).orderBy(baselines.value).limit(1).get();
+	const due = batteriesDue(db.select({ ieee: baselines.ieee, days: baselines.value }).from(baselines).where(eq(baselines.metric, 'battery_days_left')).all(), state);
 	const first = db.select({ h: min(samplesHourly.hour) }).from(samplesHourly).get()?.h ?? null;
 	return {
 		...networkScore(open),
@@ -34,12 +33,14 @@ export const load: PageServerLoad = () => {
 		peakQuiet: peakQuiet(msgs, config.tz),
 		offline: watched.filter((d) => d.availability === 'offline').length,
 		unknown: watched.filter((d) => d.availability !== 'online' && d.availability !== 'offline').length,
-		nextBattery: soonest ? { name: name(soonest.ieee) ?? soonest.ieee, days: Math.round(soonest.days) } : null,
+		batteriesDue: { count: due.length, soonest: due[0] ?? null },
 		topLevel: list.length,
 		spark: { w: SPARK.w, h: SPARK.h, d: msgs.length >= 2 ? buildSeries(msgs, box, 3 * H).line : '', summary: summarise('Messages per minute, 24 h', '/min', msgs) },
 		issues: list.map(({ id, severity, state, summary, action, rule, ieee, openedAt }) =>
 			({ id, severity, state, summary, action, rule, ieee, deviceName: name(ieee), openedAt,
 				children: open.filter((c) => c.parentIssueId === id).map(({ id, summary, rule }) => ({ id, summary, rule })) })),
+		lastUpdate: bridge.lastLiveAt,
+		mqttConnected: state.monitor.connected,
 		counters: counters(state, getSettings(db).batteryLowPct),
 		prereqs: checkPrereqs(info).filter((p) => !p.ok),
 		bridge: {

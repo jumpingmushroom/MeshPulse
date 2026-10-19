@@ -20,7 +20,8 @@
 		await navigator.clipboard.writeText(text);
 		copied = key;
 	}
-	const batTone = $derived(data.nextBattery ? (data.nextBattery.days <= 7 ? 'warn' : undefined) : undefined);
+	const due = $derived(data.batteriesDue);
+	const hms = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { timeZone: data.tz });
 </script>
 
 <div class="page">
@@ -71,10 +72,10 @@
 			tone={data.offline ? 'crit' : undefined} sub={data.offline ? `${data.offline} offline${data.unknown ? ` · ${data.unknown} unknown` : ''}` : data.unknown ? `${data.unknown} unknown` : 'All online'} />
 		<Tile label="Routers online" value={String(c.routersOnline)} total={String(c.routersTotal)}
 			tone={c.routersOnline < c.routersTotal ? 'crit' : undefined} sub={c.routersOnline < c.routersTotal ? `${c.routersTotal - c.routersOnline} offline` : 'All routers up'} />
-		<Tile label="Low batteries" value={String(c.batteriesLow)} tone={c.batteriesLow ? 'warn' : undefined}
-			sub={data.nextBattery ? `Soonest: ${data.nextBattery.name}, ${data.nextBattery.days} ${data.nextBattery.days === 1 ? 'day' : 'days'}` : 'No forecast within 30 days'} />
-		<Tile label="Network messages per minute · 24 h" value={data.peakQuiet?.now === null || !data.peakQuiet ? '—' : `${data.peakQuiet.now}/min`} wide
-			sub={data.peakQuiet ? `24 h · peak ${data.peakQuiet.peak} · quietest ${data.peakQuiet.quiet}` : 'Not enough history yet'}>
+		<Tile label="Batteries due in 30 days" value={String(due.count)} tone={due.count ? 'warn' : undefined}
+			sub={due.soonest ? `Soonest: ${due.soonest.name}, ${due.soonest.days} ${due.soonest.days === 1 ? 'day' : 'days'}` : 'None in 30 days'} />
+		<Tile label="Network messages per minute · 24 h" value={data.peakQuiet?.now == null ? '—' : `${data.peakQuiet.now}/min`} wide
+			sub={data.peakQuiet ? `Peak ${data.peakQuiet.peak} · quietest ${data.peakQuiet.quiet}` : 'Not enough history yet'}>
 			{#if data.spark.d}<Sparkline d={data.spark.d} w={data.spark.w} h={data.spark.h} label={data.spark.summary} />{/if}
 		</Tile>
 	</section>
@@ -85,5 +86,7 @@
 		{#if b.uptime}<span>up {b.uptime}</span>{/if}
 		{#if b.channel}<span>Channel {b.channel}</span>{/if}
 		{#if b.coordinator}<span>Coordinator {b.coordinator}</span>{/if}
+		<span class={data.mqttConnected ? 'ok' : 'bad'}><svg class="i" aria-hidden="true"><use href="#i-{data.mqttConnected ? 'ok' : 'unlink'}" /></svg>MQTT {data.mqttConnected ? 'connected' : 'disconnected'}</span>
+		{#if data.lastUpdate}<span><svg class="i" aria-hidden="true"><use href="#i-clock" /></svg>Last update {hms(data.lastUpdate)}</span>{/if}
 	</div>
 </div>
