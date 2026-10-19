@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
+import { banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -155,4 +155,23 @@ describe('labels', () => {
 		expect(groupedSummary([c('device.offline'), c('device.flapping'), c('device.offline')])).toBe('3 grouped issues: 2 device offline, 1 device flapping');
 		expect(groupedSummary([c('device.offline')])).toBe('1 grouped issue: 1 device offline');
 	});
+});
+
+describe('banner', () => {
+	const w = { severity: 'warning' as const, summary: 'Weak link', action: 'Move a router closer' };
+	const c = { severity: 'critical' as const, summary: 'Zigbee bridge is offline', action: 'Check the Zigbee2MQTT container' };
+	it('all good', () => expect(banner([])).toEqual({ tone: 'ok', kicker: 'All good', title: 'All good', sub: 'No open issues.' }));
+	it('warnings', () => expect(banner([w, w])).toEqual({ tone: 'warn', kicker: 'Needs attention', title: '2 unresolved issues', sub: 'Nothing critical. Start with: Move a router closer.' }));
+	it('one warning', () => expect(banner([w]).title).toBe('1 unresolved issue'));
+	it('critical', () => expect(banner([c, w])).toEqual({ tone: 'crit', kicker: 'Critical', title: 'Zigbee bridge is offline', sub: '1 critical issue and 1 warning. Start with: Check the Zigbee2MQTT container.' }));
+});
+it('learning', () => {
+	expect(learning(null, 0)).toEqual({ hours: 0, done: false });
+	expect(learning(0, 2 * 3_600_000)).toEqual({ hours: 2, done: false });
+	expect(learning(0, 72 * 3_600_000)).toEqual({ hours: 72, done: true });
+});
+it('peakQuiet', () => {
+	expect(peakQuiet([], 'Europe/Oslo')).toBeNull();
+	const H = 3_600_000, t = Date.UTC(2026, 9, 18, 5);
+	expect(peakQuiet([{ t, v: 312 }, { t: t + H, v: 40 }, { t: t + 2 * H, v: 142 }], 'Europe/Oslo')).toEqual({ now: 142, peak: '312/min at 07:00', quiet: '08:00' });
 });

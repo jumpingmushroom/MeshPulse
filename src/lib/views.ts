@@ -186,3 +186,33 @@ export function groupedSummary(children: { rule: string }[]): string {
 	const parts = [...n].sort((a, b) => b[1] - a[1]).map(([r, k]) => `${k} ${(RULE_LABELS[r as RuleId] ?? r).toLowerCase()}`);
 	return `${children.length} grouped issue${children.length === 1 ? '' : 's'}: ${parts.join(', ')}`;
 }
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const dot = (s: string) => (/[.!?]$/.test(s) ? s : s + '.');
+
+/** Overview banner from the sorted top-level open issues. */
+export function banner(top: { severity: Severity; summary: string; action: string }[]): { tone: 'ok' | 'warn' | 'crit'; kicker: string; title: string; sub: string } {
+	if (!top.length) return { tone: 'ok', kicker: 'All good', title: 'All good', sub: 'No open issues.' };
+	const crit = top.filter((i) => i.severity === 'critical').length;
+	if (!crit) return { tone: 'warn', kicker: 'Needs attention', title: `${plural(top.length, 'unresolved issue')}`, sub: `Nothing critical. Start with: ${dot(top[0].action)}` };
+	const warn = top.filter((i) => i.severity === 'warning').length;
+	return {
+		tone: 'crit', kicker: 'Critical', title: top[0].summary,
+		sub: `${plural(crit, 'critical issue')}${warn ? ` and ${plural(warn, 'warning')}` : ''}. Start with: ${dot(top[0].action)}`
+	};
+}
+
+/** Hours of history since the first hourly sample; done after `days`. */
+export function learning(firstHour: number | null, now: number, days = 3): { hours: number; done: boolean } {
+	const hours = firstHour === null ? 0 : Math.max(0, Math.floor((now - firstHour) / 3_600_000));
+	return { hours, done: hours >= days * 24 };
+}
+
+/** Current, peak and quietest messages per minute over the series. */
+export function peakQuiet(points: { t: number; v: number }[], tz: string): { now: number | null; peak: string; quiet: string } | null {
+	if (points.length < 2) return null;
+	const hm = (t: number) => new Date(t).toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+	const peak = points.reduce((a, p) => (p.v > a.v ? p : a));
+	const quiet = points.reduce((a, p) => (p.v < a.v ? p : a));
+	return { now: Math.round(points[points.length - 1].v), peak: `${Math.round(peak.v)}/min at ${hm(peak.t)}`, quiet: hm(quiet.t) };
+}
