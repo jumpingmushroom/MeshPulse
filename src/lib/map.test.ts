@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mapLayout } from './map';
+import { mapLayout as layout, placeLabels, type MapNode, type MapParents } from './map';
+
+// synthetic meshes: one link per reported parent
+const mapLayout = (nodes: MapNode[], parents: MapParents, w: number, h: number) =>
+	layout(nodes, [...parents].map(([source, p]) => ({ source, target: p.parent, lqi: p.lqi })), parents, w, h);
 
 type N = { ieee: string; type: string; failed: boolean };
 function mesh(routers: number, ends: number) {
@@ -43,11 +47,12 @@ describe('mapLayout', () => {
 		for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) min = Math.min(min, Math.hypot(out[i].x - out[j].x, out[i].y - out[j].y));
 		expect(min).toBeGreaterThanOrEqual(8);
 	});
-	it('marks weak links and survives parent cycles', () => {
+	it('places nodes unreachable from the coordinator', () => {
 		const nodes: N[] = [{ ieee: '0x00', type: 'Coordinator', failed: false }, { ieee: 'a', type: 'Router', failed: false }, { ieee: 'b', type: 'Router', failed: true }];
 		const parents = new Map([['a', { parent: 'b', lqi: 59 }], ['b', { parent: 'a', lqi: 60 }]]);
 		const out = mapLayout(nodes, parents, 900, 600);
-		expect(out.edges).toEqual([{ from: 'a', to: 'b', weak: true }, { from: 'b', to: 'a', weak: false }]);
+		expect(out.edges).toEqual([]); // unreachable from the coordinator: placed, no edges
+		expect(out.nodes).toHaveLength(3);
 		expect(out.nodes.find((n) => n.ieee === 'b')!.failed).toBe(true);
 	});
 
@@ -74,5 +79,21 @@ describe('mapLayout', () => {
 		let min = Infinity;
 		for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) min = Math.min(min, Math.hypot(out[i].x - out[j].x, out[i].y - out[j].y));
 		expect(min).toBeGreaterThanOrEqual(8);
+	});
+});
+
+describe('placeLabels', () => {
+	it('keeps labels from overlapping', () => {
+		const items = [0, 1, 2].map((i) => ({ ieee: String(i), x: 100, y: 100 + i * 2, r: 7, text: 'Hall plug router' }));
+		const out = placeLabels(items);
+		expect(new Set(out.map((o) => `${o.x},${o.y}`)).size).toBe(3);
+	});
+});
+
+describe('mapLayout edges', () => {
+	it('marks a tree edge weak under LQI 60', () => {
+		const nodes: MapNode[] = [{ ieee: '0', type: 'Coordinator', failed: false }, { ieee: 'a', type: 'Router', failed: false }, { ieee: 'b', type: 'Router', failed: false }];
+		const out = layout(nodes, [{ source: 'a', target: '0', lqi: 59 }, { source: 'b', target: '0', lqi: 60 }], new Map(), 900, 600);
+		expect(out.edges).toEqual([{ from: 'a', to: '0', lqi: 59, weak: true }, { from: 'b', to: '0', lqi: 60, weak: false }]);
 	});
 });

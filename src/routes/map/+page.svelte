@@ -49,10 +49,10 @@
 						<a href="/devices/{n.ieee}" aria-label="{n.name}, {n.type}{n.failed ? ', did not answer' : ''}{n.lqi === null ? '' : `, LQI ${n.lqi}`}">
 							<circle class={n.failed ? 'n n-off' : CLS[type(n.type)]} cx={n.x} cy={n.y} r={r}></circle>
 							{#if n.failed}<path class="x" d="M{n.x - r * 0.6} {n.y - r * 0.6} L{n.x + r * 0.6} {n.y + r * 0.6} M{n.x + r * 0.6} {n.y - r * 0.6} L{n.x - r * 0.6} {n.y + r * 0.6}"></path>{/if}
-							{#if n.type === 'Coordinator' || n.failed}<text x={n.x + r + 4} y={n.y + 3}>{n.name}</text>{/if}
 							<title>{n.name}{n.lqi === null ? '' : ` · LQI ${n.lqi}`}</title>
 						</a>
 					{/each}
+					{#each scan.labels as l (l.ieee)}<text x={l.x} y={l.y} text-anchor={l.anchor}>{at.get(l.ieee)?.name}</text>{/each}
 				</svg>
 			</div>
 			<aside class="stack">

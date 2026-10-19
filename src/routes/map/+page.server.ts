@@ -5,7 +5,7 @@ import { scanLinks, scans } from '../../lib/server/db/schema';
 import { NETWORK_SCAN_AT } from '../../lib/server/active/schedule';
 import { getRuntime } from '../../lib/server/runtime';
 import { getSettings } from '../../lib/server/settings';
-import { mapLayout, type MapNode } from '../../lib/map';
+import { mapLayout, placeLabels, type MapNode } from '../../lib/map';
 import type { Actions, PageServerLoad } from './$types';
 
 const W = 1100, H = 760;
@@ -27,14 +27,15 @@ export const load: PageServerLoad = () => {
 	const ids = new Set([...links.flatMap((l) => [l.sourceIeee, l.targetIeee]), ...missing]);
 	for (const d of state.devices.values()) if (d.type === 'Coordinator' && d.removedAt === null) ids.add(d.ieee);
 	const nodes: MapNode[] = [...ids].map((ieee) => ({ ieee, type: dev(ieee)?.type ?? 'EndDevice', failed: missing.includes(ieee) }));
-	const layout = mapLayout(nodes, parents, W, H);
+	const layout = mapLayout(nodes, links.map((l) => ({ source: l.sourceIeee, target: l.targetIeee, lqi: l.lqi ?? 0 })), parents, W, H);
 	const name = (i: string) => dev(i)?.friendlyName ?? i;
 	return {
 		enabled, failure, now, tz, scanAt: NETWORK_SCAN_AT,
 		scan: {
 			at: ok.startedAt,
-			nodes: layout.nodes.map((n) => ({ ...n, name: name(n.ieee), lqi: parents.get(n.ieee)?.lqi ?? null })),
-			edges: layout.edges.map((e) => ({ ...e, name: name(e.from), parent: name(e.to), lqi: parents.get(e.from)!.lqi })),
+			nodes: layout.nodes.map((n) => ({ ...n, name: name(n.ieee) })),
+			labels: placeLabels(layout.nodes.filter((n) => n.type === 'Coordinator' || n.failed).map((n) => ({ ieee: n.ieee, x: n.x, y: n.y, r: n.type === 'Coordinator' ? 14 : 9, text: name(n.ieee) }))),
+			edges: layout.edges.map((e) => ({ ...e, name: name(e.from), parent: name(e.to) })),
 			offline: layout.nodes.filter((n) => n.failed).map((n) => ({ ieee: n.ieee, name: name(n.ieee) }))
 		}
 	};
