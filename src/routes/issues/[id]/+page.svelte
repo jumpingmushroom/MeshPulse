@@ -16,7 +16,7 @@
 	const SEV = { critical: 'is-crit', warning: 'is-warn', info: 'is-info' } as const;
 </script>
 
-<main class="page {SEV[i.severity]}">
+<div class="page {SEV[i.severity]}">
 	<a class="crumb" href="/issues"><svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-left" /></svg>Issues</a>
 	<header class="stack" style="gap:11px">
 		<div class="row">
@@ -99,4 +99,4 @@
 			</section>
 		</aside>
 	</div>
-</main>
+</div>

@@ -97,7 +97,7 @@ export function formatVoltage(v: number | null): string {
 /** "batteryLow" -> "Battery low" */
 export function humanise(key: string): string {
 	const w = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
-	return w[0].toUpperCase() + w.slice(1);
+	return w.charAt(0).toUpperCase() + w.slice(1);
 }
 
 export const EVIDENCE_LABELS: Record<string, string> = {

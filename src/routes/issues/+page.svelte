@@ -6,7 +6,7 @@
 	const href = (over: Record<string, string>) => `?${new URLSearchParams({ tab: data.tab, rule: data.rule, sev: data.sev, ...over })}`;
 </script>
 
-<main class="page">
+<div class="page">
 	<div class="page-head">
 		<div>
 			<h1>Issues</h1>
@@ -43,4 +43,4 @@
 	{:else}
 		<div class="panel"><div class="empty"><strong>No {data.tab} issues{data.rule !== 'all' || data.sev !== 'all' ? ' match these filters' : ''}</strong></div></div>
 	{/if}
-</main>
+</div>

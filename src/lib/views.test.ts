@@ -213,6 +213,7 @@ describe('evidence links and liveDevice', () => {
 describe('evidence humanising', () => {
 	it('words camelCase keys, shows booleans as Yes/No and hides level', () => {
 		expect(humanise('coinCell')).toBe('Coin cell');
+		expect(humanise('')).toBe('');
 		expect(evidenceRows({ level: 'battery.low', batteryLow: true, coinCell: false }, 'UTC')).toEqual([['Battery low', 'Yes'], ['Coin cell', 'No']]);
 	});
 });
