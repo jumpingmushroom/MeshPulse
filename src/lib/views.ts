@@ -94,6 +94,12 @@ export function formatVoltage(v: number | null): string {
 	return two.endsWith('0') ? v.toFixed(1) : two;
 }
 
+/** "batteryLow" -> "Battery low" */
+export function humanise(key: string): string {
+	const w = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+	return w[0].toUpperCase() + w.slice(1);
+}
+
 export const EVIDENCE_LABELS: Record<string, string> = {
 	offlineSince: 'Offline since', lastSeenAt: 'Last seen', typicalGapMs: 'Typical gap', thresholdMs: 'Threshold',
 	availability: 'Availability', avg: 'Average LQI', avg12h: 'Average LQI, 12 h', hours: 'Hours of data', hours12h: 'Hours of data, 12 h',
@@ -119,11 +125,13 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 	};
 	return Object.entries(evidence).flatMap(([k, v]): [string, string | { text: string; href: string }[]][] => {
 		if (v === null || v === undefined) return [];
-		const l = EVIDENCE_LABELS[k] ?? k;
+		if (k === 'level') return []; // internal rule variant, e.g. battery.low
+		const l = EVIDENCE_LABELS[k] ?? humanise(k);
 		const ls = links(v);
 		if (ls) return [[l, ls]];
 		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[l, formatTime(v, tz)]];
 		if (typeof v === 'number' && k.endsWith('Ms')) return [[l, formatDuration(v)]];
+		if (typeof v === 'boolean') return [[l, v ? 'Yes' : 'No']];
 		return [[l, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
 	});
 }

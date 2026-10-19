@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
+import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -77,7 +77,7 @@ describe('evidenceRows', () => {
 		const ts = Date.UTC(2026, 9, 16, 15, 47);
 		expect(evidenceRows({ offlineSince: ts, lastSeenAt: null, typicalGapMs: undefined, thresholdMs: 3 * 3_600_000 + 12 * 60_000,
 			count: 4, rule: 'x', tags: ['a'] }, 'Europe/Oslo')).toEqual([
-			['Offline since', '16 Oct 2026, 17:47'], ['Threshold', '3 h 12 min'], ['Count', '4'], ['rule', 'x'], ['tags', '["a"]']
+			['Offline since', '16 Oct 2026, 17:47'], ['Threshold', '3 h 12 min'], ['Count', '4'], ['Rule', 'x'], ['Tags', '["a"]']
 		]);
 	});
 });
@@ -207,5 +207,12 @@ describe('evidence links and liveDevice', () => {
 		expect(liveDevice(m, '0x1')).toBeDefined();
 		expect(liveDevice(m, '0x2')).toBeUndefined();
 		expect(liveDevice(m, null)).toBeUndefined();
+	});
+});
+
+describe('evidence humanising', () => {
+	it('words camelCase keys, shows booleans as Yes/No and hides level', () => {
+		expect(humanise('coinCell')).toBe('Coin cell');
+		expect(evidenceRows({ level: 'battery.low', batteryLow: true, coinCell: false }, 'UTC')).toEqual([['Battery low', 'Yes'], ['Coin cell', 'No']]);
 	});
 });
