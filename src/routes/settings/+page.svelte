@@ -33,9 +33,9 @@
 			<form method="post" action="?/save" class="stack" style="gap: var(--space-12)" use:enhance={keep}>
 				<section id="thresholds" class="stack" style="gap: var(--space-8)">
 					<h2>Thresholds</h2>
-					{#if msg('settings')?.error}
+					{#if nThresh}
 						<div class="form-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>
-							<div><strong>{errs.length} setting{errs.length === 1 ? '' : 's'} need{errs.length === 1 ? 's' : ''} fixing.</strong> Nothing was saved; your other changes are kept below.</div></div>
+							<div><strong>{nThresh} setting{nThresh === 1 ? '' : 's'} need{nThresh === 1 ? 's' : ''} fixing.</strong> Nothing was saved; your other changes are kept below.</div></div>
 					{/if}
 					{#each GROUPS as [title, fields] (title)}
 						<fieldset class="fieldset"><legend>{title}</legend>
