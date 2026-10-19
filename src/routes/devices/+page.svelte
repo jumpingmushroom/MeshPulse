@@ -35,9 +35,12 @@
 			<h1>Devices</h1>
 			<p class="sub">{summary}</p>
 		</div>
+		<div style="display:flex;gap:var(--space-4);align-items:center">
 		<div class="seg" role="group" aria-label="Density">
 			<a href={params({ density: null })} aria-current={data.comfortable ? undefined : 'true'}>Compact</a>
 			<a href={params({ density: 'comfortable' })} aria-current={data.comfortable ? 'true' : undefined}>Comfortable</a>
+		</div>
+		<a class="btn btn-sm" href="/map"><svg class="i"><use href="#i-map" /></svg>Network map</a>
 		</div>
 	</div>
 
