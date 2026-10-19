@@ -347,6 +347,7 @@ a.tile:hover { box-shadow: var(--shadow-md); }
 /* horizontally scrolling table with sticky first column (phones) */
 .dt-scroll { overflow-x: auto; }
 .dt-scroll .dt thead th { position: static; }
+.dt-scroll .dt thead th:first-child { position: sticky; top: auto; } /* sticky column, but not offset by the page-level header top */
 .dt-scroll .dt th:first-child, .dt-scroll .dt td:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); }
 .lqi-meter { display: inline-block; width: 34px; height: 4px; border-radius: 2px; background: var(--divider-soft); vertical-align: middle; margin-right: 6px; overflow: hidden; }
 .lqi-meter > i { display: block; height: 100%; background: var(--text-faint); }

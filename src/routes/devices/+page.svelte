@@ -23,7 +23,9 @@
 	};
 	const sortHref = (k: SortKey) => params({ sort: k, dir: data.sort === k && data.asc ? 'desc' : 'asc' });
 	const avail = (a: string | null) => AVAIL[a as keyof typeof AVAIL] ?? (['avail-unknown', '#i-unknown', 'Unknown'] as const);
-	const weak = (lqi: number | null) => lqi !== null && lqi < 30;
+	const weak = (lqi: number | null) => lqi !== null && lqi < data.lqiWeak;
+	const TYPE = { Coordinator: 'Coordinator', Router: 'Router', EndDevice: 'End device' } as const;
+	const SHORT: Partial<Record<SortKey, string>> = { lqi: 'LQI', lastSeenAt: 'last seen', openIssues: 'issues', msgH: 'msg/h' };
 	const summary = $derived(`${data.counts.total} devices · ${data.counts.routers} routers · ${data.counts.battery} on battery`);
 </script>
 
@@ -77,7 +79,7 @@
 							{@const [ac, ai, al] = avail(r.availability)}
 							<tr class:muted={r.ignored} class={r.worst ? `is-flagged ${SEV[r.worst]}` : ''}>
 								<td class="name"><a href="/devices/{r.ieee}">{r.name}</a>{#if r.ignored}<span class="sub">ignored</span>{:else if r.mutedUntil && r.mutedUntil > data.now}<span class="sub">muted</span>{/if}</td>
-								<td><span class="avail"><svg class="i"><use href={TYPE_ICON[r.type]} /></svg>{r.type}</span></td>
+								<td><span class="avail"><svg class="i"><use href={TYPE_ICON[r.type]} /></svg>{TYPE[r.type]}</span></td>
 								<td><span class="avail {ac}"><svg class="i"><use href={ai} /></svg>{al}</span></td>
 								<td title={formatTime(r.lastSeenAt, data.tz)}>{formatAgo(r.lastSeenAt, data.now)}</td>
 								<td class={weak(r.lqi) ? 'lqi-weak' : ''}>
@@ -94,7 +96,7 @@
 					</tbody>
 				</table>
 			</div>
-			<div class="dt-foot"><span>Showing {data.rows.length} of {data.counts.total}</span><span>Sorted by {COLS.find((c) => c[0] === data.sort)?.[1].toLowerCase()}, {data.asc ? 'ascending' : 'descending'}</span></div>
+			<div class="dt-foot"><span>Showing {data.rows.length} of {data.counts.total}</span><span>Sorted by {SHORT[data.sort] ?? COLS.find((c) => c[0] === data.sort)?.[1].toLowerCase()}, {data.asc ? 'ascending' : 'descending'}</span></div>
 		</div>
 
 		<div class="dcards" role="list">
@@ -103,7 +105,7 @@
 				<article class="dcard {r.worst ? `is-flagged ${SEV[r.worst]}` : ''}" class:muted={r.ignored} role="listitem">
 					<div>
 						<a class="dcard-name" href="/devices/{r.ieee}">{r.name}</a>
-						<div class="dcard-type">{r.type} · seen {formatAgo(r.lastSeenAt, data.now)}</div>
+						<div class="dcard-type">{TYPE[r.type]} · seen {formatAgo(r.lastSeenAt, data.now)}</div>
 					</div>
 					<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
 						<span class="avail {ac}"><svg class="i"><use href={ai} /></svg>{al}</span>

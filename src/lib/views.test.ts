@@ -39,6 +39,11 @@ describe('views', () => {
 		expect(rows).toEqual([expect.objectContaining({ ieee: 'a', name: 'Lamp', lqi: 80, openIssues: 2, score: 67 })]);
 	});
 
+	it('leaves stats null without samples', () => {
+		const [r] = deviceRows(state([dev({ ieee: 'a' })]), []);
+		expect([r.lqi24, r.lqiBase, r.msgH]).toEqual([null, null, null]);
+	});
+
 	it('formats ago', () => {
 		expect(formatAgo(0, 30_000)).toBe('just now');
 		expect(formatAgo(0, 5 * 60_000)).toBe('5 min ago');
