@@ -14,7 +14,7 @@ function run() {
 	const state = createState(1760000000000);
 	const dirty = new Set<string>();
 	const live = { ts: 1760000060000, topic: `${B}/temp_sensor`, retain: false,
-		payload: { battery: 88, voltage: 2990, linkquality: 100 } };
+		payload: { battery: 88, voltage: 2990, linkquality: 100, battery_low: true } };
 	// startup is all retained, so add one live message to produce a sample
 	for (const m of [...loadFixture('startup'), live]) applyEffects(db, route(state, m, B), dirty);
 	return { db, state, dirty };
@@ -30,6 +30,7 @@ describe('store', () => {
 		loadDevices(db, s2);
 		expect(s2.devicesLoaded).toBe(false);
 		expect(s2.devices.size).toBe(state.devices.size);
+		expect([...s2.devices.values()].some((d) => d.batteryLow === true)).toBe(true);
 		for (const [ieee, d] of state.devices) {
 			const r = s2.devices.get(ieee)!;
 			expect(r.friendlyName).toBe(d.friendlyName);
@@ -37,6 +38,7 @@ describe('store', () => {
 			expect(r.typicalGapMs).toBe(d.typicalGapMs);
 			expect(r.maxVoltage).toBe(d.maxVoltage);
 			expect(r.battery).toBe(d.battery);
+			expect(r.batteryLow).toBe(d.batteryLow); // a restart must not resolve a battery_low issue
 			expect(s2.byName.get(d.friendlyName)).toBe(ieee);
 		}
 	});

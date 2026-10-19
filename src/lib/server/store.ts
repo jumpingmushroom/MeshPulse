@@ -32,7 +32,7 @@ export function loadDevices(db: Db, state: AppState): void {
 			lqi: s?.lqi ?? null,
 			battery: s?.battery ?? null,
 			voltage: s?.voltage ?? null,
-			batteryLow: null,
+			batteryLow: r.batteryLow,
 			recentSeen: [],
 			lastSampleAt: s?.ts ?? null,
 			offlineSince: null
@@ -68,7 +68,7 @@ export function flushDevices(db: Db, state: AppState, dirty: Set<string>): void 
 				vendor: d.vendor, firmware: d.firmware, networkAddress: d.networkAddress,
 				availability: d.availability, lastSeenAt: d.lastSeenAt, removedAt: d.removedAt,
 				mutedUntil: d.mutedUntil, tags: tagsToDb(d.tags), ignoreRules: d.ignoreRules,
-				typicalGapMs: d.typicalGapMs, maxVoltage: d.maxVoltage
+				typicalGapMs: d.typicalGapMs, maxVoltage: d.maxVoltage, batteryLow: d.batteryLow
 			};
 			// first_seen_at is insert-only: absent from the update set
 			tx.insert(devices).values({ ieee, ...v, firstSeenAt: Date.now() }).onConflictDoUpdate({ target: devices.ieee, set: v }).run();
