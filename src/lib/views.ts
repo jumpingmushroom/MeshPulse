@@ -140,3 +140,13 @@ export function formatDaysLeft(days: number): string {
 	const n = Math.round(days);
 	return n < 1 ? 'less than a day' : `about ${n} ${n === 1 ? 'day' : 'days'}`;
 }
+
+/** Top bar summary: unresolved top-level issues (children are not counted, like the score) and MQTT staleness. */
+export function navSummary(
+	open: { severity: Severity; parentIssueId: number | null }[],
+	monitor: { connected: boolean; downSince: number | null }
+): { count: number; worst: Severity | null; stale: boolean; staleSince: number | null } {
+	const top = open.filter((i) => i.parentIssueId === null);
+	const worst = top.reduce<Severity | null>((w, i) => (w === null || RANK[i.severity] > RANK[w] ? i.severity : w), null);
+	return { count: top.length, worst, stale: !monitor.connected, staleSince: monitor.connected ? null : monitor.downSince };
+}

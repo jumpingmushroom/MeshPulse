@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { batteryRows, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
-import type { DeviceState } from './server/types';
+import { batteryRows, navSummary, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
+import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
 	ieee: '0x1', friendlyName: 'd', type: 'EndDevice', powerSource: null, model: null, vendor: null, firmware: null,
@@ -128,5 +128,16 @@ describe('batteryRows', () => {
 
 	it('formats days left', () => {
 		expect([0.4, 1.2, 18.4].map(formatDaysLeft)).toEqual(['less than a day', 'about 1 day', 'about 18 days']);
+	});
+});
+
+describe('navSummary', () => {
+	const i = (severity: Severity, parentIssueId: number | null = null) => ({ severity, parentIssueId });
+	it('counts top-level issues and picks the worst severity', () => {
+		expect(navSummary([i('warning'), i('critical', 1), i('info')], { connected: true, downSince: null }))
+			.toEqual({ count: 2, worst: 'warning', stale: false, staleSince: null });
+	});
+	it('is stale while MQTT is down', () => {
+		expect(navSummary([], { connected: false, downSince: 1000 })).toEqual({ count: 0, worst: null, stale: true, staleSince: 1000 });
 	});
 });
