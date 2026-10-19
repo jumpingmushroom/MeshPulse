@@ -2,6 +2,7 @@ import { asc, desc, eq, gte, ne } from 'drizzle-orm';
 import type { Config } from './config';
 import type { Db } from './db/index';
 import { events, healthSamples, issues } from './db/schema';
+import { latestParents } from './active/parents';
 import { loadActive } from './active/run';
 import { evaluate, newIssue, type Counters, type IssueRow, type Notify } from './issues/lifecycle';
 import { isQuietHours } from './issues/quiet';
@@ -48,7 +49,8 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		history: loadHistory(db, now), active: loadActive(db),
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };
 	const findings = evaluateRules(ctx);
-	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee),
+	const parents = latestParents(db, (ieee) => state.devices.get(ieee)?.type, now)?.parents;
+	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee), realParent: (ieee) => parents?.get(ieee)?.parent ?? null,
 		// ignored devices are silent like muted ones, so ignoring does not send "Resolved" for each issue
 		mutedUntil: (ieee) => (state.devices.get(ieee)?.tags.includes('ignore') ? FOREVER : (state.devices.get(ieee)?.mutedUntil ?? null)) });
 	const quiet = isQuietHours(now, settings, config.tz);

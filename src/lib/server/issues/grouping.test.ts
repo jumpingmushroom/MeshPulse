@@ -232,3 +232,25 @@ describe('grouping', () => {
 		expect(h2.run(f2, T + MIN).opens.map((o) => o.rule)).toEqual(['network.mass_offline', 'battery.low']);
 	});
 });
+
+describe('real parents', () => {
+	const w = DEFAULT_SETTINGS.routerGroupWindowMin * MIN;
+	const devs: Record<string, Dev> = {
+		'0xr1': { type: 'Router', friendlyName: 'r1', lastSeenAt: T - 2 * MIN, offlineSince: T },
+		'0xr2': { type: 'Router', friendlyName: 'r2', lastSeenAt: T - 2 * MIN, offlineSince: T },
+		'0xe': { type: 'EndDevice', friendlyName: 'e', lastSeenAt: T - w / 2, offlineSince: null }
+	};
+	const cands = [
+		{ key: issueKey('device.offline', '0xr1'), rule: 'device.offline' as RuleId, ieee: '0xr1', openedAt: T },
+		{ key: issueKey('device.offline', '0xr2'), rule: 'device.offline' as RuleId, ieee: '0xr2', openedAt: T + 1 }
+	];
+	const child = { rule: 'device.offline' as RuleId, ieee: '0xe' };
+	const d = (i: string) => devs[i];
+	it('attaches to the real parent, not an earlier timing match', () => {
+		expect(parentFor(child, cands, d, DEFAULT_SETTINGS)).toBe(cands[0].key);
+		expect(parentFor(child, cands, d, DEFAULT_SETTINGS, () => '0xr2')).toBe(cands[1].key);
+	});
+	it('falls back to timing when the child has no known parent', () => {
+		expect(parentFor(child, cands, d, DEFAULT_SETTINGS, () => null)).toBe(cands[0].key);
+	});
+});
