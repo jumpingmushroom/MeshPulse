@@ -53,7 +53,7 @@ advanced:
 
 &#91;embedded content: architecture · one container, read-only on MQTT unless an opt-in active feature is on\]
 
-MQTT is read-only unless an opt-in active feature is on: the collector writes compact state to SQLite, the rules engine turns it into issues, and the outbox delivers them. The UI only reads.
+MQTT is read-only unless an opt-in active feature is on: the collector writes compact state to SQLite, the rules engine turns it into issues, and the outbox delivers them. The UI only reads, except **Scan now** and the Active features switches.
 
 Stack: SvelteKit (adapter-node), Drizzle ORM with better-sqlite3, mqtt.js, Better Auth, Docker Compose, deployed with Dokploy. Collector, rules scheduler and outbox run in the same Node process.
 

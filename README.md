@@ -87,7 +87,7 @@ Two features make MeshPulse publish a request to Zigbee2MQTT. Both are off by de
 
 A run is skipped during an outage, after a restart, and while another request is running. **Scan now** on the **Network map** page starts a scan at once. It works at most once per hour, and only while the nightly scan is on.
 
-The MQTT user needs **publish** access to `zigbee2mqtt/bridge/request/#`. These are the only two requests MeshPulse ever sends.
+The MQTT user needs **publish** access to `<Z2M_BASE_TOPIC>/bridge/request/#` (`zigbee2mqtt/bridge/request/#` by default). These are the only two requests MeshPulse ever sends.
 
 What you see:
 
@@ -103,7 +103,7 @@ What you see:
 ## Requirements
 
 - Zigbee2MQTT 2.x publishing to an MQTT broker.
-- An MQTT user with **subscribe** access to `zigbee2mqtt/#`. Read-only is enough unless you use the active features below.
+- An MQTT user with **subscribe** access to `<Z2M_BASE_TOPIC>/#` (`zigbee2mqtt/#` by default). Read-only is enough unless you use the active features below.
 - Docker with Compose.
 
 ## Configure Zigbee2MQTT

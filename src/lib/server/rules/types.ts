@@ -48,7 +48,7 @@ export interface RuleContext {
 	/** last two health samples, newest last */
 	health: { ts: number; queued: number | null }[];
 	/** from the active checks; missingRouters is from the latest ok coordinator check, null if none */
-	active?: { missingRouters: string[] | null; scanFailStreak: number };
+	active?: { missingRouters: string[] | null; scanFailStreak: number; baseTopic?: string };
 }
 
 export interface Finding {

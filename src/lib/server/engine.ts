@@ -46,7 +46,7 @@ export function runOnce(deps: EngineDeps, now: number): void {
 	const open = db.select().from(issues).where(ne(issues.state, 'resolved')).all().map(toRow);
 	const ctx = { now, state, events: evs, longEvents, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
 		openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
-		history: loadHistory(db, now), active: loadActive(db),
+		history: loadHistory(db, now), active: { ...loadActive(db), baseTopic: config.baseTopic },
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };
 	const findings = evaluateRules(ctx);
 	let parents: ReturnType<typeof latestParents> | undefined; // loaded only when grouping asks
