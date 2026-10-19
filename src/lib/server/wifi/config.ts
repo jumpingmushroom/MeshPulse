@@ -29,9 +29,17 @@ export function getWifiForm(db: Db): { url: string; site: string; user: string; 
 	return { url: s?.url ?? '', site: s?.site ?? 'default', user: s?.user ?? '', passwordSet: !!s?.password };
 }
 
-/** An empty password keeps the stored one. */
+const origin = (u: string) => { try { return new URL(u).origin; } catch { return u; } };
+
+/** The stored password may be reused only for the same controller (scheme+host+port) and site: it must never go to another host. */
+export function canKeepPassword(db: Db, input: { url: string; site: string }): boolean {
+	const s = read(db);
+	return !!s?.password && origin(s.url) === origin(input.url) && s.site === input.site;
+}
+
+/** An empty password keeps the stored one, but only for the same controller; otherwise it is cleared. */
 export function saveWifiConfig(db: Db, secretKey: string, input: { url: string; site: string; user: string; password?: string }): void {
-	const password = input.password ? encrypt(input.password, secretKey) : (read(db)?.password ?? '');
+	const password = input.password ? encrypt(input.password, secretKey) : canKeepPassword(db, input) ? read(db)!.password : '';
 	const value: Stored = { url: input.url, site: input.site, user: input.user, password };
 	db.insert(settings).values({ key: KEY, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
