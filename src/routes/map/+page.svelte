@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
-	import { focusBox, neighbours, zoomAt, type ViewBox } from '../../lib/map';
+	import { clampBox, focusBox, neighbours, placeLabels, zoomAt, type ViewBox } from '../../lib/map';
 	import { formatAgo, formatTime } from '../../lib/views';
 	import type { PageProps } from './$types';
 
@@ -21,6 +21,7 @@
 	let vb = $state<ViewBox>(BASE);
 	let selected = $state<string | null>(null);
 	let svg = $state<SVGSVGElement>();
+	let aside = $state<HTMLElement>();
 	let px = $state(1100);
 	const zoom = $derived(W / vb.w);
 	const fs = $derived((11 * vb.w) / px);
@@ -30,26 +31,37 @@
 	const selKids = $derived(data.scan?.edges.filter((e) => e.to === selected).length ?? 0);
 	const inView = (n: { x: number; y: number }) => n.x >= vb.x && n.x <= vb.x + vb.w && n.y >= vb.y && n.y <= vb.y + vb.h;
 	const labelled = $derived(new Set(data.scan?.labels.map((l) => l.ieee)));
-	const extraLabels = $derived((data.scan?.nodes ?? []).filter((n) => !labelled.has(n.ieee) && (zoom >= 2.5 ? inView(n) : selected !== null && (n.ieee === selected || near.has(n.ieee)))));
+	// placed in screen pixels (text is ~11 px on screen), then mapped back; labels that do not fit are skipped
+	const extraLabels = $derived.by(() => {
+		const k = px / vb.w;
+		const want = (data.scan?.nodes ?? []).filter((n) => !labelled.has(n.ieee) && (zoom >= 2.5 ? inView(n) : selected !== null && (n.ieee === selected || near.has(n.ieee))));
+		return placeLabels(want.map((n) => ({ ieee: n.ieee, x: (n.x - vb.x) * k, y: (n.y - vb.y) * k, r: R[type(n.type)] * k, text: n.name })))
+			.filter((l) => l.placed).map((l) => ({ ieee: l.ieee, x: vb.x + l.x / k, y: vb.y + l.y / k, anchor: l.anchor, name: at.get(l.ieee)!.name }));
+	});
 
 	const toMap = (cx: number, cy: number) => {
 		const r = svg!.getBoundingClientRect();
 		return { x: vb.x + ((cx - r.left) / r.width) * vb.w, y: vb.y + ((cy - r.top) / r.height) * vb.h };
 	};
 	const zoomBy = (f: number, p = { x: vb.x + vb.w / 2, y: vb.y + vb.h / 2 }) => (vb = zoomAt(vb, f, p, LIMITS));
-	const select = (ieee: string | null) => (selected = ieee);
+	const select = (ieee: string | null) => {
+		selected = ieee;
+		// stacked layout: the panel sits below the map, so bring it into view
+		if (ieee && aside && svg && aside.getBoundingClientRect().top >= svg.getBoundingClientRect().bottom - 1) aside.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	};
 	const find = (name: string) => {
 		const n = data.scan?.nodes.find((m) => m.name === name);
 		if (n) { select(n.ieee); vb = focusBox(n, 3, W, H); }
 	};
 
-	const ptrs = new Map<number, { x: number; y: number }>();
-	let moved = 0, pinch = 0;
-	const down = (e: PointerEvent) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (ptrs.size === 1) moved = 0; pinch = 0; };
+	type P = { x: number; y: number; x0: number; y0: number };
+	const ptrs = new Map<number, P>();
+	let moved = 0; // furthest a pointer got from where it went down
+	const down = (e: PointerEvent) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY }); if (ptrs.size === 1) moved = 0; };
 	const move = (e: PointerEvent) => {
 		const last = ptrs.get(e.pointerId);
 		if (!last) return;
-		const cur = { x: e.clientX, y: e.clientY };
+		const cur = { ...last, x: e.clientX, y: e.clientY };
 		if (ptrs.size === 2) {
 			const [a, b] = [...ptrs.values()];
 			const d0 = Math.hypot(a.x - b.x, a.y - b.y);
@@ -60,35 +72,38 @@
 			if (d0 > 0 && d1 > 0) zoomBy(d1 / d0, toMap((c.x + d.x) / 2, (c.y + d.y) / 2));
 			return;
 		}
-		moved += Math.abs(cur.x - last.x) + Math.abs(cur.y - last.y);
-		if (moved <= 4) return;
+		moved = Math.max(moved, Math.hypot(cur.x - cur.x0, cur.y - cur.y0));
 		ptrs.set(e.pointerId, cur);
+		if (moved <= 4) return;
 		svg!.setPointerCapture(e.pointerId);
 		const k = vb.w / svg!.getBoundingClientRect().width;
-		vb = zoomAt({ ...vb, x: vb.x - (cur.x - last.x) * k, y: vb.y - (cur.y - last.y) * k }, 1, { x: 0, y: 0 }, LIMITS);
+		vb = clampBox({ ...vb, x: vb.x - (cur.x - last.x) * k, y: vb.y - (cur.y - last.y) * k }, W, H);
 	};
 	const up = (e: PointerEvent) => { ptrs.delete(e.pointerId); };
-	// a drag that moved is a pan: swallow the click that follows it
+	// a drag that moved is a pan: swallow the click that follows it. detail 0 is Enter/Space, never a drag.
 	const clickNode = (e: MouseEvent, ieee: string) => {
 		if (e.ctrlKey || e.metaKey || e.shiftKey) return;
 		e.preventDefault();
 		e.stopPropagation();
-		if (moved <= 4) select(ieee);
+		if (moved <= 4 || e.detail === 0) select(ieee);
+		moved = 0;
 	};
-	const clickBg = () => { if (moved <= 4) select(null); };
+	const clickBg = () => { if (moved <= 4) select(null); moved = 0; };
 	const key = (e: KeyboardEvent) => {
 		if (e.key === '+' || e.key === '=') zoomBy(1.5);
 		else if (e.key === '-') zoomBy(1 / 1.5);
 		else if (e.key === '0') vb = BASE;
-		else if (e.key === 'Escape') select(null);
 	};
 	$effect(() => {
 		if (!svg) return;
-		const wheel = (e: WheelEvent) => { e.preventDefault(); zoomBy(Math.exp(-e.deltaY * 0.002), toMap(e.clientX, e.clientY)); };
-		svg.addEventListener('wheel', wheel, { passive: false });
-		return () => svg!.removeEventListener('wheel', wheel);
+		const el = svg;
+		const wheel = (e: WheelEvent) => { e.preventDefault(); zoomBy(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1) * 0.002), toMap(e.clientX, e.clientY)); };
+		el.addEventListener('wheel', wheel, { passive: false });
+		return () => el.removeEventListener('wheel', wheel);
 	});
 </script>
+
+<svelte:window onkeydown={(e) => e.key === 'Escape' && select(null)} />
 
 <div class="page">
 	<div class="page-head">
@@ -116,10 +131,12 @@
 	{#if data.scan}
 		{@const scan = data.scan}
 		{#if js}
-			<div class="search" style="max-width:320px">
-				<svg class="i"><use href="#i-search" /></svg>
-				<input class="input" type="search" list="map-names" placeholder="Find a device" aria-label="Find a device" oninput={(e) => find(e.currentTarget.value)} />
-				<datalist id="map-names">{#each scan.nodes as n (n.ieee)}<option value={n.name}></option>{/each}</datalist>
+			<div class="toolbar">
+				<div class="search">
+					<svg class="i"><use href="#i-search" /></svg>
+					<input class="input" type="search" list="map-names" placeholder="Find a device" aria-label="Find a device" oninput={(e) => find(e.currentTarget.value)} />
+					<datalist id="map-names">{#each scan.nodes as n (n.ieee)}<option value={n.name}></option>{/each}</datalist>
+				</div>
 			</div>
 		{/if}
 		<div class="split">
@@ -132,7 +149,7 @@
 					</div>
 				{/if}
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-				<svg bind:this={svg} bind:clientWidth={px} class="map" class:has-sel={selected !== null} viewBox="{vb.x} {vb.y} {vb.w} {vb.h}" role="group" tabindex={js ? 0 : undefined}
+				<svg bind:this={svg} bind:clientWidth={px} class="map" viewBox="{vb.x} {vb.y} {vb.w} {vb.h}" role="group" tabindex={js ? 0 : undefined} style:touch-action={js ? (zoom > 1 ? "none" : "pan-y") : undefined} ondragstart={(e) => e.preventDefault()}
 					onpointerdown={down} onpointermove={move} onpointerup={up} onpointercancel={up} onclick={clickBg} onkeydown={key} aria-label="Network map of {scan.nodes.length} devices. {scan.offline.length} did not answer the scan.">
 					{#each scan.edges as e (e.from)}
 						{@const a = at.get(e.from)!}
@@ -141,19 +158,19 @@
 					{/each}
 					{#each scan.nodes as n (n.ieee)}
 						{@const r = R[type(n.type)] + (n.failed ? 2 : 0)}
-						<a href="/devices/{n.ieee}" class:dim={selected !== null && n.ieee !== selected && !near.has(n.ieee)} class:sel={n.ieee === selected} onclick={(e) => clickNode(e, n.ieee)} aria-label="{n.name}, {n.type}{n.failed ? ', did not answer' : ''}{n.lqi === null ? '' : `, LQI ${n.lqi}`}">
+						<a href="/devices/{n.ieee}" draggable="false" class:dim={selected !== null && n.ieee !== selected && !near.has(n.ieee)} class:sel={n.ieee === selected} onclick={(e) => clickNode(e, n.ieee)} aria-label="{n.name}, {n.type}{n.failed ? ', did not answer' : ''}{n.lqi === null ? '' : `, LQI ${n.lqi}`}">
 							<circle class={n.failed ? 'n n-off' : CLS[type(n.type)]} cx={n.x} cy={n.y} r={r}></circle>
 							{#if n.failed}<path class="x" d="M{n.x - r * 0.6} {n.y - r * 0.6} L{n.x + r * 0.6} {n.y + r * 0.6} M{n.x + r * 0.6} {n.y - r * 0.6} L{n.x - r * 0.6} {n.y + r * 0.6}"></path>{/if}
 							<title>{n.name}{n.lqi === null ? '' : ` · LQI ${n.lqi}`}</title>
 						</a>
 					{/each}
 					{#each scan.labels as l (l.ieee)}<text x={l.x} y={l.y} text-anchor={l.anchor} style="font-size:{fs}px" class:dim={selected !== null && l.ieee !== selected && !near.has(l.ieee)}>{at.get(l.ieee)?.name}</text>{/each}
-					{#each extraLabels as n (n.ieee)}<text x={n.x + R[type(n.type)] + 3} y={n.y + 3} style="font-size:{fs}px">{n.name}</text>{/each}
+					{#each extraLabels as l (l.ieee)}<text x={l.x} y={l.y} text-anchor={l.anchor} style="font-size:{fs}px">{l.name}</text>{/each}
 				</svg>
 			</div>
-			<aside class="stack">
+			<aside class="stack" bind:this={aside} aria-live="polite">
 				{#if sel}
-					<section class="panel panel-pad stack" aria-live="polite">
+					<section class="panel panel-pad stack">
 						<h2 style="font-size:13px">{sel.name}</h2>
 						<p class="muted" style="font-size:13px">{TYPE[type(sel.type)]}{sel.failed ? ' · Did not answer' : ''}</p>
 						{#if selParent}<p style="font-size:13px">Link to parent: LQI {selParent.lqi}<br />Parent: <a href="/devices/{selParent.to}">{selParent.parent}</a></p>{/if}

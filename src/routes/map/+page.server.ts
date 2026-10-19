@@ -34,7 +34,7 @@ export const load: PageServerLoad = () => {
 		scan: {
 			at: ok.startedAt,
 			nodes: layout.nodes.map((n) => ({ ...n, name: name(n.ieee) })),
-			labels: placeLabels(layout.nodes.filter((n) => n.type === 'Coordinator' || n.failed).map((n) => ({ ieee: n.ieee, x: n.x, y: n.y, r: n.type === 'Coordinator' ? 14 : 9, text: name(n.ieee) }))),
+			labels: placeLabels(layout.nodes.filter((n) => n.type === 'Coordinator' || n.failed).map((n) => ({ ieee: n.ieee, x: n.x, y: n.y, r: n.type === 'Coordinator' ? 14 : 9, text: name(n.ieee) }))).filter((l) => l.placed),
 			edges: layout.edges.map((e) => ({ ...e, name: name(e.from), parent: name(e.to) })),
 			offline: layout.nodes.filter((n) => n.failed).map((n) => ({ ieee: n.ieee, name: name(n.ieee) }))
 		}

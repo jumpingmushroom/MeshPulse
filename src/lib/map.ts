@@ -137,7 +137,7 @@ export function mapLayout(nodes: MapNode[], links: MapLink[], parents: MapParent
 	return { nodes: sorted.filter((n) => pos.has(n.ieee)).map((n) => ({ ...n, ...pos.get(n.ieee)!, lqi: lqiOf.get(n.ieee) ?? null })), edges };
 }
 
-/** Greedy label placement: first free spot around the node, trying right, left, above, below, then stepping down the right side. */
+/** Greedy label placement: first free spot around the node, trying right, left, above, below, then stepping down the right side. `placed` is false when no spot is free. */
 export function placeLabels(items: { ieee: string; x: number; y: number; r: number; text: string }[]) {
 	const boxes: { x0: number; x1: number; y0: number; y1: number }[] = [];
 	const hit = (b: (typeof boxes)[number]) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
@@ -148,14 +148,15 @@ export function placeLabels(items: { ieee: string; x: number; y: number; r: numb
 			{ x: it.x, y: it.y - g, anchor: 'middle' }, { x: it.x, y: it.y + g + 8, anchor: 'middle' }];
 		for (let i = 1; i < 12; i++) spots.push({ x: it.x + g, y: it.y + 3 + 12 * i, anchor: 'start' }, { x: it.x + g, y: it.y + 3 - 12 * i, anchor: 'start' });
 		const box = (s: (typeof spots)[number]) => { const x0 = s.anchor === 'start' ? s.x : s.anchor === 'end' ? s.x - tw : s.x - tw / 2; return { x0, x1: x0 + tw, y0: s.y - 9, y1: s.y + 3 }; };
-		const spot = spots.find((s) => !hit(box(s))) ?? spots[0];
+		const spot = spots.find((s) => !hit(box(s)));
+		if (!spot) return { ieee: it.ieee, ...spots[0], box: box(spots[0]), placed: false };
 		boxes.push(box(spot));
-		return { ieee: it.ieee, ...spot };
+		return { ieee: it.ieee, ...spot, box: box(spot), placed: true };
 	});
 }
 
 export type ViewBox = { x: number; y: number; w: number; h: number };
-const clampBox = (v: ViewBox, w: number, h: number): ViewBox => ({ ...v, x: Math.min(Math.max(v.x, 0), w - v.w), y: Math.min(Math.max(v.y, 0), h - v.h) });
+export const clampBox = (v: ViewBox, w: number, h: number): ViewBox => ({ ...v, x: Math.min(Math.max(v.x, 0), w - v.w), y: Math.min(Math.max(v.y, 0), h - v.h) });
 
 /** New viewBox after zooming by `factor` around `point` (map coordinates); zoom clamped to limits.min..max, kept inside the map. */
 export function zoomAt(vb: ViewBox, factor: number, point: { x: number; y: number }, limits: { w: number; h: number; min: number; max: number }): ViewBox {

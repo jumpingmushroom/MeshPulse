@@ -83,10 +83,14 @@ describe('mapLayout', () => {
 });
 
 describe('placeLabels', () => {
-	it('keeps labels from overlapping', () => {
-		const items = [0, 1, 2].map((i) => ({ ieee: String(i), x: 100, y: 100 + i * 2, r: 7, text: 'Hall plug router' }));
+	const overlap = (a: { box: { x0: number; x1: number; y0: number; y1: number } }, b: typeof a) => a.box.x0 < b.box.x1 && a.box.x1 > b.box.x0 && a.box.y0 < b.box.y1 && a.box.y1 > b.box.y0;
+	it('keeps placed labels from overlapping and skips what cannot be placed', () => {
+		const items = Array.from({ length: 60 }, (_, i) => ({ ieee: String(i), x: 100 + (i % 3) * 2, y: 100, r: 7, text: 'Hall plug router' }));
 		const out = placeLabels(items);
-		expect(new Set(out.map((o) => `${o.x},${o.y}`)).size).toBe(3);
+		const placed = out.filter((o) => o.placed);
+		expect(placed.length).toBeGreaterThan(3);
+		expect(placed.length).toBeLessThan(60);
+		for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) expect(overlap(placed[i], placed[j])).toBe(false);
 	});
 });
 

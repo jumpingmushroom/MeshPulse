@@ -534,7 +534,7 @@ a.tile:hover { box-shadow: var(--shadow-md); }
 .map text { fill: var(--text-muted); font: 400 10px var(--font); }
 .map-wrap { position: relative; }
 .map-tools { position: absolute; top: var(--space-4); right: var(--space-4); z-index: 1; background: var(--surface); }
-svg.map[tabindex] { touch-action: none; cursor: grab; }
+svg.map[tabindex] { cursor: grab; }
 .map .dim { opacity: .2; }
 .map .hl { stroke-opacity: 1; stroke-width: 2; }
 .map .sel .n { stroke: var(--text); stroke-width: 3; }
