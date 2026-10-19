@@ -16,10 +16,11 @@
 	const errOf = (key: string) => errs.find((e) => e.field === key)?.message;
 	// after a failed save keep what the user typed
 	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
-	const wf = $derived(msg('wifi')?.values); // after a failed save/test keep what was typed (never the password)
+	const wf = $derived(msg('wifi')?.wifiValues); // after a failed save/test keep what was typed (never the password)
 	// editable copy of the saved areas; rows have a stable id so a rename keeps its APs. "Suggest" adds unsaved rows
 	// Initialised once: saving keeps what was typed (use:enhance does not reset), so other sections never wipe it
-	const init = initAreaRows(data.areas.areas, data.areas.aps); // svelte-ignore state_referenced_locally
+	// svelte-ignore state_referenced_locally
+	const init = initAreaRows(data.areas.areas, data.areas.aps);
 	let rows = $state(init.rows);
 	let apSel = $state(init.apSel); // mac -> row id
 	let seq = 0;
