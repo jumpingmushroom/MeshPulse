@@ -9,6 +9,8 @@ const HOUR = 3_600_000;
 const OUTAGES = ['bridge.offline', 'monitor.mqtt_lost', 'network.mass_offline', 'network.storm'];
 
 /** Local day `YYYY-MM-DD` to run for, or null. Compares local wall-clock time, so a DST change cannot repeat or skip a run. */
+export const NETWORK_SCAN_AT = '04:00' as const;
+
 export function due(now: number, at: '03:30' | '04:00', lastDay: string, tz: string): string | null {
 	const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 		.formatToParts(now).map((x) => [x.type, x.value]));

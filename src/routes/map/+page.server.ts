@@ -2,6 +2,7 @@ import { and, desc, eq, ne } from 'drizzle-orm';
 import { requestManualScan } from '../../lib/server/active/run';
 import { parentMap } from '../../lib/server/active/parents';
 import { scanLinks, scans } from '../../lib/server/db/schema';
+import { NETWORK_SCAN_AT } from '../../lib/server/active/schedule';
 import { getRuntime } from '../../lib/server/runtime';
 import { getSettings } from '../../lib/server/settings';
 import { mapLayout, type MapNode } from '../../lib/map';
@@ -17,7 +18,7 @@ export const load: PageServerLoad = () => {
 	const last = db.select().from(scans).where(isScan).orderBy(desc(scans.startedAt), desc(scans.id)).limit(1).get();
 	const ok = db.select().from(scans).where(and(eq(scans.kind, 'networkmap'), eq(scans.status, 'ok'))).orderBy(desc(scans.startedAt), desc(scans.id)).limit(1).get();
 	const failure = last && last.status === 'failed' ? { at: last.startedAt, reason: last.reason ?? 'unknown error' } : null;
-	if (!ok) return { enabled, failure, now, tz, scan: null };
+	if (!ok) return { enabled, failure, now, tz, scanAt: NETWORK_SCAN_AT, scan: null };
 
 	const links = db.select().from(scanLinks).where(eq(scanLinks.scanId, ok.id)).all();
 	const dev = (i: string) => state.devices.get(i);
@@ -29,7 +30,7 @@ export const load: PageServerLoad = () => {
 	const layout = mapLayout(nodes, parents, W, H);
 	const name = (i: string) => dev(i)?.friendlyName ?? i;
 	return {
-		enabled, failure, now, tz,
+		enabled, failure, now, tz, scanAt: NETWORK_SCAN_AT,
 		scan: {
 			at: ok.startedAt,
 			nodes: layout.nodes.map((n) => ({ ...n, name: name(n.ieee), lqi: parents.get(n.ieee)?.lqi ?? null })),

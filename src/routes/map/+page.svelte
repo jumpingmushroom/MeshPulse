@@ -16,7 +16,7 @@
 		<div>
 			<h1>Network map</h1>
 			{#if data.scan}
-				<p class="sub">From the nightly network scan · last scanned {formatTime(data.scan.at, tz)} ({formatAgo(data.scan.at, now)}){data.enabled ? ' · next scan 04:00' : ''}. Positions are a layout, not a floor plan.</p>
+				<p class="sub">From the nightly network scan · last scanned {formatTime(data.scan.at, tz)} ({formatAgo(data.scan.at, now)}){data.enabled ? ' · next scan ' + data.scanAt : ''}. Positions are a layout, not a floor plan.</p>
 			{/if}
 		</div>
 		<div style="display:flex;gap:var(--space-4);align-items:center">
@@ -80,6 +80,6 @@
 			<p><a href="/settings">Turn it on in Settings</a></p>
 		</div>
 	{:else if !data.failure}
-		<div class="panel panel-pad"><strong>No scan yet</strong><p class="muted">The first scan runs tonight at 04:00, or press Scan now.</p></div>
+		<div class="panel panel-pad"><strong>No scan yet</strong><p class="muted">The first scan runs tonight at {data.scanAt}, or press Scan now.</p></div>
 	{/if}
 </div>
