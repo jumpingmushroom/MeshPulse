@@ -532,3 +532,9 @@ a.tile:hover { box-shadow: var(--shadow-md); }
 .map a:focus-visible .n, .map a:hover .n { stroke: var(--text); stroke-width: 2.5; }
 .map .x { stroke: var(--crit-fg); stroke-width: 1.5; }
 .map text { fill: var(--text-muted); font: 400 10px var(--font); }
+.map-wrap { position: relative; }
+.map-tools { position: absolute; top: var(--space-4); right: var(--space-4); z-index: 1; background: var(--surface); }
+svg.map[tabindex] { touch-action: none; cursor: grab; }
+.map .dim { opacity: .2; }
+.map .hl { stroke-opacity: 1; stroke-width: 2; }
+.map .sel .n { stroke: var(--text); stroke-width: 3; }

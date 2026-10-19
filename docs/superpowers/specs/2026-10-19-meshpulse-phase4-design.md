@@ -124,6 +124,7 @@ Parsing (pure, `src/lib/server/active/parse.ts`):
   panel: legend, "Offline at last scan N". Empty states: feature off (what it
   does, its cost, link to Settings); no scan yet; last scan failed (error, last
   good scan still shown).
+- Amended Oct 19 (Q18): the map supports zoom, pan, node selection with a side panel and device search; without JS it stays static.
 - Device page: "Parent <name> · LQI n" badge (link), "· changed since previous
   scan" when moved; routers: "N devices route through this router".
 - Issue page: `coordinator.missing_router` uses the existing layout.

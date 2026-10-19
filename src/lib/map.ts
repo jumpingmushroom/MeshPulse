@@ -153,3 +153,25 @@ export function placeLabels(items: { ieee: string; x: number; y: number; r: numb
 		return { ieee: it.ieee, ...spot };
 	});
 }
+
+export type ViewBox = { x: number; y: number; w: number; h: number };
+const clampBox = (v: ViewBox, w: number, h: number): ViewBox => ({ ...v, x: Math.min(Math.max(v.x, 0), w - v.w), y: Math.min(Math.max(v.y, 0), h - v.h) });
+
+/** New viewBox after zooming by `factor` around `point` (map coordinates); zoom clamped to limits.min..max, kept inside the map. */
+export function zoomAt(vb: ViewBox, factor: number, point: { x: number; y: number }, limits: { w: number; h: number; min: number; max: number }): ViewBox {
+	const zoom = Math.min(limits.max, Math.max(limits.min, (limits.w / vb.w) * factor));
+	const w = limits.w / zoom, h = limits.h / zoom;
+	return clampBox({ x: point.x - ((point.x - vb.x) / vb.w) * w, y: point.y - ((point.y - vb.y) / vb.h) * h, w, h }, limits.w, limits.h);
+}
+
+/** Ieees joined to `ieee` by a tree edge, either direction. */
+export function neighbours(edges: { from: string; to: string }[], ieee: string): Set<string> {
+	const out = new Set<string>();
+	for (const e of edges) { if (e.from === ieee) out.add(e.to); else if (e.to === ieee) out.add(e.from); }
+	return out;
+}
+
+/** viewBox of the given zoom centred on a node, kept inside the map. */
+export function focusBox(node: { x: number; y: number }, zoom: number, w: number, h: number): ViewBox {
+	return clampBox({ x: node.x - w / zoom / 2, y: node.y - h / zoom / 2, w: w / zoom, h: h / zoom }, w, h);
+}
