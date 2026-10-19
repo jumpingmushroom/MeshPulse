@@ -21,9 +21,9 @@ export function parentFor(child: Pick<Finding, 'rule' | 'ieee'>, candidates: Can
 	const matches = (p: Candidate) => {
 		if (PARENT_RULES[p.rule]?.includes(child.rule)) return true;
 		if (child.rule !== 'device.offline' || child.ieee === null || !isRouterOffline(p.rule, p.ieee, devices)) return false;
-		// a known parent from the network scan must be this router; otherwise timing alone decides
+		// a known parent from the network scan decides alone; timing is the fallback
 		const real = realParent?.(child.ieee);
-		if (real && real !== p.ieee) return false;
+		if (real) return real === p.ieee;
 		// from the router's silence start (Z2M's offline event lags by its availability timeout) to its offline time
 		const r = devices(p.ieee!);
 		const since = r?.offlineSince ?? p.offlineSince ?? null;

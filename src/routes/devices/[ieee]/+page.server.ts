@@ -2,7 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { and, count, desc, eq, ne } from 'drizzle-orm';
 import { EVENT_KINDS } from '../../../lib/server/events-page';
 import { deviceScore } from '../../../lib/score';
-import { latestParents } from '../../../lib/server/active/parents';
+import { latestParents, parentChanged } from '../../../lib/server/active/parents';
 import { deviceCharts, type Range } from '../../../lib/server/device-history';
 import { baselines, devices, events, issues } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
@@ -36,9 +36,8 @@ export const load: PageServerLoad = ({ params, url }) => {
 	const scan = latestParents(db, (i) => state.devices.get(i)?.type, t1);
 	const p = scan?.parents.get(d.ieee);
 	const parent = p ? {
-		ieee: p.parent, name: state.devices.get(p.parent)?.friendlyName ?? p.parent, lqi: p.lqi,
-		// compared by IEEE, so a rename between scans is not a change
-		changed: scan!.previous ? scan!.previous.get(d.ieee)?.parent !== p.parent : false
+		ieee: p.parent, name: state.devices.get(p.parent)?.friendlyName ?? null, lqi: p.lqi,
+		changed: parentChanged(scan!.parents, scan!.previous, d.ieee)
 	} : null;
 	const routed = scan && d.type === 'Router' ? [...scan.parents.values()].filter((v) => v.parent === d.ieee).length : null;
 

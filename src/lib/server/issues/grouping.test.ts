@@ -250,6 +250,13 @@ describe('real parents', () => {
 		expect(parentFor(child, cands, d, DEFAULT_SETTINGS)).toBe(cands[0].key);
 		expect(parentFor(child, cands, d, DEFAULT_SETTINGS, () => '0xr2')).toBe(cands[1].key);
 	});
+	it('attaches to the real parent outside the timing window, and not to a timing match', () => {
+		const far: Record<string, Dev> = { ...devs, '0xe': { ...devs['0xe'], lastSeenAt: T - 5 * w } };
+		const f2 = (i: string) => far[i];
+		expect(parentFor(child, cands, f2, DEFAULT_SETTINGS)).toBeNull();
+		expect(parentFor(child, cands, f2, DEFAULT_SETTINGS, () => '0xr2')).toBe(cands[1].key);
+		expect(parentFor(child, [cands[0]], d, DEFAULT_SETTINGS, () => '0xr2')).toBeNull();
+	});
 	it('falls back to timing when the child has no known parent', () => {
 		expect(parentFor(child, cands, d, DEFAULT_SETTINGS, () => null)).toBe(cands[0].key);
 	});
