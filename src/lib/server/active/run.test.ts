@@ -68,12 +68,42 @@ describe('startActive', () => {
 });
 
 describe('loadActive', () => {
-  it('keeps the latest ok check through a newer failed one', async () => {
-    const d = setup();
-    await runActive(d, 'coordinator_check', 'scheduled', NOW);
-    d.req.mockRejectedValueOnce(new Error('x'));
-    await runActive(d, 'coordinator_check', 'manual', NOW + 1000);
-    expect(loadActive(d.db).missingRouters).toEqual(['0xa']);
-    expect(loadActive(openDb(':memory:')).missingRouters).toBeNull();
-  });
+	it('keeps the latest ok check through a newer failed one', async () => {
+		const d = setup();
+		await runActive(d, 'coordinator_check', 'scheduled', NOW);
+		d.req.mockRejectedValueOnce(new Error('x'));
+		await runActive(d, 'coordinator_check', 'manual', NOW + 1000);
+		saveSettings(d.db, { activeCoordinatorCheck: true });
+		expect(loadActive(d.db).missingRouters).toEqual(['0xa']);
+		expect(loadActive(openDb(':memory:')).missingRouters).toBeNull();
+	});
+
+	it('returns null when the check is off, so open issues resolve', async () => {
+		const d = setup();
+		await runActive(d, 'coordinator_check', 'scheduled', NOW);
+		expect(loadActive(d.db).missingRouters).toBeNull();
+	});
+
+	it('does not run again once the day is set', async () => {
+		vi.useFakeTimers({ now: NOW });
+		const d = setup();
+		saveSettings(d.db, { activeCoordinatorCheck: true });
+		const loop = startActive(d);
+		await vi.advanceTimersByTimeAsync(5 * 60_000);
+		expect(d.req).toHaveBeenCalledTimes(1);
+		loop.stop();
+		vi.useRealTimers();
+	});
+
+	it('does nothing on a tick while a request is still running', async () => {
+		vi.useFakeTimers({ now: NOW });
+		const d = setup(() => new Promise(() => {}));
+		saveSettings(d.db, { activeCoordinatorCheck: true });
+		const loop = startActive(d);
+		await vi.advanceTimersByTimeAsync(3 * 60_000);
+		expect(d.req).toHaveBeenCalledTimes(1);
+		expect(d.db.select().from(scans).all()).toEqual([]);
+		loop.stop();
+		vi.useRealTimers();
+	});
 });

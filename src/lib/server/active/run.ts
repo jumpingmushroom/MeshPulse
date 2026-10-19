@@ -4,6 +4,7 @@ import type { Db } from '../db/index';
 import { issues, scans } from '../db/schema';
 import type { Requester } from '../mqtt/request';
 import { issueKey } from '../rules/types';
+import { getSettings } from '../settings';
 import type { AppState } from '../types';
 import { parseCoordinatorCheck } from './parse';
 import { activeGuard, localDay, setLastDay } from './schedule';
@@ -41,9 +42,10 @@ export async function runActive(deps: ActiveDeps, kind: Kind, trigger: 'schedule
 	return res;
 }
 
-/** Engine input: missing routers from the latest ok check (a newer failed one does not clear it), and consecutive failed scans. */
+/** Engine input: missing routers from the latest ok check (a newer failed one does not clear it; null when the check is off, so its issues resolve), and consecutive failed scans. */
 export function loadActive(db: Db): { missingRouters: string[] | null; scanFailStreak: number } {
-	const ok = db.select().from(scans).where(and(eq(scans.kind, 'coordinator_check'), eq(scans.status, 'ok'))).orderBy(desc(scans.startedAt), desc(scans.id)).get();
+	const ok = !getSettings(db).activeCoordinatorCheck ? undefined
+		: db.select().from(scans).where(and(eq(scans.kind, 'coordinator_check'), eq(scans.status, 'ok'))).orderBy(desc(scans.startedAt), desc(scans.id)).get();
 	const recent = db.select({ status: scans.status }).from(scans).where(and(eq(scans.kind, 'networkmap'), ne(scans.status, 'skipped'))).orderBy(desc(scans.startedAt), desc(scans.id)).limit(10).all();
 	const firstOk = recent.findIndex((r) => r.status === 'ok');
 	return { missingRouters: ok?.missing ?? null, scanFailStreak: firstOk === -1 ? recent.length : firstOk };

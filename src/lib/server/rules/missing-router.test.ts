@@ -17,6 +17,11 @@ describe('coordinator.missing_router', () => {
 		expect(missingRouter(withMissing(null))).toEqual([]);
 		expect(missingRouter(withMissing([]))).toEqual([]);
 	});
+	it('skips a removed router', () => {
+		const c = withMissing([HALL]);
+		dev(c, HALL).removedAt = 1;
+		expect(missingRouter(c)).toEqual([]);
+	});
 	it('ignores ignore-tagged routers and ieees Z2M no longer lists', () => {
 		const c = withMissing([HALL, '0xdead']);
 		expect(missingRouter(c).map((x) => x.ieee)).toEqual([HALL]);

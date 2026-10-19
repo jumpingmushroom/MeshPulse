@@ -3,7 +3,10 @@ import { runActive, type ActiveDeps } from './run';
 import { due, lastDay } from './schedule';
 
 export function startActive(deps: ActiveDeps): { stop(): void } {
+	let running = false;
 	const timer = setInterval(async () => {
+		if (running) return; // a slow request must not make later ticks write skipped rows
+		running = true;
 		const now = Date.now();
 		try {
 			// the only scheduled path to a request: feature on and due
@@ -11,6 +14,8 @@ export function startActive(deps: ActiveDeps): { stop(): void } {
 				await runActive(deps, 'coordinator_check', 'scheduled', now);
 		} catch (e) {
 			console.error('active: coordinator check failed', e);
+		} finally {
+			running = false;
 		}
 	}, 60_000);
 	return { stop: () => clearInterval(timer) };
