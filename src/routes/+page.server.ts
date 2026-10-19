@@ -36,7 +36,7 @@ export const load: PageServerLoad = () => {
 		wifi: wifiSnap && { state: wifiState!, zigbeeChannel: wifiSnap.zigbeeChannel, overlap: wifiSnap.aps.filter((a) => a.overlaps).length },
 		...networkScore(open),
 		setup: setupNotice({ connected: state.monitor.connected, connectedAt: state.monitor.connectedAt, lastError: state.monitor.lastError,
-			bridgeSeen: bridge.state !== null || bridge.info !== null, mqttUrl: config.mqttUrl, baseTopic: config.baseTopic, now }),
+			bridgeSeen: bridge.state !== null || bridge.info !== null, mqttUrl: config.mqttUrl, baseTopic: config.baseTopic, now, startedAt: state.monitor.startedAt }),
 		banner: banner(list),
 		learning: learning(first, now),
 		peakQuiet: peakQuiet(msgs, config.tz),

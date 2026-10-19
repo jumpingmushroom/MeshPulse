@@ -322,8 +322,10 @@ export function chartFor(rule: string): 'battery' | 'lqi' | 'msgs' | null {
 	return rule === 'device.storm' || rule === 'device.dominant' ? 'msgs' : null;
 }
 
-export function setupNotice(i: { connected: boolean; connectedAt: number | null; lastError: string | null; bridgeSeen: boolean; mqttUrl: string; baseTopic: string; now: number }): { kind: 'mqtt' | 'z2m'; text: string } | null {
+export function setupNotice(i: { connected: boolean; connectedAt: number | null; lastError: string | null; bridgeSeen: boolean; mqttUrl: string; baseTopic: string; now: number; startedAt: number }): { kind: 'mqtt' | 'z2m'; text: string } | null {
+	// A lost connection after a good one is the layout's stale alert, not a setup problem.
 	if (!i.connected) {
+		if (i.connectedAt !== null || i.now - i.startedAt < 15_000) return null;
 		let url = 'the configured URL';
 		try { const u = new URL(i.mqttUrl); u.username = ''; u.password = ''; url = u.href.replace(/\/$/, ''); } catch { /* keep placeholder */ }
 		return { kind: 'mqtt', text: `MeshPulse can't reach the MQTT broker at ${url}${i.lastError ? `: ${i.lastError}` : ''}. Check the URL, username and password.` };

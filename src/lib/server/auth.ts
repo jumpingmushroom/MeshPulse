@@ -31,7 +31,8 @@ export function getAuth(): Auth {
 export async function ensureAdmin(auth: Auth, email?: string, password?: string): Promise<'created' | 'exists' | 'skipped'> {
 	if (!email || !password) return 'skipped';
 	const ctx = await auth.$context;
-	if (await ctx.internalAdapter.findUserByEmail(email)) return 'exists';
+	// Single-admin app: any existing account (e.g. made via /setup) blocks seeding another.
+	if ((await ctx.internalAdapter.listUsers(1)).length) return 'exists';
 	const user = await ctx.internalAdapter.createUser({ email, name: 'Admin', emailVerified: true }, { method: 'admin' });
 	await ctx.internalAdapter.linkAccount({ providerId: 'credential', accountId: user.id, userId: user.id,
 		password: await ctx.password.hash(password) });

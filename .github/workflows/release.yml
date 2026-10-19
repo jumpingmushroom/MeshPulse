@@ -21,10 +21,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/jumpingmushroom/meshpulse
+          # No explicit latest tag: the default flavor latest=auto tags latest only for full semver releases (no pre-release suffix).
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
           labels: |
             org.opencontainers.image.licenses=MIT
       - uses: docker/build-push-action@v6

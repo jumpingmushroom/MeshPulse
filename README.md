@@ -58,7 +58,7 @@ Create the account before you expose MeshPulse beyond your home network.
 
 If you would rather create the account from the environment, set `ADMIN_EMAIL` and `ADMIN_PASSWORD`; the account is created at startup.
 
-MeshPulse needs no secret key setting. When `SECRET_KEY` is unset, it generates a key into `secret.key` next to the database (`/data/secret.key` in Docker, mode 600). A `SECRET_KEY` that you set always wins. Keep `secret.key` with the database: changing the key logs everyone out and breaks the stored Discord webhook and Apprise URLs.
+MeshPulse needs no secret key setting. When `SECRET_KEY` is unset, it generates a key into `secret.key` next to the database (`/data/secret.key` in Docker, mode 600). A `SECRET_KEY` that you set always wins. Keep `secret.key` with the database: changing the key logs everyone out and breaks the stored Discord webhook, Apprise URLs and UniFi password. If your install already sets `SECRET_KEY`, keep it: clearing it generates a new key with the same effect.
 
 If the broker can't be reached, or it's connected but nothing has come from `<base>/bridge/...` for 2 minutes, **Overview** shows a notice. Check `MQTT_URL`, the broker user, and that Zigbee2MQTT is running.
 

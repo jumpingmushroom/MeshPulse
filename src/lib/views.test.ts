@@ -273,11 +273,17 @@ describe('evidenceRows wifi', () => {
 });
 
 describe('setupNotice', () => {
-	const base = { connected: true, connectedAt: 0, lastError: null, bridgeSeen: false, mqttUrl: 'mqtt://user:pass@10.0.0.2:1883', baseTopic: 'zigbee2mqtt', now: 0 };
+	const base = { connected: true, connectedAt: 0, lastError: null, bridgeSeen: false, mqttUrl: 'mqtt://user:pass@10.0.0.2:1883', baseTopic: 'zigbee2mqtt', now: 0, startedAt: 0 };
 	it('explains an unreachable broker without credentials', () => {
-		expect(setupNotice({ ...base, connected: false, lastError: 'connect ECONNREFUSED 10.0.0.2:1883' })).toEqual({ kind: 'mqtt', text: "MeshPulse can't reach the MQTT broker at mqtt://10.0.0.2:1883: connect ECONNREFUSED 10.0.0.2:1883. Check the URL, username and password." });
-		expect(setupNotice({ ...base, connected: false })!.text).toMatch(/at mqtt:\/\/10\.0\.0\.2:1883\. Check the URL, username and password\.$/);
-		expect(setupNotice({ ...base, connected: false, mqttUrl: 'nope' })!.text).toContain('at the configured URL');
+		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000, lastError: 'connect ECONNREFUSED 10.0.0.2:1883' })).toEqual({ kind: 'mqtt', text: "MeshPulse can't reach the MQTT broker at mqtt://10.0.0.2:1883: connect ECONNREFUSED 10.0.0.2:1883. Check the URL, username and password." });
+		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000 })!.text).toMatch(/at mqtt:\/\/10\.0\.0\.2:1883\. Check the URL, username and password\.$/);
+		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000, mqttUrl: 'nope' })!.text).toContain('at the configured URL');
+	});
+	it('waits 15 s, and only for a broker never reached', () => {
+		const down = { ...base, connected: false, connectedAt: null };
+		expect(setupNotice({ ...down, now: 14_000 })).toBeNull();
+		expect(setupNotice({ ...down, now: 15_000 })!.kind).toBe('mqtt');
+		expect(setupNotice({ ...base, connected: false, connectedAt: 1000, now: 60_000 })).toBeNull();
 	});
 	it('waits 120 s before saying nothing arrived from Zigbee2MQTT', () => {
 		expect(setupNotice({ ...base, now: 119_000 })).toBeNull();
