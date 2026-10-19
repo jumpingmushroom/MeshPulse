@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autoRange, buildSeries, fillHours, niceTicks, summarise } from './chart';
+import { autoRange, batteryTrend, buildSeries, fillHours, niceTicks, summarise } from './chart';
 
 const box = { w: 100, h: 50, t0: 0, t1: 100, y0: 0, y1: 10 };
 
@@ -53,5 +53,14 @@ describe('fillHours', () => {
 		expect(fillHours([], 5 * H)).toEqual([]);
 		expect(fillHours([{ t: 2 * H, v: 4 }, { t: 4 * H, v: 1 }], 6 * H)).toEqual(
 			[{ t: 2 * H, v: 4 }, { t: 3 * H, v: 0 }, { t: 4 * H, v: 1 }, { t: 5 * H, v: 0 }, { t: 6 * H, v: 0 }]);
+	});
+});
+
+describe('batteryTrend', () => {
+	it('spans the full width with a near-flat line for 80 -> 79 %', () => {
+		expect(batteryTrend([{ t: 1000, v: 80 }, { t: 2000, v: 79 }], 96, 22, 5000)).toBe('M0,4.4L96,4.6');
+	});
+	it('is empty with fewer than 2 points', () => {
+		expect(batteryTrend([{ t: 1, v: 80 }], 96, 22, 5000)).toBe('');
 	});
 });

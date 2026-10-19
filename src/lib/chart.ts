@@ -78,3 +78,10 @@ export function fillHours(rows: { t: number; v: number }[], lastHour: number): P
 	for (let t = rows[0].t; t <= Math.max(lastHour, rows[rows.length - 1].t); t += HOUR) out.push({ t, v: byHour.get(t) ?? 0 });
 	return out;
 }
+
+/** Battery trend path: x spans the points' own time range, y is a fixed 0-100 %. Empty with fewer than 2 points. */
+export function batteryTrend(points: Point[], w: number, h: number, maxGapMs: number): string {
+	const pts = points.filter((p) => ok(p.v));
+	if (pts.length < 2) return '';
+	return buildSeries(pts, { w, h, t0: pts[0].t, t1: pts[pts.length - 1].t, y0: 0, y1: 100 }, maxGapMs).line;
+}

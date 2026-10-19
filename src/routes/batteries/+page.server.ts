@@ -1,5 +1,5 @@
 import { and, eq, gte, isNotNull, max } from 'drizzle-orm';
-import { buildSeries, type Point } from '../../lib/chart';
+import { batteryTrend, type Point } from '../../lib/chart';
 import { baselines, events, samplesHourly } from '../../lib/server/db/schema';
 import { getRuntime } from '../../lib/server/runtime';
 import { getSettings } from '../../lib/server/settings';
@@ -27,10 +27,7 @@ export const load: PageServerLoad = () => {
 	for (const [ieee, pts] of hourly) {
 		if (pts.length < 2) continue;
 		const vs = pts.map((p) => p.v as number);
-		const mid = (Math.min(...vs) + Math.max(...vs)) / 2;
-		const r = Math.max((Math.max(...vs) - Math.min(...vs)) / 2, 3); // flat data sits mid-height
-		const box = { ...SPARK, t0, t1, y0: mid - r, y1: mid + r };
-		trends.set(ieee, buildSeries(pts, box, 3 * H).line);
+		trends.set(ieee, batteryTrend(pts, SPARK.w, SPARK.h, 3 * H));
 		labels[ieee] = `30-day battery trend, ${Math.round(vs[0])} % to ${Math.round(vs[vs.length - 1])} %`;
 	}
 	const rows = batteryRows([...state.devices.values()], daysLeft, swaps, getSettings(db).batteryLowPct, trends);
