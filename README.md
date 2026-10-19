@@ -1,6 +1,6 @@
 # MeshPulse
 
-MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traffic of your Zigbee mesh, raises issues such as offline or silent devices, flapping devices, low batteries, an offline or restarting bridge, a lost MQTT connection and an open network, and notifies you on Discord and through Apprise. It never publishes to MQTT, so it can't change anything on your network.
+MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traffic of your Zigbee mesh, raises issues such as offline or silent devices, flapping devices, low batteries, an offline or restarting bridge, a lost MQTT connection and an open network, and notifies you on Discord and through Apprise. It is read-only unless you switch on an active feature (see Active features). It never changes your network.
 
 ![Overview with no open issues](docs/screenshots/overview-healthy.png)
 
@@ -78,6 +78,24 @@ The network score is 100, minus 25 for each Critical issue, 8 for each Warning, 
 
 On Sunday at 18:00 in `TZ`, MeshPulse sends a summary to each channel that has **Weekly digest** selected: the score now, a week ago, and at its lowest; open issues; batteries to buy; the weakest links; the most-churning devices; and devices with route failures. It's on by default for Discord and off for Apprise. A new install sends its first digest the following Sunday.
 
+## Active features (opt-in)
+
+Two features make MeshPulse publish a request to Zigbee2MQTT. Both are off by default. Switch them on in **Settings → Active features**. Switching one on schedules its first run for the next night.
+
+- **Coordinator check** runs daily at 03:30. It asks Zigbee2MQTT which routers the coordinator has forgotten.
+- **Network scan** runs nightly at 04:00. It asks for the network map and stores it.
+
+A run is skipped during an outage, after a restart, and while another request is running. **Scan now** on the **Network map** page starts a scan at once. It works at most once per hour, and only while the nightly scan is on.
+
+The MQTT user needs **publish** access to `zigbee2mqtt/bridge/request/#`. These are the only two requests MeshPulse ever sends.
+
+What you see:
+
+- **Missing from coordinator** (Warning): a router the coordinator no longer knows. Re-pair the router.
+- **Network scan keeps failing** (Info): repeated scan failures.
+- **Parent badge** on a device page: the router the device is attached to, from the latest scan.
+- **Network map** (`/map`): the mesh from the latest scan, with its links.
+
 ## Events page
 
 **Events** lists the last 90 days of events, newest first. You can filter by kind and by device. The page shows 100 events at a time.
@@ -85,7 +103,7 @@ On Sunday at 18:00 in `TZ`, MeshPulse sends a summary to each channel that has *
 ## Requirements
 
 - Zigbee2MQTT 2.x publishing to an MQTT broker.
-- An MQTT user with **subscribe** access to `zigbee2mqtt/#`. Read-only is enough.
+- An MQTT user with **subscribe** access to `zigbee2mqtt/#`. Read-only is enough unless you use the active features below.
 - Docker with Compose.
 
 ## Configure Zigbee2MQTT
