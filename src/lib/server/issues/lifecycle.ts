@@ -42,6 +42,8 @@ export interface LifecycleInput {
 	/** no device message for 60 s: Z2M marks devices offline when the coordinator stops hearing them, so hold new device.offline */
 	networkQuiet: boolean;
 	device: DeviceLookup;
+	/** parent ieee from the latest network scan, if known */
+	realParent?: (ieee: string) => string | null;
 }
 
 export interface LifecycleResult {
@@ -71,7 +73,7 @@ type Children = { names: string[]; recovered: number };
 const evidenceSince = (e: Record<string, unknown>) => (typeof e.offlineSince === 'number' ? e.offlineSince : null);
 
 /** Turns this run's findings into issue changes and notifications. Mutates `counters`. */
-export function evaluate({ findings, issues, counters, mutedUntil, settings, now, networkQuiet, device }: LifecycleInput): LifecycleResult {
+export function evaluate({ findings, issues, counters, mutedUntil, settings, now, networkQuiet, device, realParent }: LifecycleInput): LifecycleResult {
 	const out: LifecycleResult = { opens: [], updates: [], notify: [], parentOf: new Map(), released: [] };
 	const found = new Map(findings.map((f) => [issueKey(f.rule, f.ieee), f]));
 	const byKey = new Map(issues.map((i) => [issueKey(i.rule, i.ieee), i]));
@@ -131,7 +133,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 	// routers first: a router that joins a mass outage stops being a parent of its own
 	for (const f of [...opening.filter(isRouter), ...opening.filter((f) => !isRouter(f))]) {
 		const key = issueKey(f.rule, f.ieee);
-		const p = parentFor(f, tops, device, settings);
+		const p = parentFor(f, tops, device, settings, realParent);
 		if (p === null) continue;
 		out.parentOf.set(key, p);
 		tops = tops.filter((t) => t.key !== key);
@@ -153,7 +155,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 			if (resolving.has(p.i.id) || tops.some((t) => t.key === p.key) || !fresh.length) continue;
 			// an old offline/flapping issue is not part of a new incident
 			const stale = (t: Candidate) => (p.i.rule === 'device.offline' || p.i.rule === 'device.flapping') && p.i.openedAt < t.openedAt - settings.massOfflineWindowMin * 60_000;
-			const parent = parentFor(p.i, fresh.filter((t) => !stale(t)), device, settings);
+			const parent = parentFor(p.i, fresh.filter((t) => !stale(t)), device, settings, realParent);
 			if (parent === null) continue;
 			out.parentOf.set(p.key, parent); // retroactive: update only
 			p.kind = null;

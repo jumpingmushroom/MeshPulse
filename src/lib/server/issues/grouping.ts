@@ -17,11 +17,13 @@ export const isRouterOffline = (rule: RuleId, ieee: string | null, devices: Devi
 export const isParent = (rule: RuleId, ieee: string | null, devices: DeviceLookup) => rule in PARENT_RULES || isRouterOffline(rule, ieee, devices);
 
 /** Key of the earliest-opened candidate `child` belongs to, or null. */
-export function parentFor(child: Pick<Finding, 'rule' | 'ieee'>, candidates: Candidate[], devices: DeviceLookup, settings: Settings): string | null {
+export function parentFor(child: Pick<Finding, 'rule' | 'ieee'>, candidates: Candidate[], devices: DeviceLookup, settings: Settings, realParent?: (ieee: string) => string | null): string | null {
 	const matches = (p: Candidate) => {
 		if (PARENT_RULES[p.rule]?.includes(child.rule)) return true;
 		if (child.rule !== 'device.offline' || child.ieee === null || !isRouterOffline(p.rule, p.ieee, devices)) return false;
-		// shortcut: timing only, no real parent links; upgrade with the Phase 4 network map
+		// a known parent from the network scan decides alone; timing is the fallback
+		const real = realParent?.(child.ieee);
+		if (real) return real === p.ieee;
 		// from the router's silence start (Z2M's offline event lags by its availability timeout) to its offline time
 		const r = devices(p.ieee!);
 		const since = r?.offlineSince ?? p.offlineSince ?? null;

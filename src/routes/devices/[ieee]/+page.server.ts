@@ -2,6 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import { and, count, desc, eq, ne } from 'drizzle-orm';
 import { EVENT_KINDS } from '../../../lib/server/events-page';
 import { deviceScore } from '../../../lib/score';
+import { latestParents, parentChanged } from '../../../lib/server/active/parents';
 import { deviceCharts, type Range } from '../../../lib/server/device-history';
 import { baselines, devices, events, issues } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
@@ -31,8 +32,18 @@ export const load: PageServerLoad = ({ params, url }) => {
 	const openIssues = db.select().from(issues).where(and(eq(issues.ieee, d.ieee), ne(issues.state, 'resolved'))).all()
 		.map((i) => ({ ...i, deviceName: d.friendlyName }));
 
+	const { state } = getRuntime();
+	const scan = latestParents(db, (i) => state.devices.get(i)?.type, t1);
+	const p = scan?.parents.get(d.ieee);
+	const parent = p ? {
+		ieee: p.parent, name: state.devices.get(p.parent)?.friendlyName ?? null, lqi: p.lqi,
+		changed: parentChanged(scan!.parents, scan!.previous, d.ieee)
+	} : null;
+	const routed = scan && d.type === 'Router' ? [...scan.parents.values()].filter((v) => v.parent === d.ieee).length : null;
+
 	return {
 		range,
+		parent, routed,
 		device: {
 			ieee: d.ieee, name: d.friendlyName, type: d.type, model: d.model, vendor: d.vendor, powerSource: d.powerSource,
 			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), chatty: d.tags.includes('chatty'), batteryPowered, battery: d.battery, voltage: d.voltage
