@@ -1,5 +1,4 @@
-/* MeshPulse UI — tokens + components. Built on Nocturne (dark) with a derived light theme.
-   Port as-is to a global stylesheet in SvelteKit; component classes map 1:1 to Svelte components (see README.md). */
+/* MeshPulse UI — tokens + components. Built on Nocturne (dark) with a derived light theme. */
 /* Inter is a variable font: one Latin file covers 400-600. */
 @font-face {
   font-family: 'Inter';
@@ -512,7 +511,6 @@ a.tile:hover { box-shadow: var(--shadow-md); }
 .login-art svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 @media (max-width: 760px) { .login { grid-template-columns: 1fr; } .login-art { display: none; } .login-panel { padding: var(--space-12) var(--space-6); } }
 
-/* network map */
 
 /* login art */
 .login-art .e { stroke: var(--text-faint); stroke-opacity: .55; }

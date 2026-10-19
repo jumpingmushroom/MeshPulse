@@ -73,14 +73,13 @@ export function filterRows(rows: DeviceRow[], f: RowFilter): DeviceRow[] {
 		&& (!f.offline || r.availability === 'offline') && (!f.issues || r.openIssues > 0));
 }
 
-export function counters(state: Pick<AppState, 'devices'>, batteryLowPct: number) {
+export function counters(state: Pick<AppState, 'devices'>) {
 	const ds = watched(state);
 	const routers = ds.filter((d) => d.type === 'Router');
 	const online = (xs: DeviceState[]) => xs.filter((d) => d.availability === 'online').length;
 	return {
 		devicesOnline: online(ds), devicesTotal: ds.length,
-		routersOnline: online(routers), routersTotal: routers.length,
-		batteriesLow: ds.filter((d) => d.battery !== null && d.battery <= batteryLowPct).length
+		routersOnline: online(routers), routersTotal: routers.length
 	};
 }
 
@@ -89,7 +88,7 @@ export function formatTime(ms: number | null, tz: string): string {
 }
 
 export function formatAgo(ms: number | null, now: number): string {
-	if (ms === null) return 'never';
+	if (ms === null) return '—';
 	const min = Math.floor((now - ms) / 60_000);
 	if (min < 1) return 'just now';
 	if (min < 60) return `${min} min ago`;

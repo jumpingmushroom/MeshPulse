@@ -85,7 +85,7 @@
 								<td class={weak(r.lqi) ? 'lqi-weak' : ''}>
 									{#if r.lqi === null}<span class="dash">—</span>{:else}<span class="lqi-meter"><i style="width:{Math.round((r.lqi / 255) * 100)}%"></i></span>{r.lqi}<span class="sub">{weak(r.lqi) ? 'weak · ' : ''}24 h {r.lqi24 === null ? '—' : Math.round(r.lqi24)} · base {r.lqiBase === null ? 'learning' : Math.round(r.lqiBase)}</span>{/if}
 								</td>
-								<td class="num">{r.battery === null ? '—' : `${r.battery} %`}<span class="sub">{r.voltage === null ? '' : `${formatVoltage(r.voltage)} V`}</span></td>
+								<td class="num">{r.battery === null ? '—' : `${Math.round(r.battery)} %`}<span class="sub">{r.voltage === null ? '' : `${formatVoltage(r.voltage)} V`}</span></td>
 								<td class="num">{r.msgH === null ? '—' : Math.round(r.msgH)}</td>
 								<td class="num"><span class="health" class:health-low={r.score < 70}>{r.score}</span></td>
 								<td class="num">
@@ -113,7 +113,7 @@
 					</div>
 					<div class="dcard-metrics">
 						<span>LQI <b>{r.lqi ?? '—'}</b></span>
-						{#if r.battery !== null}<span>Battery <b>{r.battery} %</b></span>{/if}
+						{#if r.battery !== null}<span>Battery <b>{Math.round(r.battery)} %</b></span>{/if}
 						<span>Msg/h <b>{r.msgH === null ? '—' : Math.round(r.msgH)}</b></span>
 						<span>Health <b>{r.score}</b></span>
 					</div>

@@ -76,7 +76,7 @@
 					<p class="muted" style="font-size:13px">{empty ? `Empty around ${empty}.` : 'Not enough battery readings yet.'}</p>
 					<hr class="rule" />
 					<dl class="kv">
-						<dt>Now</dt><dd>{d.battery !== null ? `${d.battery} %` : '—'}{d.voltage !== null ? ` · ${formatVoltage(d.voltage)} V` : ''}</dd>
+						<dt>Now</dt><dd>{d.battery !== null ? `${Math.round(d.battery)} %` : '—'}{d.voltage !== null ? ` · ${formatVoltage(d.voltage)} V` : ''}</dd>
 						<dt>Last swap</dt><dd>{data.lastSwapAt ? formatTime(data.lastSwapAt, data.tz) : '—'}</dd>
 					</dl>
 				</section>
