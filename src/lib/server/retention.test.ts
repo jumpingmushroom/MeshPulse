@@ -62,3 +62,18 @@ it('prunes scans and their links after 30 days', () => {
 	expect(db.select().from(scans).all().map((r) => r.id)).toEqual([2]);
 	expect(db.select().from(scanLinks).all().map((r) => r.scanId)).toEqual([2]);
 });
+
+it('keeps the latest ok coordinator check and networkmap (with links), however old', () => {
+	const db = openDb(':memory:');
+	const now = 1000 * D;
+	const s = { trigger: 'scheduled' as const, status: 'ok' as const };
+	db.insert(scans).values([
+		{ id: 1, kind: 'networkmap', ...s, startedAt: now - 90 * D }, { id: 2, kind: 'networkmap', ...s, startedAt: now - 80 * D },
+		{ id: 3, kind: 'networkmap', ...s, startedAt: now - 40 * D, status: 'failed' },
+		{ id: 4, kind: 'coordinator_check', ...s, startedAt: now - 70 * D }, { id: 5, kind: 'coordinator_check', ...s, startedAt: now - 60 * D }
+	]).run();
+	db.insert(scanLinks).values([1, 2].map((scanId) => ({ scanId, sourceIeee: 'a', targetIeee: 'b' }))).run();
+	prune(db, now);
+	expect(db.select().from(scans).all().map((r) => r.id).sort()).toEqual([2, 5]);
+	expect(db.select().from(scanLinks).all().map((r) => r.scanId)).toEqual([2]);
+});

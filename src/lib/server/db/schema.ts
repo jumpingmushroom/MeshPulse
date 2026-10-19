@@ -150,7 +150,7 @@ export const scans = sqliteTable('scans', {
 	trigger: text('trigger').$type<'scheduled' | 'manual'>().notNull(),
 	startedAt: integer('started_at').notNull(),
 	finishedAt: integer('finished_at'),
-	status: text('status').$type<'ok' | 'failed' | 'skipped'>().notNull(),
+	status: text('status').$type<'ok' | 'failed' | 'skipped' | 'running'>().notNull(),
 	reason: text('reason'),
 	nodes: integer('nodes'),
 	links: integer('links'),
