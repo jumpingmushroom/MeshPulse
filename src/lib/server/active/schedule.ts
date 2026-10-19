@@ -19,12 +19,16 @@ export function due(now: number, at: '03:30' | '04:00', lastDay: string, tz: str
 }
 
 /** Why an active request must not run now, or null. */
-export function activeGuard(state: AppState, open: Set<string>, now: number, busy: boolean): string | null {
+export function activeGuard(state: AppState, open: Set<string>, now: number, busy: boolean, tz: string): string | null {
 	if (!state.monitor.connected) return 'MQTT is disconnected';
 	if (state.bridge.state !== 'online') return 'Zigbee2MQTT bridge is not online';
 	const rule = OUTAGES.find((r) => open.has(issueKey(r, null)));
 	if (rule) return `An outage is open (${rule})`;
-	if (now - Math.max(state.monitor.startedAt, state.bridge.restartedAt ?? 0) < HOUR) return 'Zigbee2MQTT or MeshPulse restarted less than an hour ago';
+	const restart = Math.max(state.monitor.startedAt, state.bridge.restartedAt ?? 0);
+	if (now - restart < HOUR) {
+		const at = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(restart + HOUR);
+		return `Zigbee2MQTT or MeshPulse restarted less than an hour ago — try again after ${at}`;
+	}
 	if (busy) return 'A request is already running';
 	return null;
 }
