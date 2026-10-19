@@ -1,5 +1,6 @@
 // Pure view helpers shared by the pages (server loads and components).
 import { deviceScore } from './score';
+import type { RuleId } from './server/rules/types';
 import type { AppState, DeviceState, Severity } from './server/types';
 
 export const FOREVER = 253402300799000; // 9999-12-31, the "mute forever" sentinel
@@ -139,4 +140,49 @@ export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number
 export function formatDaysLeft(days: number): string {
 	const n = Math.round(days);
 	return n < 1 ? 'less than a day' : `about ${n} ${n === 1 ? 'day' : 'days'}`;
+}
+
+/** Top bar summary: unresolved top-level issues (children are not counted, like the score) and MQTT staleness. */
+export function navSummary(
+	open: { severity: Severity; parentIssueId: number | null }[],
+	monitor: { connected: boolean; downSince: number | null; startedAt: number }
+): { count: number; worst: Severity | null; stale: boolean; staleSince: number | null } {
+	const top = open.filter((i) => i.parentIssueId === null);
+	const worst = top.reduce<Severity | null>((w, i) => (w === null || RANK[i.severity] > RANK[w] ? i.severity : w), null);
+	return { count: top.length, worst, stale: !monitor.connected, staleSince: monitor.connected ? null : (monitor.downSince ?? monitor.startedAt) };
+}
+
+export const RULE_LABELS: Record<RuleId, string> = {
+	'bridge.offline': 'Bridge offline',
+	'bridge.restarted': 'Bridge restarted',
+	'bridge.permit_join_open': 'Permit join open',
+	'monitor.mqtt_lost': 'MQTT connection lost',
+	'device.offline': 'Device offline',
+	'device.flapping': 'Device flapping',
+	'battery.low': 'Battery low',
+	'lqi.weak': 'Weak link',
+	'lqi.degrading': 'Degrading link',
+	'route.failures': 'Route failures',
+	'network.route_errors': 'Route errors',
+	'battery.forecast': 'Battery forecast',
+	'network.mass_offline': 'Mass offline',
+	'device.rejoin_churn': 'Rejoin churn',
+	'device.leave': 'Device left',
+	'network.churn': 'Network churn',
+	'device.interview_failed': 'Interview failed',
+	'bridge.mqtt_backlog': 'MQTT backlog',
+	'device.storm': 'Device storm',
+	'device.dominant': 'Dominant device',
+	'network.storm': 'Network storm',
+	'battery.stale': 'Battery stale'
+};
+
+export const scoreLabel = (s: Status): 'Good' | 'Fair' | 'Poor' => ({ green: 'Good', amber: 'Fair', red: 'Poor' } as const)[s];
+
+/** "7 grouped issues: 1 device offline, 6 device silent" (most frequent rule first) */
+export function groupedSummary(children: { rule: string }[]): string {
+	const n = new Map<string, number>();
+	for (const c of children) n.set(c.rule, (n.get(c.rule) ?? 0) + 1);
+	const parts = [...n].sort((a, b) => b[1] - a[1]).map(([r, k]) => `${k} ${(RULE_LABELS[r as RuleId] ?? r).toLowerCase()}`);
+	return `${children.length} grouped issue${children.length === 1 ? '' : 's'}: ${parts.join(', ')}`;
 }
