@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { Db } from './db/index';
 import { settings } from './db/schema';
+import { GROUPS } from '../settings-groups';
 
 export const DEFAULT_SETTINGS = {
 	bridgeSilenceMin: 5,
@@ -100,49 +101,57 @@ const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', '
 	'dominantPct', 'dominantClearPct', 'dominantWindowMin', 'dominantClearMin', 'dominantMinMsgs', 'netStormFactor', 'netStormClearFactor',
 	'backlogHigh', 'backlogClear', 'causingWindowH', 'staleBatteryDays'];
 
-/** Validates the Settings form; all-or-nothing, unknown keys ignored. */
-export function parseSettingsForm(form: FormData): { settings: Settings } | { error: string } {
+const LABEL: Record<string, string> = { quietStart: 'Quiet hours start', quietEnd: 'Quiet hours end', heartbeatUrl: 'Heartbeat URL',
+	...Object.fromEntries(GROUPS.flatMap(([, fs]) => fs.map(([k, label]) => [k, label]))) };
+
+export type SettingsError = { field: keyof Settings; message: string };
+
+/** Validates the Settings form; all-or-nothing, unknown keys ignored. Collects every bad field. */
+export function parseSettingsForm(form: FormData): { settings: Settings } | { error: string; errors: SettingsError[] } {
 	const out: Record<string, unknown> = {};
-	for (const [key, def] of Object.entries(DEFAULT_SETTINGS)) {
+	const errors: SettingsError[] = [];
+	for (const [k, def] of Object.entries(DEFAULT_SETTINGS)) {
+		const key = k as keyof Settings;
 		const raw = String(form.get(key) ?? '').trim();
+		const name = LABEL[key] ?? key;
+		const bad = (message: string) => { errors.push({ field: key, message }); out[key] = def; }; // default keeps the ordering checks meaningful
 		if (typeof def === 'boolean') out[key] = form.get(key) === 'on';
 		else if (typeof def === 'number') {
 			const n = raw === '' ? NaN : Number(raw);
 			const max = PCT.includes(key) ? 100 : VOLTS.includes(key) ? 10 : Infinity;
-			if (!Number.isFinite(n) || n < 0 || n > max) return { error: max === Infinity ? `${key} must be a number of 0 or more` : `${key} must be a number from 0 to ${max}` };
-			if (n === 0 && POSITIVE.includes(key)) return { error: `${key} must be above 0` };
-			out[key] = n;
+			if (!Number.isFinite(n) || n < 0 || n > max) bad(max === Infinity ? `${name} must be a number of 0 or more` : `${name} must be a number from 0 to ${max}`);
+			else if (n === 0 && POSITIVE.includes(key)) bad(`${name} must be above 0`);
+			else out[key] = n;
 		} else if (key === 'heartbeatUrl') {
-			if (raw && !/^https?:\/\/[^\s/]+\S*$/.test(raw)) return { error: 'heartbeatUrl must be an http(s) URL or empty' };
-			out[key] = raw;
-		} else {
-			if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) return { error: `${key} must be a time as HH:MM` };
-			out[key] = raw;
-		}
+			if (raw && !/^https?:\/\/[^\s/]+\S*$/.test(raw)) bad(`${name} must be an http(s) URL or empty`);
+			else out[key] = raw;
+		} else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) bad(`${name} must be a time as HH:MM`);
+		else out[key] = raw;
 	}
 	const v = out as Settings;
-	const order: [boolean, string][] = [
-		[v.batteryCriticalPct < v.batteryLowPct && v.batteryLowPct < v.batteryClearPct, 'Battery thresholds must be critical < low < OK again'],
-		[v.batteryLowPct <= v.causingBatteryPct && v.causingBatteryPct < v.batteryClearPct, 'Battery causing issues must be from low up to below OK again'],
-		[v.voltageCritical < v.voltageLow && v.voltageLow < v.voltageClear, 'Coin cell thresholds must be critical < low < OK again'],
-		[v.flappingClearBelow < v.flappingCount, 'Flapping must clear below the count that raises it'],
-		[v.silenceMinH <= v.silenceMaxH, 'Silence minimum must not exceed the maximum'],
-		[v.lqiWeak < v.lqiWeakClear, 'Weak link must clear above the LQI that raises it'],
-		[v.lqiRecoverPct < v.lqiDegradePct, 'Link recovered must be within less than the degrading percentage'],
-		[v.routeFailClear < v.routeFailWarn && v.routeFailWarn < v.routeFailCrit, 'Route failures must be OK again < warning < critical'],
-		[v.netRouteClearFactor < v.netRouteFactor, 'Network delivery failures must clear below the factor that raises them'],
-		[v.forecastWarnDays < v.forecastClearDays, 'Forecast must clear above the days that raise it'],
-		[v.massOfflineClearPct < v.massOfflineRouterPct, 'Mass offline must clear below the router percentage that raises it'],
-		[v.lqiMinHours <= 24, 'Link rules can need data in at most 24 hours'],
-		[v.churnWindowH <= v.churnClearH && v.churnClearH <= 24, 'Rejoin churn window must not exceed its quiet time, which is at most 24 hours'],
-		[v.netChurnWindowMin <= v.netChurnQuietH * 60 && v.netChurnQuietH <= 24, 'Network churn window must not exceed its quiet time, which is at most 24 hours'],
-		[v.backlogClear < v.backlogHigh, 'MQTT backlog must clear below the queue that raises it'],
-		[v.stormClearFactor < v.stormFactor && v.netStormClearFactor < v.netStormFactor, 'Storms must clear below the factor that raises them'],
-		[v.stormMinPerMin < v.stormCritPerMin, 'Storm critical rate must be above the storm minimum rate'],
-		[v.dominantClearPct < v.dominantPct, 'Dominant device must clear below the share that raises it'],
+	// each check reports on its first field
+	const order: [boolean, keyof Settings, string][] = [
+		[v.batteryCriticalPct < v.batteryLowPct && v.batteryLowPct < v.batteryClearPct, 'batteryCriticalPct', 'Battery thresholds must be critical < low < OK again'],
+		[v.batteryLowPct <= v.causingBatteryPct && v.causingBatteryPct < v.batteryClearPct, 'causingBatteryPct', 'Battery causing issues must be from low up to below OK again'],
+		[v.voltageCritical < v.voltageLow && v.voltageLow < v.voltageClear, 'voltageCritical', 'Coin cell thresholds must be critical < low < OK again'],
+		[v.flappingClearBelow < v.flappingCount, 'flappingClearBelow', 'Flapping must clear below the count that raises it'],
+		[v.silenceMinH <= v.silenceMaxH, 'silenceMinH', 'Silence minimum must not exceed the maximum'],
+		[v.lqiWeak < v.lqiWeakClear, 'lqiWeak', 'Weak link must clear above the LQI that raises it'],
+		[v.lqiRecoverPct < v.lqiDegradePct, 'lqiRecoverPct', 'Link recovered must be within less than the degrading percentage'],
+		[v.routeFailClear < v.routeFailWarn && v.routeFailWarn < v.routeFailCrit, 'routeFailClear', 'Route failures must be OK again < warning < critical'],
+		[v.netRouteClearFactor < v.netRouteFactor, 'netRouteClearFactor', 'Network delivery failures must clear below the factor that raises them'],
+		[v.forecastWarnDays < v.forecastClearDays, 'forecastWarnDays', 'Forecast must clear above the days that raise it'],
+		[v.massOfflineClearPct < v.massOfflineRouterPct, 'massOfflineClearPct', 'Mass offline must clear below the router percentage that raises it'],
+		[v.lqiMinHours <= 24, 'lqiMinHours', 'Link rules can need data in at most 24 hours'],
+		[v.churnWindowH <= v.churnClearH && v.churnClearH <= 24, 'churnWindowH', 'Rejoin churn window must not exceed its quiet time, which is at most 24 hours'],
+		[v.netChurnWindowMin <= v.netChurnQuietH * 60 && v.netChurnQuietH <= 24, 'netChurnWindowMin', 'Network churn window must not exceed its quiet time, which is at most 24 hours'],
+		[v.backlogClear < v.backlogHigh, 'backlogClear', 'MQTT backlog must clear below the queue that raises it'],
+		[v.stormClearFactor < v.stormFactor && v.netStormClearFactor < v.netStormFactor, 'stormClearFactor', 'Storms must clear below the factor that raises them'],
+		[v.stormMinPerMin < v.stormCritPerMin, 'stormMinPerMin', 'Storm critical rate must be above the storm minimum rate'],
+		[v.dominantClearPct < v.dominantPct, 'dominantClearPct', 'Dominant device must clear below the share that raises it'],
 		// minute counters keep the last 60 minutes
-		[Math.max(v.stormSustainMin, v.stormClearMin, v.dominantWindowMin, v.dominantClearMin) <= 60, 'Storm and dominant windows can be at most 60 minutes']
+		[Math.max(v.stormSustainMin, v.stormClearMin, v.dominantWindowMin, v.dominantClearMin) <= 60, 'stormSustainMin', 'Storm and dominant windows can be at most 60 minutes']
 	];
-	const bad = order.find(([ok]) => !ok);
-	return bad ? { error: bad[1] } : { settings: v };
+	for (const [ok, field, message] of order) if (!ok && !errors.some((e) => e.field === field)) errors.push({ field, message });
+	return errors.length ? { error: errors[0].message, errors } : { settings: v };
 }

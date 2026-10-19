@@ -513,3 +513,9 @@ a.tile:hover { box-shadow: var(--shadow-md); }
 @media (max-width: 760px) { .login { grid-template-columns: 1fr; } .login-art { display: none; } .login-panel { padding: var(--space-12) var(--space-6); } }
 
 /* network map */
+
+/* login art */
+.login-art .e { stroke: var(--text-faint); stroke-opacity: .55; }
+.login-art .n { fill: var(--surface-2); stroke: var(--text-faint); stroke-width: 1; }
+.login-art .n-router { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.5; }
+.login-art .n-coord { fill: var(--accent); stroke: var(--accent-strong); stroke-width: 2; }
