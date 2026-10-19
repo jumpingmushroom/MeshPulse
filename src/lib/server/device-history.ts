@@ -58,8 +58,10 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 			...(lqiMean !== null ? [{ y: lqiMean, label: `baseline ${Math.round(lqiMean)}` }] : []),
 			{ y: settings.lqiWeak, label: `weak ${settings.lqiWeak}` }
 		]),
-		battery: batteryPowered ? chart('Battery', '%', battery, 0, 100) : null,
-		voltage: batteryPowered ? chart('Voltage', 'V', voltage, v0, v1, formatVoltage) : null,
+		battery: batteryPowered ? chart('Battery', '%', battery, 0, 100, round, g.maxGapMs, [
+			{ y: settings.batteryLowPct, label: `Low ${settings.batteryLowPct} %` }, { y: settings.batteryCriticalPct, label: `Critical ${settings.batteryCriticalPct} %` }]) : null,
+		voltage: batteryPowered ? chart('Voltage', 'V', voltage, v0, v1, formatVoltage, g.maxGapMs,
+			voltage.some((p) => p.v !== null) ? [{ y: settings.voltageLow, label: `Coin cell low ${settings.voltageLow} V` }] : []) : null,
 		msgs: chart('Messages per minute', '/min', perMin, 0, top(perMin), (v) => v.toFixed(1), gap(3 * H)),
 		msgsHour: { ...chart('Messages per hour', '', perHour, 0, top(perHour), round, gap(3 * H)), integer: true }
 	};

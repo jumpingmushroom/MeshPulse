@@ -28,8 +28,7 @@
 			<span class="tag tag-outline">{TYPE[d.type as keyof typeof TYPE] ?? d.type}</span>
 			{#if d.model || d.vendor}<span class="muted">{[d.model, d.vendor].filter(Boolean).join(' · ')}</span>{/if}
 			{#if d.powerSource}<span class="muted">{d.powerSource}</span>{/if}
-			<span class="muted">Health {data.score}</span>
-			{#if muted}<span class="mute-status is-muted"><svg class="i" aria-hidden="true"><use href="#i-bell-off" /></svg>{muted === FOREVER ? 'Muted forever' : `Muted until ${formatTime(muted, data.tz)}`}</span>{/if}
+			<span class="tag tag-outline">Health {data.score}</span>
 			{#if d.ignored}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>ignored</span>{/if}
 			{#if d.chatty}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>chatty</span>{/if}
 		</div>
@@ -52,21 +51,19 @@
 					</nav>
 				</div>
 				<div class="charts">
-					{#each data.charts as c (c.title)}<div class:chart-wide={c.title !== 'Battery' && c.title !== 'Voltage'} style="min-width:0"><LineChart {...c} /></div>{/each}
+					{#each data.charts as c (c.title)}{@const half = c.title === 'Battery' || c.title === 'Voltage'}<div class:chart-wide={!half} style="min-width:0;display:grid"><LineChart {...c} w={half ? 300 : 600} /></div>{/each}
 				</div>
 			</section>
 
-			{#if data.events.length}
 				<section class="panel panel-pad" aria-labelledby="dev-ev">
 					<div class="section-head"><h2 id="dev-ev">Recent events</h2></div>
-					<ol class="timeline">
+					{#if data.events.length}<ol class="timeline">
 						{#each data.events as e (e.id)}
 							<li><time>{formatTime(e.ts, data.tz)}</time><span class="dot"></span><div class="what">{e.label} <span class="faint">{formatDetail(e.kind, e.detail)}</span></div></li>
 						{/each}
-					</ol>
-					{#if data.eventCount > data.events.length}<a class="btn btn-sm" style="margin-top:8px" href="/events?device={d.ieee}">Show all {data.eventCount} events</a>{/if}
+					</ol>{:else}<p class="muted">No events yet.</p>{/if}
+					<a class="btn btn-sm" style="margin-top:8px" href="/events?device={d.ieee}">Show all {data.eventCount} events</a>
 				</section>
-			{/if}
 		</div>
 
 		<aside class="stack" style="gap:11px">
@@ -103,7 +100,7 @@
 				<hr class="rule" />
 				<form method="post" action="?range={data.range}&/ignore" use:enhance class="stack" style="gap:6px">
 					<label class="toggle"><input type="checkbox" role="switch" name="on" value="1" checked={d.ignored} onchange={submit} /><span class="track"></span>Ignore this device</label>
-					<p class="field-help">Turns every rule off for it.</p>
+					<p class="field-help">Turns every rule off for it. It stays in the device list, greyed.</p>
 					<noscript><button class="btn btn-sm">Apply</button></noscript>
 				</form>
 				<hr class="rule" />
