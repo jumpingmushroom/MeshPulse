@@ -7,10 +7,10 @@ const CLEAR_FOR = 30;
 /** Wi-Fi issues key on `wifi:<mac>` in the ieee slot: they are not devices. */
 export const wifiKey = (mac: string) => `wifi:${mac}`;
 
-/** With the Zigbee channel missing (bridge/info not seen yet) only already-open issues are held, on the last known channel. */
+/** With the Zigbee channel missing (bridge/info not seen yet) or stale Wi-Fi data, only already-open issues are held, on the last known channel. */
 const on = (ctx: RuleContext) => (ctx.wifi?.enabled && (ctx.wifi.zigbeeChannel ?? ctx.wifi.lastZigbeeChannel) !== null ? ctx.wifi : null);
 const zigbee = (w: NonNullable<RuleContext['wifi']>) => (w.zigbeeChannel ?? w.lastZigbeeChannel)!;
-const keep = (ctx: RuleContext, rule: string, mac: string) => ctx.wifi!.zigbeeChannel !== null || ctx.open.has(issueKey(rule, wifiKey(mac)));
+const keep = (ctx: RuleContext, rule: string, mac: string) => (ctx.wifi!.zigbeeChannel !== null && ctx.wifi!.fresh) || ctx.open.has(issueKey(rule, wifiKey(mac)));
 
 export function wifiChannelOverlap(ctx: RuleContext): Finding[] {
 	const w = on(ctx);
