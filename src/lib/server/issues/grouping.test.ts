@@ -4,6 +4,8 @@ import { issueKey, type Finding, type RuleId } from '../rules/index';
 import type { Severity } from '../types';
 import { evaluate, newIssue, type IssueRow, type Notify } from './lifecycle';
 import { parentFor } from './grouping';
+import { parentMap } from '../active/parents';
+import scan from '../active/fixtures/networkmap-scan.json';
 
 const T = 1760000000000;
 const MIN = 60_000;
@@ -259,5 +261,18 @@ describe('real parents', () => {
 	});
 	it('falls back to timing when the child has no known parent', () => {
 		expect(parentFor(child, cands, d, DEFAULT_SETTINGS, () => null)).toBe(cands[0].key);
+	});
+
+	it('real scan: a router is never a silent child of another router, an end device is', () => {
+		const types = scan.types as Record<string, string>;
+		const parents = parentMap(scan.links.map((l) => ({ source: l.source, target: l.target, lqi: l.lqi, relationship: l.relationship })), (i) => types[i]);
+		const devs = (ieee: string) => (types[ieee] ? { type: types[ieee], lastSeenAt: null, offlineSince: null } : undefined);
+		const real = (i: string) => parents.get(i)?.parent ?? null;
+		const pair = (childType: string) => [...parents].find(([c, p]) => types[c] === childType && types[p.parent] === 'Router')!;
+		const [router, rp] = pair('Router');
+		const cand = (ieee: string) => ({ key: `device.offline|${ieee}`, rule: 'device.offline' as const, ieee, openedAt: T });
+		expect(parentFor(f('device.offline', router), [cand(rp.parent)], devs, DEFAULT_SETTINGS, real)).toBeNull();
+		const [end, ep] = pair('EndDevice');
+		expect(parentFor(f('device.offline', end), [cand(ep.parent)], devs, DEFAULT_SETTINGS, real)).toBe(`device.offline|${ep.parent}`);
 	});
 });

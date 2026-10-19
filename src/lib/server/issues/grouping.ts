@@ -21,6 +21,8 @@ export function parentFor(child: Pick<Finding, 'rule' | 'ieee'>, candidates: Can
 	const matches = (p: Candidate) => {
 		if (PARENT_RULES[p.rule]?.includes(child.rule)) return true;
 		if (child.rule !== 'device.offline' || child.ieee === null || !isRouterOffline(p.rule, p.ieee, devices)) return false;
+		const c = devices(child.ieee);
+		if (c?.type !== 'EndDevice') return false; // routers never hang under another router
 		// a known parent from the network scan decides alone; timing is the fallback
 		const real = realParent?.(child.ieee);
 		if (real) return real === p.ieee;
@@ -30,8 +32,7 @@ export function parentFor(child: Pick<Finding, 'rule' | 'ieee'>, candidates: Can
 		const from = r?.lastSeenAt ?? since;
 		const to = since ?? from;
 		const w = settings.routerGroupWindowMin * 60_000;
-		const c = devices(child.ieee);
-		return from !== null && to !== null && c?.type === 'EndDevice' && c.lastSeenAt !== null && c.lastSeenAt >= from - w && c.lastSeenAt <= to + w;
+		return from !== null && to !== null && c.lastSeenAt !== null && c.lastSeenAt >= from - w && c.lastSeenAt <= to + w;
 	};
 	let best: Candidate | null = null;
 	for (const p of candidates) if (matches(p) && (!best || p.openedAt < best.openedAt)) best = p;
