@@ -5,11 +5,12 @@ import { startEngine } from './engine';
 import { startHeartbeat } from './heartbeat';
 import type { Counters } from './issues/lifecycle';
 import { startCollector } from './mqtt/collector';
+import type { Requester } from './mqtt/request';
 import { startOutbox } from './notify/outbox';
 import { applyEffects, loadDevices } from './store';
 import { createState, type AppState } from './types';
 
-export type Runtime = { config: Config; db: Db; state: AppState };
+export type Runtime = { config: Config; db: Db; state: AppState; requester: Requester };
 type G = { __meshpulse?: Runtime };
 
 export function startRuntime(): Runtime {
@@ -27,8 +28,9 @@ export function startRuntime(): Runtime {
 		.catch((e) => console.error('auth: admin seeding failed', e));
 	const dirty = new Set<string>();
 	const counters: Counters = { seen: new Map(), missing: new Map() };
+	const collector = startCollector({ config, state, onEffects: (effects) => applyEffects(db, effects, dirty) });
 	const stops = [
-		startCollector({ config, state, onEffects: (effects) => applyEffects(db, effects, dirty) }).stop,
+		collector.stop,
 		startEngine({ db, state, counters, config, dirty }).stop,
 		startOutbox({ db, secretKey: config.secretKey }).stop,
 		startHeartbeat({ state, db, config }).stop
@@ -37,7 +39,7 @@ export function startRuntime(): Runtime {
 	process.once('sveltekit:shutdown', () => {
 		for (const stop of stops) void stop();
 	});
-	return (g.__meshpulse = { config, db, state });
+	return (g.__meshpulse = { config, db, state, requester: collector.requester });
 }
 
 export function getRuntime(): Runtime {
