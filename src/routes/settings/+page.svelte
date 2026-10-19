@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { initAreaRows } from '../../lib/area-rows';
 	import { formatTime } from '../../lib/views';
 	import { GROUPS } from '../../lib/settings-groups';
 	import type { PageProps } from './$types';
@@ -17,13 +18,11 @@
 	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
 	const wf = $derived(msg('wifi')?.values); // after a failed save/test keep what was typed (never the password)
 	// editable copy of the saved areas; rows have a stable id so a rename keeps its APs. "Suggest" adds unsaved rows
-	let rows = $state<{ id: string; name: string; match: string }[]>([]);
-	let apSel = $state<Record<string, string>>({}); // mac -> row id
+	// Initialised once: saving keeps what was typed (use:enhance does not reset), so other sections never wipe it
+	const init = initAreaRows(data.areas.areas, data.areas.aps); // svelte-ignore state_referenced_locally
+	let rows = $state(init.rows);
+	let apSel = $state(init.apSel); // mac -> row id
 	let seq = 0;
-	$effect.pre(() => {
-		rows = data.areas.areas.map((a, i) => ({ id: `s${i}`, ...a }));
-		apSel = Object.fromEntries(data.areas.aps.map((a) => [a.mac, rows.find((r) => r.name === a.area)?.id ?? '']));
-	});
 	const add = (name: string, match: string) => rows.push({ id: `n${seq++}`, name, match });
 	const suggest = () => { for (const n of data.areas.suggested) if (!rows.some((r) => r.name.trim().toLowerCase() === n.toLowerCase())) add(n, n); };
 	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
