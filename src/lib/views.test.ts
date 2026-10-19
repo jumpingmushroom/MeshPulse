@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
+import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -77,7 +77,7 @@ describe('evidenceRows', () => {
 		const ts = Date.UTC(2026, 9, 16, 15, 47);
 		expect(evidenceRows({ offlineSince: ts, lastSeenAt: null, typicalGapMs: undefined, thresholdMs: 3 * 3_600_000 + 12 * 60_000,
 			count: 4, rule: 'x', tags: ['a'] }, 'Europe/Oslo')).toEqual([
-			['offlineSince', '16 Oct 2026, 17:47'], ['thresholdMs', '3 h 12 min'], ['count', '4'], ['rule', 'x'], ['tags', '["a"]']
+			['Offline since', '16 Oct 2026, 17:47'], ['Threshold', '3 h 12 min'], ['Count', '4'], ['rule', 'x'], ['tags', '["a"]']
 		]);
 	});
 });
@@ -180,4 +180,15 @@ it('batteriesDue', () => {
 	const st = state([dev({ ieee: 'a', friendlyName: 'A' }), dev({ ieee: 'b', friendlyName: 'B' }), dev({ ieee: 'c', friendlyName: 'C', removedAt: 1 })]);
 	const rows = [{ ieee: 'b', days: 12.4 }, { ieee: 'a', days: 3 }, { ieee: 'c', days: 1 }, { ieee: 'x', days: 2 }, { ieee: 'a2', days: 40 }];
 	expect(batteriesDue(rows, st)).toEqual([{ name: 'A', days: 3 }, { name: 'B', days: 12 }]);
+});
+
+describe('chartFor', () => {
+	it('maps rules to a chart', () => {
+		expect(chartFor('battery.low')).toBe('battery');
+		expect(chartFor('lqi.degrading')).toBe('lqi');
+		expect(chartFor('route.failures')).toBe('lqi');
+		expect(chartFor('device.storm')).toBe('msgs');
+		expect(chartFor('device.dominant')).toBe('msgs');
+		expect(chartFor('bridge.offline')).toBeNull();
+	});
 });

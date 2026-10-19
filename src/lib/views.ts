@@ -94,13 +94,24 @@ export function formatVoltage(v: number | null): string {
 	return two.endsWith('0') ? v.toFixed(1) : two;
 }
 
+export const EVIDENCE_LABELS: Record<string, string> = {
+	offlineSince: 'Offline since', lastSeenAt: 'Last seen', typicalGapMs: 'Typical gap', thresholdMs: 'Threshold',
+	availability: 'Availability', avg: 'Average LQI', avg12h: 'Average LQI, 12 h', hours: 'Hours of data', hours12h: 'Hours of data, 12 h',
+	threshold: 'Threshold', clearAbove: 'Clears above', baseline: 'Baseline', baselineDays: 'Baseline days',
+	battery: 'Battery', voltage: 'Voltage', daysLeft: 'Days left', basedOnDays: 'Based on days', count: 'Count',
+	perMin: 'Messages per minute', factor: 'Factor', windowH: 'Window (h)', windowMin: 'Window (min)', changes: 'Changes',
+	announces: 'Announces', leftAt: 'Left at', failedAt: 'Failed at', names: 'Devices', devices: 'Devices', downSince: 'Down since',
+	routersOffline: 'Routers offline', routersTotal: 'Routers total', lastReportAt: 'Last report', typicalGapH: 'Typical gap (h)'
+};
+
 /** Issue evidence as readable [key, value] pairs: *At/*Since are times, *Ms are durations, nulls hidden. */
 export function evidenceRows(evidence: Record<string, unknown>, tz: string): [string, string][] {
 	return Object.entries(evidence).flatMap(([k, v]): [string, string][] => {
 		if (v === null || v === undefined) return [];
-		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[k, formatTime(v, tz)]];
-		if (typeof v === 'number' && k.endsWith('Ms')) return [[k, formatDuration(v)]];
-		return [[k, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
+		const l = EVIDENCE_LABELS[k] ?? k;
+		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[l, formatTime(v, tz)]];
+		if (typeof v === 'number' && k.endsWith('Ms')) return [[l, formatDuration(v)]];
+		return [[l, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
 	});
 }
 
@@ -223,4 +234,11 @@ export function batteriesDue(rows: { ieee: string; days: number }[], state: Pick
 		const d = state.devices.get(r.ieee);
 		return d && d.removedAt === null && r.days <= within ? [{ name: d.friendlyName, days: Math.round(r.days) }] : [];
 	}).sort((a, b) => a.days - b.days);
+}
+
+/** Which device chart best shows the evidence for a rule. */
+export function chartFor(rule: string): 'battery' | 'lqi' | 'msgs' | null {
+	if (rule.startsWith('battery.')) return 'battery';
+	if (rule.startsWith('lqi.') || rule === 'route.failures') return 'lqi';
+	return rule === 'device.storm' || rule === 'device.dominant' ? 'msgs' : null;
 }
