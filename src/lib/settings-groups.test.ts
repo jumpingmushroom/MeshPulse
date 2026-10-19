@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { DEFAULT_SETTINGS } from '../../lib/server/settings';
-import { GROUPS } from './groups';
+import { DEFAULT_SETTINGS } from './server/settings';
+import { GROUPS } from './settings-groups';
 
 it('lists every numeric setting exactly once', () => {
 	const keys = GROUPS.flatMap(([, fs]) => fs.map(([k]) => k)).sort();

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { Db } from './db/index';
 import { settings } from './db/schema';
+import { GROUPS } from '../settings-groups';
 
 export const DEFAULT_SETTINGS = {
 	bridgeSilenceMin: 5,
@@ -100,6 +101,9 @@ const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', '
 	'dominantPct', 'dominantClearPct', 'dominantWindowMin', 'dominantClearMin', 'dominantMinMsgs', 'netStormFactor', 'netStormClearFactor',
 	'backlogHigh', 'backlogClear', 'causingWindowH', 'staleBatteryDays'];
 
+const LABEL: Record<string, string> = { quietStart: 'Quiet hours start', quietEnd: 'Quiet hours end', heartbeatUrl: 'Heartbeat URL',
+	...Object.fromEntries(GROUPS.flatMap(([, fs]) => fs.map(([k, label]) => [k, label]))) };
+
 export type SettingsError = { field: keyof Settings; message: string };
 
 /** Validates the Settings form; all-or-nothing, unknown keys ignored. Collects every bad field. */
@@ -109,18 +113,19 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 	for (const [k, def] of Object.entries(DEFAULT_SETTINGS)) {
 		const key = k as keyof Settings;
 		const raw = String(form.get(key) ?? '').trim();
+		const name = LABEL[key] ?? key;
 		const bad = (message: string) => { errors.push({ field: key, message }); out[key] = def; }; // default keeps the ordering checks meaningful
 		if (typeof def === 'boolean') out[key] = form.get(key) === 'on';
 		else if (typeof def === 'number') {
 			const n = raw === '' ? NaN : Number(raw);
 			const max = PCT.includes(key) ? 100 : VOLTS.includes(key) ? 10 : Infinity;
-			if (!Number.isFinite(n) || n < 0 || n > max) bad(max === Infinity ? `${key} must be a number of 0 or more` : `${key} must be a number from 0 to ${max}`);
-			else if (n === 0 && POSITIVE.includes(key)) bad(`${key} must be above 0`);
+			if (!Number.isFinite(n) || n < 0 || n > max) bad(max === Infinity ? `${name} must be a number of 0 or more` : `${name} must be a number from 0 to ${max}`);
+			else if (n === 0 && POSITIVE.includes(key)) bad(`${name} must be above 0`);
 			else out[key] = n;
 		} else if (key === 'heartbeatUrl') {
-			if (raw && !/^https?:\/\/[^\s/]+\S*$/.test(raw)) bad('heartbeatUrl must be an http(s) URL or empty');
+			if (raw && !/^https?:\/\/[^\s/]+\S*$/.test(raw)) bad(`${name} must be an http(s) URL or empty`);
 			else out[key] = raw;
-		} else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) bad(`${key} must be a time as HH:MM`);
+		} else if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(raw)) bad(`${name} must be a time as HH:MM`);
 		else out[key] = raw;
 	}
 	const v = out as Settings;

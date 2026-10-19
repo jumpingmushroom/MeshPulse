@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { formatTime } from '../../lib/views';
-	import { GROUPS } from './groups';
+	import { GROUPS } from '../../lib/settings-groups';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	const s = $derived(data.settings);
 	const msg = (section: string) => (form?.section === section ? form : null);
 	const errs = $derived(msg('settings')?.errors ?? []);
+	const count = (keys: string[]) => errs.filter((e) => keys.includes(e.field)).length;
+	const nThresh = $derived(count(GROUPS.flatMap(([, fs]) => fs.map(([k]) => k))));
+	const nQuiet = $derived(count(['quietStart', 'quietEnd']));
+	const nHeart = $derived(count(['heartbeatUrl']));
 	const errOf = (key: string) => errs.find((e) => e.field === key)?.message;
 	// after a failed save keep what the user typed
 	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
@@ -18,10 +22,10 @@
 	<div class="page-head"><div><h1>Settings</h1><p class="sub">Thresholds, notifications and prerequisites.</p></div></div>
 	<div class="settings-layout">
 		<nav class="subnav" aria-label="Settings sections">
-			<a href="#thresholds">Thresholds{#if errs.length}<span class="sev" aria-label="{errs.length} errors">{errs.length}</span>{/if}</a>
-			<a href="#quiet">Quiet hours</a>
+			<a href="#thresholds">Thresholds{#if nThresh}<span class="sev is-crit" aria-label="{nThresh} errors">{nThresh}</span>{/if}</a>
+			<a href="#quiet">Quiet hours{#if nQuiet}<span class="sev is-crit" aria-label="{nQuiet} errors">{nQuiet}</span>{/if}</a>
 			<a href="#notifications">Notifications</a>
-			<a href="#heartbeat">Heartbeat</a>
+			<a href="#heartbeat">Heartbeat{#if nHeart}<span class="sev is-crit" aria-label="{nHeart} errors">{nHeart}</span>{/if}</a>
 			<a href="#z2m">Zigbee2MQTT</a>
 			<a href="#failed">Failed notifications</a>
 		</nav>
@@ -57,8 +61,10 @@
 					<h2>Quiet hours</h2>
 					<label class="toggle"><input name="quietEnabled" type="checkbox" checked={msg('settings')?.values ? msg('settings')?.values?.quietEnabled === 'on' : s.quietEnabled} /><span class="track"></span>Hold non-critical messages during quiet hours</label>
 					<div class="field-grid">
-						<div class="field"><label for="quietStart">From</label><input class="input" id="quietStart" name="quietStart" type="time" value={val('quietStart')} required /></div>
-						<div class="field"><label for="quietEnd">To</label><input class="input" id="quietEnd" name="quietEnd" type="time" value={val('quietEnd')} required /></div>
+						<div class="field"><label for="quietStart">From</label><input class="input" id="quietStart" name="quietStart" type="time" value={val('quietStart')} required aria-invalid={errOf('quietStart') ? 'true' : undefined} />
+							{#if errOf('quietStart')}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf('quietStart')}</span>{/if}</div>
+						<div class="field"><label for="quietEnd">To</label><input class="input" id="quietEnd" name="quietEnd" type="time" value={val('quietEnd')} required aria-invalid={errOf('quietEnd') ? 'true' : undefined} />
+							{#if errOf('quietEnd')}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf('quietEnd')}</span>{/if}</div>
 					</div>
 				</section>
 
@@ -68,7 +74,8 @@
 						<label for="heartbeatUrl">Heartbeat URL</label>
 						<input class="input" id="heartbeatUrl" name="heartbeatUrl" type="url" value={val('heartbeatUrl')} placeholder="https://…"
 							aria-invalid={errOf('heartbeatUrl') ? 'true' : undefined} />
-						<span class="field-help">Pinged every minute while MeshPulse runs, so an external monitor can tell when it stops.</span>
+						<span class="field-help">Pinged every minute while MeshPulse runs, so an external monitor can tell when it stops.
+							{#if !data.heartbeat.configured}Not configured.{:else if !data.heartbeat.last}Last ping —{:else if data.heartbeat.last.error}Last ping {formatTime(data.heartbeat.last.at, data.tz)}, failed: {data.heartbeat.last.error}{:else}Last ping {formatTime(data.heartbeat.last.at, data.tz)}, HTTP {data.heartbeat.last.status}{/if}</span>
 						{#if errOf('heartbeatUrl')}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf('heartbeatUrl')}</span>{/if}
 					</div>
 				</section>
@@ -101,7 +108,8 @@
 					{#if msg('channel')?.tested}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Test message sent.</p>{/if}
 					<div class="form-actions">
 						<button class="btn btn-primary">Save channel</button>
-						{#if data.channel}<button class="btn" formaction="?/test" formnovalidate>Send test</button>{/if}
+						<button class="btn" formaction="?/test" formnovalidate disabled={!data.channel}>Send test</button>
+						{#if !data.channel}<span class="field-help">Save a URL first to send a test.</span>{/if}
 					</div>
 				</form>
 
@@ -132,7 +140,8 @@
 					{#if msg('apprise')?.tested}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Test message sent.</p>{/if}
 					<div class="form-actions">
 						<button class="btn btn-primary">Save channel</button>
-						{#if data.apprise}<button class="btn" formaction="?/testApprise" formnovalidate>Send test</button>{/if}
+						<button class="btn" formaction="?/testApprise" formnovalidate disabled={!data.apprise}>Send test</button>
+						{#if !data.apprise}<span class="field-help">Save a URL first to send a test.</span>{/if}
 					</div>
 				</form>
 			</section>

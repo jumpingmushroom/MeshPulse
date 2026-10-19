@@ -6,6 +6,10 @@ import type { AppState, MonitorState } from './types';
 export const isHealthy = (m: MonitorState, now: number): boolean =>
 	m.connected && m.lastRulesRunAt !== null && now - m.lastRulesRunAt <= 120_000;
 
+export type Ping = { at: number; status?: number; error?: string };
+let last: Ping | null = null; // in memory only: "—" until the first ping after start
+export const lastPing = (): Ping | null => last;
+
 export async function heartbeatTick(
 	{ state, url, fetch: fetchFn = fetch }: { state: AppState; url?: string; fetch?: typeof fetch },
 	now: number
@@ -15,9 +19,11 @@ export async function heartbeatTick(
 	const host = URL.canParse(url) ? new URL(url).host : '<invalid url>';
 	try {
 		const res = await fetchFn(url, { signal: AbortSignal.timeout(10_000) });
+		last = { at: now, status: res.status };
 		if (res.ok) return 'sent';
 		console.warn(`heartbeat: ${host} returned ${res.status}`);
 	} catch (e) {
+		last = { at: now, error: (e as Error).name };
 		console.warn(`heartbeat: request to ${host} failed`, (e as Error).name);
 	}
 	return 'skipped';

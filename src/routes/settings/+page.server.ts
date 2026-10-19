@@ -6,9 +6,10 @@ import type { Message } from '../../lib/server/notify/channel';
 import { parseAppriseForm } from '../../lib/server/notify/apprise';
 import { WEBHOOK_RE } from '../../lib/server/notify/discord';
 import { sendTest } from '../../lib/server/notify/outbox';
+import { lastPing } from '../../lib/server/heartbeat';
 import { checkPrereqs } from '../../lib/server/prereqs';
 import { getRuntime } from '../../lib/server/runtime';
-import { getSettings, parseSettingsForm, saveSettings } from '../../lib/server/settings';
+import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveSettings } from '../../lib/server/settings';
 import type { Severity } from '../../lib/server/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -21,6 +22,7 @@ export const load: PageServerLoad = () => {
 	const ch = discordChannel();
 	return {
 		settings: getSettings(db),
+		heartbeat: { configured: !!(getSettings(db).heartbeatUrl || getRuntime().config.heartbeatUrl), last: lastPing() },
 		// the webhook URL holds a token: never send it to the browser
 		channel: ch ? { configured: !!ch.config?.webhookUrl, mentionCritical: ch.config?.mentionCritical === true, weeklyDigest: ch.config?.weeklyDigest !== false,
 			minSeverity: ch.minSeverity, enabled: ch.enabled } : null,
@@ -39,7 +41,7 @@ export const actions: Actions = {
 	save: async ({ request }) => {
 		const form = await request.formData();
 		const r = parseSettingsForm(form);
-		if ('error' in r) return fail(400, { section: 'settings', error: r.error, errors: r.errors, values: Object.fromEntries(form) as Record<string, string> });
+		if ('error' in r) return fail(400, { section: 'settings', error: r.error, errors: r.errors, values: Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map((k) => [k, String(form.get(k) ?? '')])) });
 		saveSettings(getRuntime().db, r.settings);
 		return { section: 'settings', saved: true };
 	},

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { heartbeatTick, isHealthy } from './heartbeat';
+import { heartbeatTick, isHealthy, lastPing } from './heartbeat';
 import { createState } from './types';
 
 const NOW = 1_000_000_000;
@@ -35,5 +35,14 @@ describe('heartbeat', () => {
 		const boom = vi.fn().mockRejectedValue(new Error('net'));
 		expect(await heartbeatTick({ state: s, url: 'http://x/y', fetch: boom }, NOW)).toBe('skipped');
 		expect(await heartbeatTick({ state: s, url: 'not a url', fetch: boom }, NOW)).toBe('skipped');
+	});
+
+	it('records the last ping result', async () => {
+		const s = createState(NOW);
+		s.monitor = mon();
+		await heartbeatTick({ state: s, url: 'http://x/y', fetch: vi.fn().mockResolvedValue({ ok: true, status: 200 }) }, NOW);
+		expect(lastPing()).toEqual({ at: NOW, status: 200 });
+		await heartbeatTick({ state: s, url: 'http://x/y', fetch: vi.fn().mockRejectedValue(new Error('boom')) }, NOW + 1);
+		expect(lastPing()).toEqual({ at: NOW + 1, error: 'Error' });
 	});
 });

@@ -1,4 +1,4 @@
-import type { Settings } from '../../lib/server/settings';
+import type { Settings } from './server/settings';
 
 /** Numeric thresholds by group: [key, label, unit, help]. Every numeric DEFAULT_SETTINGS key appears once. */
 export const GROUPS: [string, [keyof Settings, string, string, string][]][] = [
@@ -10,7 +10,7 @@ export const GROUPS: [string, [keyof Settings, string, string, string][]][] = [
 	]],
 	['Availability', [
 		['graceMin', 'Offline grace', 'min', 'How long a device may be offline before an issue opens.'],
-		['silenceMultiplier', 'Silent after typical gap ×', '', 'A device is silent after this many times its typical gap between messages.'],
+		['silenceMultiplier', 'Silent after typical gap', '×', 'A device is silent after this many times its typical gap between messages.'],
 		['silenceMinH', 'Silence at least', 'h', 'Never flag silence shorter than this.'],
 		['silenceMaxH', 'Silence at most', 'h', 'Always flag silence longer than this.'],
 		['flappingCount', 'Flapping at', 'drops', 'Offline drops within the window that raise flapping.'],

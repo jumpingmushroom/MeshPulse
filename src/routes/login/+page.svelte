@@ -24,7 +24,7 @@
 		</form>
 	</div>
 	<div class="login-art" aria-hidden="true">
-		<svg viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" class="map">
+		<svg viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice">
 			{#each edges as [a, b] (a + '-' + b)}<line class="e" x1={nodes[a][0]} y1={nodes[a][1]} x2={nodes[b][0]} y2={nodes[b][1]} />{/each}
 			{#each nodes as [x, y, r, cls] (x + '-' + y)}<circle class={cls} cx={x} cy={y} r={r} />{/each}
 		</svg>
