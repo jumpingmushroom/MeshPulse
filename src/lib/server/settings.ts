@@ -91,6 +91,12 @@ export function saveSettings(db: Db, patch: Partial<Settings>): void {
 		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
 }
 
+/** Saves the Settings form. The active switches live in their own form: an absent checkbox here must not turn them off. */
+export function saveFormSettings(db: Db, s: Settings): void {
+	const { activeCoordinatorCheck: _c, activeNetworkScan: _n, ...rest } = s;
+	saveSettings(db, rest);
+}
+
 const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)

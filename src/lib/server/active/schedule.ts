@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { Db } from '../db/index';
 import { settings } from '../db/schema';
 import { issueKey } from '../rules/types';
+import { getSettings, saveSettings, type Settings } from '../settings';
 import type { AppState } from '../types';
 
 const HOUR = 3_600_000;
@@ -36,4 +37,14 @@ export function lastDay(db: Db, kind: keyof typeof DAY_KEY): string {
 
 export function setLastDay(db: Db, kind: keyof typeof DAY_KEY, day: string): void {
 	db.insert(settings).values({ key: DAY_KEY[kind], value: day }).onConflictDoUpdate({ target: settings.key, set: { value: day } }).run();
+}
+
+export const localDay = (now: number, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+
+/** Saves the switches. Turning one on counts today as already run, so the first run is the next 03:30 / 04:00, never mid-day. */
+export function setActive(db: Db, patch: Pick<Settings, 'activeCoordinatorCheck' | 'activeNetworkScan'>, now: number, tz: string): void {
+	const was = getSettings(db);
+	if (patch.activeCoordinatorCheck && !was.activeCoordinatorCheck) setLastDay(db, 'coordinator_check', localDay(now, tz));
+	if (patch.activeNetworkScan && !was.activeNetworkScan) setLastDay(db, 'networkmap', localDay(now, tz));
+	saveSettings(db, patch);
 }

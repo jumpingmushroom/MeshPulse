@@ -192,7 +192,7 @@
 							<span class="field-help">{f.help}</span>
 							<span class="field-help">
 								Last run: {#if f.info.last}{formatTime(f.info.last.at, data.tz)}, {f.info.last.status}{#if f.info.last.reason} ({f.info.last.reason}){/if}{:else}never{/if}.
-								Next run: {f.info.next}.
+								{#if s[f.name as 'activeCoordinatorCheck' | 'activeNetworkScan']}Next run: {f.info.next}.{/if}
 							</span>
 						</div>
 					{/each}

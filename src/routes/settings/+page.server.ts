@@ -6,11 +6,11 @@ import type { Message } from '../../lib/server/notify/channel';
 import { parseAppriseForm } from '../../lib/server/notify/apprise';
 import { WEBHOOK_RE } from '../../lib/server/notify/discord';
 import { sendTest } from '../../lib/server/notify/outbox';
-import { due, lastDay } from '../../lib/server/active/schedule';
+import { due, lastDay, setActive } from '../../lib/server/active/schedule';
 import { lastPing } from '../../lib/server/heartbeat';
 import { checkPrereqs } from '../../lib/server/prereqs';
 import { getRuntime } from '../../lib/server/runtime';
-import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveSettings } from '../../lib/server/settings';
+import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveFormSettings } from '../../lib/server/settings';
 import type { Severity } from '../../lib/server/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -55,13 +55,13 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const r = parseSettingsForm(form);
 		if ('error' in r) return fail(400, { section: 'settings', error: r.error, errors: r.errors, values: Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map((k) => [k, String(form.get(k) ?? '')])) });
-		saveSettings(getRuntime().db, r.settings);
+		saveFormSettings(getRuntime().db, r.settings);
 		return { section: 'settings', saved: true };
 	},
 	saveActive: async ({ request }) => {
-		const { db } = getRuntime();
+		const { db, config } = getRuntime();
 		const form = await request.formData();
-		saveSettings(db, { activeCoordinatorCheck: form.get('activeCoordinatorCheck') === 'on', activeNetworkScan: form.get('activeNetworkScan') === 'on' });
+		setActive(db, { activeCoordinatorCheck: form.get('activeCoordinatorCheck') === 'on', activeNetworkScan: form.get('activeNetworkScan') === 'on' }, Date.now(), config.tz);
 		return { section: 'active', saved: true };
 	},
 	saveChannel: async ({ request }) => {
