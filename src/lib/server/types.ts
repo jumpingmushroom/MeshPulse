@@ -54,6 +54,7 @@ export interface MonitorState {
 	connectedAt: number | null;
 	startedAt: number;
 	lastRulesRunAt: number | null;
+	lastError: string | null;
 }
 
 export interface MqttMsg {
@@ -129,7 +130,7 @@ export function createState(now: number): AppState {
 			silenceMs: 0,
 			restartedAt: null
 		},
-		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null },
+		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null, lastError: null },
 		msgCounts: new Map(),
 		minutes: new MinuteCounters(),
 		lastHealth: null,

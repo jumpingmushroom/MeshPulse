@@ -38,6 +38,13 @@
 		<ScoreRing status={L.done ? data.status : 'learning'} score={data.score} />
 	</section>
 
+	{#if data.setup}
+		<div class="monitor-alert" role="alert">
+			<svg class="i"><use href="#i-unlink" /></svg>
+			<span>{data.setup.text}</span>
+		</div>
+	{/if}
+
 	{#each data.prereqs as p (p.key)}
 		<div class="prereq" role="note">
 			<svg class="i" aria-hidden="true"><use href="#i-info" /></svg>

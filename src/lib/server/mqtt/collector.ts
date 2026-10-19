@@ -29,6 +29,7 @@ export function startCollector({ config, state, onEffects }: {
 		state.monitor.connected = true;
 		state.monitor.downSince = null;
 		state.monitor.connectedAt = Date.now();
+		state.monitor.lastError = null;
 		const topic = `${config.baseTopic}/#`;
 		client.subscribe(topic, (err, granted) => {
 			if (err) console.error(`MQTT: subscribe to ${topic} failed:`, err.message);
@@ -39,7 +40,11 @@ export function startCollector({ config, state, onEffects }: {
 	client.on('close', down);
 	client.on('offline', down);
 	// refused connections arrive as an AggregateError with an empty message
-	client.on('error', (e) => console.error('MQTT error:', e.message || (e as NodeJS.ErrnoException).code || String(e)));
+	client.on('error', (e) => {
+		const msg = e.message || (e as NodeJS.ErrnoException).code || String(e);
+		state.monitor.lastError = msg;
+		console.error('MQTT error:', msg);
+	});
 	client.on('message', (topic, payload, packet) => {
 		try {
 			requester.onMessage(topic, payload);

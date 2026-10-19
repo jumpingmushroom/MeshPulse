@@ -321,3 +321,13 @@ export function chartFor(rule: string): 'battery' | 'lqi' | 'msgs' | null {
 	if (rule.startsWith('lqi.') || rule === 'route.failures') return 'lqi';
 	return rule === 'device.storm' || rule === 'device.dominant' ? 'msgs' : null;
 }
+
+export function setupNotice(i: { connected: boolean; connectedAt: number | null; lastError: string | null; bridgeSeen: boolean; mqttUrl: string; baseTopic: string; now: number }): { kind: 'mqtt' | 'z2m'; text: string } | null {
+	if (!i.connected) {
+		let url = 'the configured URL';
+		try { const u = new URL(i.mqttUrl); u.username = ''; u.password = ''; url = u.href.replace(/\/$/, ''); } catch { /* keep placeholder */ }
+		return { kind: 'mqtt', text: `MeshPulse can't reach the MQTT broker at ${url}${i.lastError ? `: ${i.lastError}` : ''}. Check the URL, username and password.` };
+	}
+	if (i.bridgeSeen || i.connectedAt === null || i.now - i.connectedAt < 120_000) return null;
+	return { kind: 'z2m', text: `Connected, but nothing from Zigbee2MQTT on ${i.baseTopic}/bridge/…. Check Z2M_BASE_TOPIC (now ${i.baseTopic}) and that the MQTT user may subscribe to ${i.baseTopic}/#.` };
+}
