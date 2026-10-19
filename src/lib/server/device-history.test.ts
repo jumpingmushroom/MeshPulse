@@ -20,6 +20,13 @@ describe('deviceCharts', () => {
 		expect(c.battery?.points).toEqual([]);
 		expect(c.voltage?.latest).toBeUndefined();
 	});
+	it('draws the rechargeable thresholds for a tagged device', () => {
+		const db = openDb(':memory:');
+		db.insert(devices).values([{ ieee: '0x4', powerSource: 'Battery', tags: { rechargeable: true } }, { ieee: '0x5', powerSource: 'Battery' }]).run();
+		const refs = (ieee: string) => deviceCharts(db, ieee, '24h', DEFAULT_SETTINGS, 1_760_000_000_000).battery!.refs.map((r) => r.y);
+		expect(refs('0x4')).toEqual([10, 5]);
+		expect(refs('0x5')).toEqual([25, 10]);
+	});
 	it('keeps the coin cell low line inside the voltage range', () => {
 		const db = openDb(':memory:');
 		const now = 1_760_000_000_000;

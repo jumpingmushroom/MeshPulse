@@ -18,6 +18,10 @@ export const DEFAULT_SETTINGS = {
 	batteryLowPct: 25,
 	batteryCriticalPct: 10,
 	batteryClearPct: 40,
+	rechargeableLowPct: 10,
+	rechargeableCriticalPct: 5,
+	rechargeableClearPct: 20,
+	rechargeableDropPct: 15,
 	voltageLow: 2.8,
 	voltageCritical: 2.6,
 	voltageClear: 2.9,
@@ -101,7 +105,7 @@ export function saveFormSettings(db: Db, s: Settings): void {
 	saveSettings(db, rest);
 }
 
-const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct', 'wifiBusyPct', 'wifiClearPct'];
+const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'rechargeableLowPct', 'rechargeableCriticalPct', 'rechargeableClearPct', 'rechargeableDropPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct', 'wifiBusyPct', 'wifiClearPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
 const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
@@ -111,7 +115,7 @@ const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', '
 	'churnAnnounce', 'churnAddrChanges', 'churnWindowH', 'churnCritical', 'churnClearH', 'netChurnDevices', 'netChurnWindowMin', 'netChurnQuietH',
 	'stormFactor', 'stormMinPerMin', 'stormCritPerMin', 'stormSustainMin', 'stormClearFactor', 'stormClearMin',
 	'dominantPct', 'dominantClearPct', 'dominantWindowMin', 'dominantClearMin', 'dominantMinMsgs', 'netStormFactor', 'netStormClearFactor',
-	'backlogHigh', 'backlogClear', 'wifiBusyPct', 'wifiClearPct', 'causingWindowH', 'staleBatteryDays'];
+	'backlogHigh', 'backlogClear', 'wifiBusyPct', 'wifiClearPct', 'causingWindowH', 'staleBatteryDays', 'rechargeableDropPct'];
 
 const LABEL: Record<string, string> = { quietStart: 'Quiet hours start', quietEnd: 'Quiet hours end', heartbeatUrl: 'Heartbeat URL',
 	...Object.fromEntries(GROUPS.flatMap(([, fs]) => fs.map(([k, label]) => [k, label]))) };
@@ -145,6 +149,7 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 	const order: [boolean, keyof Settings, string][] = [
 		[v.batteryCriticalPct < v.batteryLowPct && v.batteryLowPct < v.batteryClearPct, 'batteryCriticalPct', 'Battery thresholds must be critical < low < OK again'],
 		[v.batteryLowPct <= v.causingBatteryPct && v.causingBatteryPct < v.batteryClearPct, 'causingBatteryPct', 'Battery causing issues must be from low up to below OK again'],
+		[v.rechargeableCriticalPct < v.rechargeableLowPct && v.rechargeableLowPct < v.rechargeableClearPct, 'rechargeableCriticalPct', 'Rechargeable thresholds must be critical < low < OK again'],
 		[v.voltageCritical < v.voltageLow && v.voltageLow < v.voltageClear, 'voltageCritical', 'Coin cell thresholds must be critical < low < OK again'],
 		[v.flappingClearBelow < v.flappingCount, 'flappingClearBelow', 'Flapping must clear below the count that raises it'],
 		[v.silenceMinH <= v.silenceMaxH, 'silenceMinH', 'Silence minimum must not exceed the maximum'],

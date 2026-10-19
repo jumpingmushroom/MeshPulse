@@ -84,11 +84,12 @@ export function computeBaselines(db: Db, now: number): void {
 	}
 	out.push({ ieee: '', metric: 'msg_per_min', value: netPerMin, days: netDays, computedAt: now });
 
-	const { stale, forecasts } = batteryForecasts(db, now);
+	const { stale, staleDrop, forecasts } = batteryForecasts(db, now);
 	out.push(...forecasts);
 
 	db.transaction((tx) => {
 		if (stale.length) tx.delete(baselines).where(and(eq(baselines.metric, 'battery_days_left'), inArray(baselines.ieee, stale))).run();
+		if (staleDrop.length) tx.delete(baselines).where(and(eq(baselines.metric, 'battery_drop'), inArray(baselines.ieee, staleDrop))).run();
 		for (const b of out) {
 			tx.insert(baselines).values(b).onConflictDoUpdate({ target: [baselines.ieee, baselines.metric], set: { value: b.value, days: b.days, computedAt: b.computedAt } }).run();
 		}
@@ -98,7 +99,9 @@ export function computeBaselines(db: Db, now: number): void {
 /** Days until each battery device hits the target, fitted on the last 30 days since its latest battery swap. */
 function batteryForecasts(db: Db, now: number) {
 	const s = getSettings(db);
-	const ieees = db.select({ ieee: devices.ieee }).from(devices).where(and(eq(devices.powerSource, 'Battery'), sql`${devices.removedAt} is null`)).all().map((r) => r.ieee);
+	const rows = db.select({ ieee: devices.ieee, tags: devices.tags }).from(devices).where(and(eq(devices.powerSource, 'Battery'), sql`${devices.removedAt} is null`)).all();
+	const ieees = rows.map((r) => r.ieee);
+	const rechargeable = new Set(rows.filter((r) => r.tags?.rechargeable).map((r) => r.ieee));
 	const swaps = new Map<string, number>();
 	for (const e of db.select({ ieee: events.ieee, ts: events.ts }).from(events).where(and(eq(events.kind, 'battery_swap'), gte(events.ts, now - 30 * D))).orderBy(events.ts).all())
 		if (e.ieee) swaps.set(e.ieee, e.ts);
@@ -120,13 +123,19 @@ function batteryForecasts(db: Db, now: number) {
 				{ ieee, metric: 'battery_last_report', value: hours[hours.length - 1], days, computedAt: now });
 		}
 		const p = pts.get(ieee) ?? [];
-		const value = forecastDaysLeft(p, now, s.forecastTargetPct, s.forecastMinDays);
+		// no forecast for rechargeables (the flat NiMH curve fits as barely draining); battery.dropping covers them
+		const value = rechargeable.has(ieee) ? null : forecastDaysLeft(p, now, s.forecastTargetPct, s.forecastMinDays);
 		if (value !== null) forecasts.push({ ieee, metric: 'battery_days_left', value, days: Math.floor((p[p.length - 1].t - p[0].t) / D), computedAt: now });
+		// for battery.dropping: points lost since the battery went in (the peak since the last swap)
+		if (p.length >= 2) forecasts.push({ ieee, metric: 'battery_drop', value: Math.max(...p.map((x) => x.battery)) - p[p.length - 1].battery,
+			days: Math.floor((p[p.length - 1].t - p[0].t) / D), computedAt: now });
 	}
 	// everything without a fresh forecast (also devices no longer battery powered) loses its row
-	const have = new Set(forecasts.filter((f) => f.metric === 'battery_days_left').map((f) => f.ieee));
-	const stale = db.select({ ieee: baselines.ieee }).from(baselines).where(eq(baselines.metric, 'battery_days_left')).all().map((r) => r.ieee).filter((i) => !have.has(i));
-	return { stale, forecasts };
+	const staleOf = (metric: 'battery_days_left' | 'battery_drop') => {
+		const have = new Set(forecasts.filter((f) => f.metric === metric).map((f) => f.ieee));
+		return db.select({ ieee: baselines.ieee }).from(baselines).where(eq(baselines.metric, metric)).all().map((r) => r.ieee).filter((i) => !have.has(i));
+	};
+	return { stale: staleOf('battery_days_left'), staleDrop: staleOf('battery_drop'), forecasts };
 }
 
 /** One network score row per hour; the first call in an hour wins. */

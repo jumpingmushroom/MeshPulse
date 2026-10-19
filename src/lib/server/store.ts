@@ -78,7 +78,7 @@ export function flushDevices(db: Db, state: AppState, dirty: Set<string>): void 
 }
 
 /** Sets or clears a tag in memory (rules read it) and on the device row. */
-export function setTag(db: Db, state: AppState, ieee: string, tag: 'ignore' | 'chatty', on: boolean): boolean {
+export function setTag(db: Db, state: AppState, ieee: string, tag: 'ignore' | 'chatty' | 'rechargeable', on: boolean): boolean {
 	const d = state.devices.get(ieee);
 	if (!d) return false;
 	d.tags = [...d.tags.filter((t) => t !== tag), ...(on ? [tag] : [])];

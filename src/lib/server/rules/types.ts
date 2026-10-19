@@ -11,6 +11,7 @@ export type RuleId =
 	| 'device.offline'
 	| 'device.flapping'
 	| 'battery.low'
+	| 'battery.dropping'
 	| 'lqi.weak'
 	| 'lqi.degrading'
 	| 'route.failures'

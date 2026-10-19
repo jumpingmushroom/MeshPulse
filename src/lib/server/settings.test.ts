@@ -43,7 +43,8 @@ describe('parseSettingsForm ordering', () => {
 		[{ routeFailClear: '5' }], [{ routeFailWarn: '20' }], [{ routeFailCrit: '5' }], [{ netRouteClearFactor: '3' }], [{ netRouteFactor: '1.5' }],
 		[{ massOfflineRouterPct: '101' }], [{ massOfflineClearPct: '20' }],
 		[{ churnWindowH: '13' }], [{ churnClearH: '25' }], [{ netChurnWindowMin: '61' }], [{ netChurnQuietH: '25' }], [{ backlogClear: '50' }],
-		[{ causingBatteryPct: '20' }], [{ causingBatteryPct: '40' }]
+		[{ causingBatteryPct: '20' }], [{ causingBatteryPct: '40' }],
+		[{ rechargeableCriticalPct: '10' }], [{ rechargeableClearPct: '10' }], [{ rechargeableDropPct: '0' }]
 	])('rejects out-of-order thresholds %o', (o) => {
 		expect(parseSettingsForm(form(o))).toHaveProperty('error');
 	});

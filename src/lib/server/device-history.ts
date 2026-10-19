@@ -92,6 +92,7 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 		({ ...g, maxGapMs, gaps: spans, title, unit, points, y0, y1, refs, latest: latest(points, f), summary: summarise(title, unit, points) });
 	const [v0, v1] = autoRange(voltage.some((p) => p.v !== null) ? [...voltage.map((p) => p.v), settings.voltageLow] : []); // keep the low line on the plot
 	batteryPowered ??= d?.powerSource === 'Battery' || (last?.battery ?? null) !== null || (last?.voltage ?? null) !== null;
+	const lv = d?.tags?.rechargeable ? { low: settings.rechargeableLowPct, critical: settings.rechargeableCriticalPct } : { low: settings.batteryLowPct, critical: settings.batteryCriticalPct };
 	const perHour = msgsAt((n) => n);
 	const perMin = msgsAt((n) => n / 60);
 	const top = (ps: Point[]) => Math.max(1, ...ps.map((p) => p.v ?? 0));
@@ -102,7 +103,7 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 			{ y: settings.lqiWeak, label: `weak ${settings.lqiWeak}` }
 		]),
 		battery: batteryPowered ? chart('Battery', '%', battery, 0, 100, round, Infinity, gaps, [
-			{ y: settings.batteryLowPct, label: `Low ${settings.batteryLowPct} %` }, { y: settings.batteryCriticalPct, label: `Critical ${settings.batteryCriticalPct} %` }]) : null,
+			{ y: lv.low, label: `Low ${lv.low} %` }, { y: lv.critical, label: `Critical ${lv.critical} %` }]) : null,
 		voltage: batteryPowered ? chart('Voltage', 'V', voltage, v0, v1, formatVoltage, Infinity, gaps,
 			voltage.some((p) => p.v !== null) ? [{ y: settings.voltageLow, label: `Coin cell low ${settings.voltageLow} V` }] : []) : null,
 		msgs: chart('Messages per minute', '/min', perMin, 0, top(perMin), (v) => v.toFixed(1), Infinity, gaps),

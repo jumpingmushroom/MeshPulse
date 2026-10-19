@@ -5,7 +5,7 @@ import type { HourlyRow } from '../trends/history';
 import { hourStart } from '../trends/rollup';
 import type { DeviceState, EventKind } from '../types';
 import { issueKey, type RuleContext } from './index';
-import { batteryLow, batteryStale } from './battery';
+import { batteryDropping, batteryLow, batteryStale } from './battery';
 
 const run = (ieee: string, patch: Partial<DeviceState>, open = false) => {
 	const c = ctx();
@@ -264,5 +264,50 @@ describe('battery.stale', () => {
 		const r = evaluate({ ...input, findings: batteryStale(c), now: NOW + MIN });
 		expect(r.opens).toHaveLength(1);
 		expect(r.notify).toEqual([]);
+	});
+});
+
+describe('rechargeable batteries', () => {
+	const NIMH = { tags: ['rechargeable'] };
+	it('battery.low uses the rechargeable thresholds: 36 % is fine, 10 % warns, 5 % is critical', () => {
+		expect(run(DOOR, { ...NIMH, battery: 36 })).toEqual([]);
+		expect(run(DOOR, { battery: 36 }, true)).toHaveLength(1); // untagged: unchanged
+		expect(run(DOOR, { ...NIMH, battery: 10 })[0].severity).toBe('warning');
+		expect(run(DOOR, { ...NIMH, battery: 5 })[0].severity).toBe('critical');
+	});
+
+	it('battery.low on a tagged device holds up to 20 % and clears above', () => {
+		expect(run(DOOR, { ...NIMH, battery: 20 }, true)).toHaveLength(1);
+		expect(run(DOOR, { ...NIMH, battery: 21 }, true)).toEqual([]);
+	});
+
+	it('the device\'s own battery_low flag still counts', () => {
+		expect(run(DOOR, { ...NIMH, battery: 60, batteryLow: true })).toHaveLength(1);
+	});
+
+	const drop = (value: number | null, patch: Partial<DeviceState> = NIMH, open = false) => {
+		const c = ctx();
+		Object.assign(dev(c, DOOR), { battery: 22 }, patch);
+		if (value !== null) c.history.baselines.set(`${DOOR}|battery_drop`, { value, days: 4 });
+		if (open) c.open.add(issueKey('battery.dropping', DOOR));
+		return batteryDropping(c);
+	};
+
+	it('battery.dropping warns at a 15-point drop since the battery went in, tagged devices only', () => {
+		expect(drop(16)).toEqual([{
+			rule: 'battery.dropping', ieee: DOOR, severity: 'warning',
+			summary: 'Rechargeable battery in door_sensor dropped 16 points to 22%',
+			action: 'Recharge or replace the battery soon',
+			evidence: { battery: 22, drop: 16 }
+		}]);
+		expect(drop(14)).toEqual([]);
+		expect(drop(16, {})).toEqual([]); // untagged
+		expect(drop(null)).toEqual([]);
+	});
+
+	it('battery.dropping holds while open down to 8 points, and leaves it to battery.low at the low threshold', () => {
+		expect(drop(8, NIMH, true)).toHaveLength(1);
+		expect(drop(7, NIMH, true)).toEqual([]);
+		expect(drop(30, { ...NIMH, battery: 10 })).toEqual([]);
 	});
 });
