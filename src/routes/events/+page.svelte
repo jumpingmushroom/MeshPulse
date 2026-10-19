@@ -54,7 +54,7 @@
 					{#each data.rows as e (e.id)}
 						<tr>
 							<td>{formatTime(e.ts, data.tz)}</td>
-							<td><svg class="i" aria-hidden="true"><use href={ICON[e.kind] ?? '#i-info'} /></svg> {label[e.kind] ?? e.kind}</td>
+							<td><span class="kind"><svg class="i" aria-hidden="true"><use href={ICON[e.kind] ?? '#i-info'} /></svg>{label[e.kind] ?? e.kind}</span></td>
 							<td class="name">{#if e.ieee}<a href="/devices/{e.ieee}">{data.names[e.ieee] ?? e.ieee}</a>{:else}<span class="dash">—</span>{/if}</td>
 							<td>{formatDetail(e.kind, e.detail) || '—'}</td>
 						</tr>
@@ -70,9 +70,14 @@
 
 	{#if data.page > 1 || data.hasNext}
 		<nav class="pager" aria-label="Pages">
-			{#if data.page > 1}<a class="btn btn-sm" href={link(data.page - 1)}><svg class="i"><use href="#i-arrow-left" /></svg> Newer</a>{/if}
+			{#if data.page > 1}<a class="btn btn-sm" href={link(data.page - 1)}><svg class="i" aria-hidden="true"><use href="#i-arrow-left" /></svg> Newer</a>{/if}
 			<span class="faint">Page {data.page}</span>
-			{#if data.hasNext}<a class="btn btn-sm" href={link(data.page + 1)}>Older <svg class="i"><use href="#i-arrow-right" /></svg></a>{/if}
+			{#if data.hasNext}<a class="btn btn-sm" href={link(data.page + 1)}>Older <svg class="i" aria-hidden="true"><use href="#i-arrow-right" /></svg></a>{/if}
 		</nav>
 	{/if}
 </div>
+
+<style>
+	.kind { display: inline-flex; align-items: center; gap: 6px; }
+	.kind :global(svg.i) { flex: none; }
+</style>

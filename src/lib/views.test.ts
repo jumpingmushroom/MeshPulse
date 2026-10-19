@@ -105,6 +105,10 @@ describe('formatDetail', () => {
 		expect(formatDetail('bridge_restart', { reason: 'uptime', from: 5, to: 1 })).toBe('reason: uptime, from: 5, to: 1');
 		expect(formatDetail('join', { a: { b: 1 } })).toBe('a: {"b":1}');
 		expect(formatDetail('leave', null)).toBe('');
+		expect(formatDetail('device_announce', { friendly_name: 'X' })).toBe('Device announced');
+		expect(formatDetail('device_interview', { friendly_name: 'X', status: 'successful' })).toBe('Interview successful');
+		expect(formatDetail('route_error', { kind: 'command_failed', code: 233 })).toBe('Command failed, code 233');
+		expect(formatDetail('leave_count_up', { delta: 2 })).toBe('+2');
 	});
 });
 

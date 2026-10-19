@@ -17,13 +17,13 @@
 			</tr></thead>
 			<tbody>
 				{#each rows as r (r.ieee)}
-					<tr class={r.low ? 'is-flagged is-warn' : ''}>
+					<tr class={r.daysLeft !== null && r.daysLeft <= 7 ? 'is-flagged is-warn' : ''}>
 						<td class="name"><a href="/devices/{r.ieee}">{r.name}</a></td>
 						<td>{r.daysLeft === null ? '—' : formatDaysLeft(r.daysLeft)}</td>
 						<td>{r.daysLeft === null ? '—' : emptyAround(r.daysLeft)}</td>
 						<td class="num">{r.battery === null ? '—' : `${Math.round(r.battery)} %`}</td>
-						<td class="num">{formatVoltage(r.voltage)}</td>
-						<td>{#if r.trend}<Sparkline d={r.trend} w={data.spark.w} h={data.spark.h} label="Battery, last 30 days" />{:else}<span class="dash">—</span>{/if}</td>
+						<td class="num">{r.voltage === null ? '—' : `${formatVoltage(r.voltage)} V`}</td>
+						<td>{#if r.trend}<Sparkline d={r.trend} w={data.spark.w} h={data.spark.h} label={data.labels[r.ieee]} class="spark-sm" />{:else}<span class="dash">—</span>{/if}</td>
 						<td>{formatTime(r.lastSwapAt, data.tz)}</td>
 					</tr>
 				{/each}

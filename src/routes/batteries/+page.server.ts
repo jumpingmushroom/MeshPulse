@@ -7,7 +7,7 @@ import { batteryRows, splitBatteries } from '../../lib/views';
 import type { PageServerLoad } from './$types';
 
 const H = 3_600_000;
-const SPARK = { w: 120, h: 24 };
+const SPARK = { w: 96, h: 22 };
 
 export const load: PageServerLoad = () => {
 	const { db, state } = getRuntime();
@@ -22,9 +22,17 @@ export const load: PageServerLoad = () => {
 		list.push({ t: h.hour, v: h.batteryMin });
 		hourly.set(h.ieee, list);
 	}
-	const box = { ...SPARK, t0, t1, y0: 0, y1: 100 };
 	const trends = new Map<string, string>();
-	for (const [ieee, pts] of hourly) if (pts.length >= 2) trends.set(ieee, buildSeries(pts, box, 3 * H).line);
+	const labels: Record<string, string> = {};
+	for (const [ieee, pts] of hourly) {
+		if (pts.length < 2) continue;
+		const vs = pts.map((p) => p.v as number);
+		const mid = (Math.min(...vs) + Math.max(...vs)) / 2;
+		const r = Math.max((Math.max(...vs) - Math.min(...vs)) / 2, 3); // flat data sits mid-height
+		const box = { ...SPARK, t0, t1, y0: mid - r, y1: mid + r };
+		trends.set(ieee, buildSeries(pts, box, 3 * H).line);
+		labels[ieee] = `30-day battery trend, ${Math.round(vs[0])} % to ${Math.round(vs[vs.length - 1])} %`;
+	}
 	const rows = batteryRows([...state.devices.values()], daysLeft, swaps, getSettings(db).batteryLowPct, trends);
-	return { ...splitBatteries(rows), total: rows.length, spark: SPARK, anyForecast: daysLeft.size > 0 };
+	return { ...splitBatteries(rows), total: rows.length, spark: SPARK, labels, anyForecast: daysLeft.size > 0 };
 };

@@ -158,6 +158,11 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 export function formatDetail(kind: string, detail: Record<string, unknown> | null): string {
 	if (!detail) return '';
 	const { from, to } = detail;
+	const plain: Record<string, string> = { device_announce: 'Device announced', device_joined: 'Joined the network', device_leave: 'Left the network' };
+	if (kind in plain) return plain[kind]; // detail is only the friendly name, already in the Device column
+	if (kind === 'device_interview') return typeof detail.status === 'string' ? `Interview ${detail.status}` : 'Interview';
+	if (kind === 'route_error' && typeof detail.kind === 'string') return `${humanise(detail.kind.replace(/_/g, " "))}${detail.code != null ? `, code ${detail.code}` : ''}`;
+	if (typeof detail.delta === 'number' && Object.keys(detail).length === 1) return `+${detail.delta}`;
 	if ('to' in detail && Object.keys(detail).every((k) => k === 'from' || k === 'to')) {
 		const u = kind === 'battery_swap' ? '%' : '';
 		return `${from ?? '—'}${from == null ? '' : u} → ${to ?? '—'}${to == null ? '' : u}`;
