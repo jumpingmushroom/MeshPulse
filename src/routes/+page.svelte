@@ -79,11 +79,10 @@
 			{#if data.spark.d}<Sparkline d={data.spark.d} w={data.spark.w} h={data.spark.h} label={data.spark.summary} />{/if}
 		</Tile>
 		{#if data.wifi}
-			<a href="/wifi" style="display:contents">
-				<Tile label="Wi-Fi 2.4 GHz" value={data.wifi.zigbeeChannel === null ? '—' : String(data.wifi.overlap)}
-					tone={data.wifi.overlap ? 'warn' : undefined}
-					sub={data.wifi.zigbeeChannel === null ? 'Zigbee channel unknown' : data.wifi.overlap ? `${data.wifi.overlap === 1 ? '1 AP overlaps' : `${data.wifi.overlap} APs overlap`} Zigbee channel ${data.wifi.zigbeeChannel}` : 'No overlap'} />
-			</a>
+			{@const wf = data.wifi}
+			<Tile href="/wifi" label="Wi-Fi 2.4 GHz" value={wf.state === 'ok' ? String(wf.overlap) : '—'} tone={wf.state === 'ok' && wf.overlap ? 'warn' : undefined}
+				sub={wf.state === 'ok' ? (wf.overlap ? `${wf.overlap === 1 ? '1 AP overlaps' : `${wf.overlap} APs overlap`} Zigbee channel ${wf.zigbeeChannel}` : 'No overlap')
+					: { none: 'No data yet', failed: 'Last poll failed', stale: 'No recent data', unknown: 'Zigbee channel unknown' }[wf.state]} />
 		{/if}
 	</section>
 

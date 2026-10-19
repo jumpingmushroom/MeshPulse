@@ -23,7 +23,8 @@ export const load: PageServerLoad = () => {
 	const snap = loadWifiSnapshot(db, state, now);
 	const areas = db.select().from(wifiAreas).all();
 	const devices = [...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator');
-	const aps = snap.aps.map((a) => {
+	const aps = snap.aps.map((s0) => {
+		const a = { ...s0, overlaps: s0.overlaps && snap.zigbeeChannel !== null }; // held channel is for the rules, not for display
 		const model = db.select({ m: wifiAps.model }).from(wifiAps).where(eq(wifiAps.mac, a.mac)).get()?.m ?? '';
 		const rows = db.select().from(wifiSamples).where(and(eq(wifiSamples.mac, a.mac), gte(wifiSamples.ts, now - 24 * H))).orderBy(desc(wifiSamples.ts)).all();
 		const cur = a.channel === null ? null : rows[0];

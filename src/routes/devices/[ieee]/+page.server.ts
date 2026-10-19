@@ -7,7 +7,7 @@ import { deviceCharts, type Range } from '../../../lib/server/device-history';
 import { baselines, devices, events, issues, wifiAreas } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
 import { getSettings } from '../../../lib/server/settings';
-import { areaOf } from '../../../lib/server/wifi/areas';
+import { apsNear, areaOf } from '../../../lib/server/wifi/areas';
 import { loadWifiSnapshot } from '../../../lib/server/wifi/snapshot';
 import { muteUntil, setTag } from '../../../lib/server/store';
 import type { Actions, PageServerLoad } from './$types';
@@ -43,15 +43,15 @@ export const load: PageServerLoad = ({ params, url }) => {
 	} : null;
 	const routed = scan && d.type === 'Router' ? [...scan.parents.values()].filter((v) => v.parent === d.ieee).length : null;
 
-	// no areas configured (or none matching): "whole network", every AP is nearby
 	const mine = areaOf(d.friendlyName, db.select().from(wifiAreas).all());
+	const recent = state.wifi.lastOkAt !== null && t1 - state.wifi.lastOkAt <= 15 * 60_000; // same rule as correlate.ts
 	const nearbyWifi = settings.wifiEnabled
-		? loadWifiSnapshot(db, state, t1).aps.filter((a) => a.channel !== null && (!mine.length || a.area === null || mine.includes(a.area)))
-			.map((a) => ({ name: a.name, channel: a.channel!, overlaps: a.overlaps, busy: a.cuTotal === null ? null : Math.round(a.cuTotal) }))
+		? apsNear(loadWifiSnapshot(db, state, t1).aps.filter((a) => a.channel !== null), mine)
+			.map((a) => ({ mac: a.mac, name: a.name, channel: a.channel!, overlaps: a.overlaps, busy: recent && a.cuTotal !== null ? Math.round(a.cuTotal) : null }))
 		: [];
 	return {
 		range,
-		nearbyWifi,
+		nearbyWifi, nearbyAll: mine.length === 0, wifiRecent: recent,
 		parent, routed,
 		device: {
 			ieee: d.ieee, name: d.friendlyName, type: d.type, model: d.model, vendor: d.vendor, powerSource: d.powerSource,

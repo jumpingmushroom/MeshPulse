@@ -11,6 +11,7 @@
 	const px = (mhz: number) => ((mhz - 2400) / 84) * data.bandW;
 	const height = $derived(TOP + (data.maxRow + 1) * ROW + AXIS);
 	const zc = $derived(data.zigbeeChannel);
+	const clip = (t: string, w: number) => { const n = Math.max(0, Math.floor((w - 8) / 6)); return t.length <= n ? t : n < 2 ? '' : t.slice(0, n - 1) + '…'; };
 	const pct = (n: number | null) => (n === null ? '—' : `${Math.round(n)} %`);
 </script>
 
@@ -34,7 +35,7 @@
 		</div>
 	{:else}
 		{#if data.lastError && data.failures > 0}
-			<p class="field-error" role="alert">The last UniFi poll failed: {data.lastError}{data.lastOkAt ? ` Showing data from ${formatAgo(data.lastOkAt, data.now)}.` : ''}</p>
+			<p class="field-error" role="alert">The last UniFi poll failed: {data.lastError.replace(/\.$/, '')}.{data.lastOkAt ? ` Showing data from ${formatAgo(data.lastOkAt, data.now)}.` : ''}</p>
 		{/if}
 
 		{#if data.lastOkAt === null && !(data.lastError && data.failures > 0)}
@@ -47,8 +48,8 @@
 				<svg class="band" viewBox="0 0 {data.bandW} {height}" role="img"
 					aria-label={`2.4 GHz band. ${zc === null ? 'Zigbee channel unknown.' : `Zigbee channel ${zc}.`} ${data.band.bars.map((b) => `${b.name}${b.overlaps ? ' overlaps' : ''}`).join(', ')}.`}>
 					{#each data.band.bars as b (b.name + b.x + b.row)}
-						<rect class="bar" class:is-overlap={b.overlaps} x={b.x} y={TOP + b.row * ROW} width={b.width} height={ROW - 4} rx="3" />
-						<text class="bar-label" x={b.x + 4} y={TOP + b.row * ROW + 12}>{b.name}</text>
+						<rect class="bar" class:is-overlap={b.overlaps} stroke-dasharray={b.overlaps ? '4 2' : undefined} x={b.x} y={TOP + b.row * ROW} width={b.width} height={ROW - 4} rx="3" />
+						<text class="bar-label" x={b.x + 4} y={TOP + b.row * ROW + 12}><title>{b.name}{b.overlaps ? ' (overlaps Zigbee)' : ''}</title>{clip(b.name + (b.overlaps ? ' ⚠' : ''), b.width)}</text>
 					{/each}
 					{#if data.band.zigbee}
 						<line class="zb" x1={data.band.zigbee.x} x2={data.band.zigbee.x} y1="14" y2={height - AXIS} />
@@ -71,8 +72,8 @@
 						{#each data.aps as a (a.mac)}
 							<tr class={a.overlaps ? 'is-flagged is-warn' : ''}>
 								<td class="name">{a.name}{#if a.model}<div class="faint">{a.model}</div>{/if}</td>
-								<td>{a.area ?? '—'}</td>
-								<td>{#if a.channel === null}<span class="dash" title="No 2.4 GHz radio">—</span>{:else}{a.channel} · {a.width} MHz{#if a.overlaps} <span class="tag tag-accent">Overlaps Zigbee</span>{/if}{/if}</td>
+								<td>{a.area ?? 'Whole network'}</td>
+								<td>{#if a.channel === null}<span class="dash">—</span> <span class="faint">No 2.4 GHz radio</span>{:else}{a.channel} · {a.width} MHz{#if a.overlaps} <span class="tag tag-accent">Overlaps Zigbee</span>{/if}{/if}</td>
 								<td class="num">{pct(a.cuTotal)}</td>
 								<td>{#if a.line}<Sparkline d={a.line} w={data.spark.w} h={data.spark.h} label={a.label} class="spark-sm" />{:else}<span class="dash">—</span>{/if}</td>
 								<td class="num">{pct(a.own)}</td>

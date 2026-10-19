@@ -31,4 +31,26 @@ describe('bandLayout', () => {
 		const b = bandLayout(null, [ap('a', 14)], W).bars[0];
 		expect(b.x + b.width).toBeLessThanOrEqual(W);
 	});
+	it('spans 40 MHz as 40 MHz', () => {
+		const b = bandLayout(null, [ap('a', 6, 40)], W).bars[0];
+		expect(b.x).toBeCloseTo(370 - 200 + 0); // centre 2437 -> 370 px
+		expect(b.width).toBeCloseTo(400);
+	});
+	it('places Zigbee 26 at 2480', () => {
+		expect(bandLayout(26, [], W).zigbee?.x).toBeCloseTo(800);
+	});
+	it('puts touching bars in one row', () => {
+		const { bars } = bandLayout(null, [ap('a', 1), ap('b', 5)], W); // 2402-2422 and 2422-2442
+		expect(bars.map((b) => b.row)).toEqual([0, 0]);
+	});
+	it('never overlaps bars within a row', () => {
+		const aps = [1, 3, 6, 6, 9, 11, 13, 2].map((c, i) => ap(`a${i}`, c, i % 2 ? 40 : 20));
+		const { bars } = bandLayout(null, aps, W);
+		for (const p of bars) for (const q of bars) if (p !== q && p.row === q.row) expect(p.x + p.width <= q.x + 1e-9 || q.x + q.width <= p.x + 1e-9).toBe(true);
+	});
+	it('places channel 14 at 2484 clamped to the band', () => {
+		const b = bandLayout(null, [ap('a', 14)], W).bars[0];
+		expect(b.x).toBeCloseTo(740);
+		expect(b.x + b.width).toBeCloseTo(W);
+	});
 });

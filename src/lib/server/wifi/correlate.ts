@@ -1,3 +1,4 @@
+import { apsNear } from './areas';
 import { issueKey, type Finding, type RuleContext } from '../rules/types';
 
 const MAX_AGE = 15 * 60_000; // spec: only polls from the last 15 min count
@@ -17,7 +18,7 @@ export function withWifi(findings: Finding[], open: Set<string>, snap: RuleConte
 		if (lastOkAt === null || now - lastOkAt > MAX_AGE) return { ...f, evidence: { ...f.evidence, wifi: 'unavailable' } };
 		const areas = f.ieee ? areaOfDevice(f.ieee) : [];
 		// an AP without an area covers the whole network; each AP appears once whatever the number of matching areas
-		const aps = snap.aps.filter((a) => !areas.length || a.area === null || areas.includes(a.area));
+		const aps = apsNear(snap.aps, areas);
 		if (!aps.length) return f;
 		const zc = snap.zigbeeChannel ?? snap.lastZigbeeChannel;
 		const lines = [...aps].sort((a, b) => (b.cuMaxHour ?? -1) - (a.cuMaxHour ?? -1)).filter((a) => a.overlaps && a.channel !== null).flatMap((a) => {
