@@ -4,6 +4,11 @@
 
 	let { data }: PageProps = $props();
 	const label = $derived(Object.fromEntries(data.kinds));
+	const ICON: Record<string, string> = {
+		availability: '#i-signal', bridge_state: '#i-restart', bridge_restart: '#i-restart', bridge_version: '#i-restart', device_joined: '#i-plus',
+		device_leave: '#i-minus', device_announce: '#i-broadcast', device_interview: '#i-broadcast', battery_swap: '#i-battery', route_error: '#i-route',
+		leave_count_up: '#i-minus', address_changed: '#i-route'
+	};
 	const link = (page: number) => {
 		const p = new URLSearchParams();
 		if (data.kind) p.set('kind', data.kind);
@@ -13,49 +18,61 @@
 	};
 </script>
 
-<h1>Events</h1>
-<form method="get" class="filters">
-	<label>Kind
-		<select name="kind">
-			<option value="">All</option>
-			{#each data.kinds as [k, name] (k)}<option value={k} selected={k === data.kind}>{name}</option>{/each}
-		</select>
-	</label>
-	<label>Device
-		<select name="device">
-			<option value="">All</option>
-			{#each data.devices as [ieee, name] (ieee)}<option value={ieee} selected={ieee === data.device}>{name}</option>{/each}
-		</select>
-	</label>
-	<button>Filter</button>
-</form>
+<div class="page">
+	<div class="page-head">
+		<div>
+			<h1>Events</h1>
+			<p class="sub">Raw log, newest first. Kept for 90 days · {data.total} events.</p>
+		</div>
+	</div>
 
-{#if data.unknown}
-	<p class="note">Unknown filter. <a href="/events">Clear filters</a></p>
-{:else if data.rows.length}
-	<table>
-		<thead><tr><th scope="col">Time</th><th scope="col">Event</th><th scope="col">Device</th><th scope="col">Detail</th></tr></thead>
-		<tbody>
-			{#each data.rows as e (e.id)}
-				<tr>
-					<td>{formatTime(e.ts, data.tz)}</td>
-					<td>{label[e.kind] ?? e.kind}</td>
-					<td>{#if e.ieee}<a href="/devices/{e.ieee}">{data.names[e.ieee] ?? e.ieee}</a>{:else}—{/if}</td>
-					<td>{formatDetail(e.kind, e.detail)}</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
-{:else if data.page > 1}
-	<p class="note">No events on this page. <a href={link(1)}>Back to page 1</a></p>
-{:else}
-	<p class="note">No events in the last 90 days.</p>
-{/if}
+	<form method="get" class="toolbar" aria-label="Filter events">
+		<div class="field">
+			<label for="ev-kind">Kind</label>
+			<select id="ev-kind" class="select" name="kind">
+				<option value="">All</option>
+				{#each data.kinds as [k, name] (k)}<option value={k} selected={k === data.kind}>{name}</option>{/each}
+			</select>
+		</div>
+		<div class="field">
+			<label for="ev-device">Device</label>
+			<select id="ev-device" class="select" name="device">
+				<option value="">All</option>
+				{#each data.devices as [ieee, name] (ieee)}<option value={ieee} selected={ieee === data.device}>{name}</option>{/each}
+			</select>
+		</div>
+		<button class="btn btn-primary">Filter</button>
+	</form>
 
-{#if data.page > 1 || data.hasNext}
-	<p>
-		{#if data.page > 1}<a href={link(data.page - 1)}>← Newer</a>{/if}
-		<span>Page {data.page}</span>
-		{#if data.hasNext}<a href={link(data.page + 1)}>Older →</a>{/if}
-	</p>
-{/if}
+	{#if data.unknown}
+		<p class="muted">Unknown filter. <a href="/events">Clear filters</a></p>
+	{:else if data.rows.length}
+		<div class="dt-wrap"><div class="dt-scroll">
+			<table class="dt compact">
+				<thead><tr><th scope="col"><span>Time</span></th><th scope="col"><span>Kind</span></th><th scope="col"><span>Device</span></th><th scope="col"><span>Detail</span></th></tr></thead>
+				<tbody>
+					{#each data.rows as e (e.id)}
+						<tr>
+							<td>{formatTime(e.ts, data.tz)}</td>
+							<td><svg class="i" aria-hidden="true"><use href={ICON[e.kind] ?? '#i-info'} /></svg> {label[e.kind] ?? e.kind}</td>
+							<td class="name">{#if e.ieee}<a href="/devices/{e.ieee}">{data.names[e.ieee] ?? e.ieee}</a>{:else}<span class="dash">—</span>{/if}</td>
+							<td>{formatDetail(e.kind, e.detail) || '—'}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div></div>
+	{:else if data.page > 1}
+		<p class="muted">No events on this page. <a href={link(1)}>Back to page 1</a></p>
+	{:else}
+		<p class="muted">No events in the last 90 days.</p>
+	{/if}
+
+	{#if data.page > 1 || data.hasNext}
+		<nav class="pager" aria-label="Pages">
+			{#if data.page > 1}<a class="btn btn-sm" href={link(data.page - 1)}><svg class="i"><use href="#i-arrow-left" /></svg> Newer</a>{/if}
+			<span class="faint">Page {data.page}</span>
+			{#if data.hasNext}<a class="btn btn-sm" href={link(data.page + 1)}>Older <svg class="i"><use href="#i-arrow-right" /></svg></a>{/if}
+		</nav>
+	{/if}
+</div>

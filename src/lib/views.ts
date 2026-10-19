@@ -173,17 +173,28 @@ export interface BatteryRow {
 	daysLeft: number | null;
 	lastSwapAt: number | null;
 	low: boolean;
+	/** Sparkline path of the last 30 days; empty when < 2 points. */
+	trend: string;
 }
 
 /** Shopping list order: low now (lowest charge first), then by forecast days left, then the rest (lowest charge first). */
-export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, lowPct = 25): BatteryRow[] {
+export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, lowPct = 25, trends: Map<string, string> = new Map()): BatteryRow[] {
 	const pct = (r: BatteryRow) => r.battery ?? 101;
 	const group = (r: BatteryRow) => (r.low ? 0 : r.daysLeft !== null ? 1 : 2);
 	return devices.filter((d) => d.powerSource === 'Battery' && d.removedAt === null).map((d) => ({
 		ieee: d.ieee, name: d.friendlyName, battery: d.battery, voltage: d.voltage,
 		daysLeft: daysLeft.get(d.ieee) ?? null, lastSwapAt: lastSwap.get(d.ieee) ?? null,
+		trend: trends.get(d.ieee) ?? '',
 		low: d.batteryLow === true || (d.battery !== null && d.battery <= lowPct)
 	})).sort((a, b) => group(a) - group(b) || (group(a) === 1 ? a.daysLeft! - b.daysLeft! : 0) || pct(a) - pct(b));
+}
+
+export function splitBatteries(rows: BatteryRow[], days = 30) {
+	const withFc = rows.filter((r) => r.daysLeft !== null).sort((a, b) => a.daysLeft! - b.daysLeft!);
+	return {
+		soon: withFc.filter((r) => r.daysLeft! <= days), later: withFc.filter((r) => r.daysLeft! > days),
+		none: rows.filter((r) => r.daysLeft === null).sort((a, b) => a.name.localeCompare(b.name))
+	};
 }
 
 /** "about 18 days", "about 1 day", "less than a day" */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows } from './views';
+import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, splitBatteries, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -237,5 +237,15 @@ describe('filterRows', () => {
 
 	it('ANDs the chips', () => {
 		expect(filterRows(rows, { ...none, routers: true, issues: true }).map((r) => r.name)).toEqual(['Hall plug']);
+	});
+});
+
+describe('splitBatteries', () => {
+	const r = (name: string, daysLeft: number | null) => ({ ieee: name, name, battery: 50, voltage: null, daysLeft, lastSwapAt: null, low: false, trend: '' });
+	it('splits by days left and orders each group', () => {
+		const out = splitBatteries([r('z', null), r('late', 55), r('soon', 6), r('a', null)]);
+		expect(out.soon.map((x) => x.name)).toEqual(['soon']);
+		expect(out.later.map((x) => x.name)).toEqual(['late']);
+		expect(out.none.map((x) => x.name)).toEqual(['a', 'z']);
 	});
 });
