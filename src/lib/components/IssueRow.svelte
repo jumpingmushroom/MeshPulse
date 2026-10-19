@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatAgo, groupedSummary, RULE_LABELS } from '../views';
+	import { formatAgo, groupedSummary, isWifiKey, RULE_LABELS } from '../views';
 	import type { RuleId } from '../server/rules/types';
 	import type { Severity } from '../server/types';
 	import SevBadge from './SevBadge.svelte';
@@ -18,7 +18,7 @@
 		<div class="issue-title"><a href="/issues/{issue.id}">{issue.summary}</a></div>
 		{#if issue.action}<div class="issue-action"><svg class="i" aria-hidden="true"><use href="#i-arrow-right" /></svg><span>{issue.action}</span></div>{/if}
 		<div class="issue-meta">
-			{#if issue.ieee}<a href="/devices/{issue.ieee}">{issue.deviceName ?? issue.ieee}</a>{/if}
+			{#if issue.ieee}<a href={isWifiKey(issue.ieee) ? '/wifi' : `/devices/${issue.ieee}`}>{issue.deviceName ?? issue.ieee}</a>{/if}
 			<span>{RULE_LABELS[issue.rule as RuleId] ?? issue.rule}</span>
 		</div>
 	</div>

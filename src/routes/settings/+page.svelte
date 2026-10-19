@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { initAreaRows } from '../../lib/area-rows';
 	import { formatTime } from '../../lib/views';
 	import { GROUPS } from '../../lib/settings-groups';
 	import type { PageProps } from './$types';
@@ -16,6 +17,14 @@
 	// after a failed save keep what the user typed
 	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
 	const wf = $derived(msg('wifi')?.values); // after a failed save/test keep what was typed (never the password)
+	// editable copy of the saved areas; rows have a stable id so a rename keeps its APs. "Suggest" adds unsaved rows
+	// Initialised once: saving keeps what was typed (use:enhance does not reset), so other sections never wipe it
+	const init = initAreaRows(data.areas.areas, data.areas.aps); // svelte-ignore state_referenced_locally
+	let rows = $state(init.rows);
+	let apSel = $state(init.apSel); // mac -> row id
+	let seq = 0;
+	const add = (name: string, match: string) => rows.push({ id: `n${seq++}`, name, match });
+	const suggest = () => { for (const n of data.areas.suggested) if (!rows.some((r) => r.name.trim().toLowerCase() === n.toLowerCase())) add(n, n); };
 	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
 </script>
 
@@ -31,6 +40,7 @@
 			<a href="#failed">Failed notifications</a>
 			<a href="#active">Active features</a>
 			<a href="#wifi">Wi-Fi (UniFi)</a>
+			<a href="#areas">Areas</a>
 		</nav>
 		<div class="stack" style="gap: var(--space-12)">
 			<form method="post" action="?/save" class="stack" style="gap: var(--space-12)" use:enhance={keep}>
@@ -224,6 +234,41 @@
 						<button class="btn btn-primary">Save</button>
 						<button class="btn" formaction="?/testWifi" formnovalidate>Test connection</button>
 					</div>
+				</form>
+			</section>
+			<section id="areas" class="stack">
+				<h2>Areas</h2>
+				<p class="muted">Optional. Areas group devices and access points, for example by room or floor, so a Wi-Fi hint can name the access points near a device. A device belongs to an area when its name contains the match text. With no areas, everything is the whole network.</p>
+				<form method="post" action="?/saveAreas" class="stack" use:enhance={keep}>
+					{#each rows as r, n (r.id)}
+						<div class="field-grid">
+							<input type="hidden" name="areaId" value={r.id} />
+							<div class="field"><label for="an{n}">Area</label><input class="input" id="an{n}" name="areaName" bind:value={r.name} autocomplete="off" /></div>
+							<div class="field"><label for="am{n}">Device names containing</label><input class="input" id="am{n}" name="areaMatch" bind:value={r.match} autocomplete="off" placeholder={r.name} /></div>
+							<div class="field"><button type="button" class="btn" onclick={() => rows.splice(n, 1)}>Remove</button></div>
+						</div>
+					{/each}
+					<div class="form-actions">
+						<button type="button" class="btn" onclick={() => add('', '')}>Add area</button>
+						<button type="button" class="btn" onclick={suggest}>Suggest areas from device names</button>
+					</div>
+					{#if data.areas.aps.length}
+						<h3>Access points</h3>
+						{#each data.areas.aps as a (a.mac)}
+							<div class="field-grid">
+								<input type="hidden" name="apMac" value={a.mac} />
+								<div class="field"><label for="ap{a.mac}">{a.name} <span class="faint">{a.model}</span></label>
+									<select class="select" id="ap{a.mac}" name="ap:{a.mac}" bind:value={apSel[a.mac]}>
+										<option value="">Whole network</option>
+										{#each rows as r (r.id)}<option value={r.id}>{r.name.trim() || '(unnamed)'}</option>{/each}
+									</select></div>
+								{#if a.hint && !apSel[a.mac]}<div class="field"><span class="field-help">Looks like {a.hint}.</span> <button type="button" class="btn" onclick={() => (apSel[a.mac] = rows.find((r) => r.name === a.hint)?.id ?? '')}>Apply</button></div>{/if}
+							</div>
+						{/each}
+					{/if}
+					{#if msg('areas')?.error}<div class="form-error" role="alert"><svg class="i"><use href="#i-crit" /></svg><div>{msg('areas')?.error}</div></div>{/if}
+					{#if msg('areas')?.saved}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Saved.</p>{/if}
+					<div class="form-actions"><button class="btn btn-primary">Save</button></div>
 				</form>
 			</section>
 		</div>

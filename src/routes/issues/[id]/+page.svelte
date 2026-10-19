@@ -3,7 +3,7 @@
 	import LineChart from '../../../lib/components/LineChart.svelte';
 	import KV from '../../../lib/components/KV.svelte';
 	import SevBadge from '../../../lib/components/SevBadge.svelte';
-	import { evidenceRows, FOREVER, formatAgo, formatDuration, formatTime, formatDetail, RULE_LABELS } from '../../../lib/views';
+	import { evidenceRows, FOREVER, formatAgo, formatDuration, formatTime, formatDetail, isWifiKey, RULE_LABELS } from '../../../lib/views';
 	import type { RuleId } from '../../../lib/server/rules/types';
 	import type { PageProps } from './$types';
 
@@ -78,6 +78,9 @@
 						<button class="btn btn-primary" style="width:100%"><svg class="i" aria-hidden="true"><use href="#i-check" /></svg>Acknowledge</button>
 						<p class="field-help">Stops reminders. The issue stays open until it resolves.</p>
 					</form>
+				{/if}
+				{#if isWifiKey(i.ieee)}
+					<a href="/wifi" class="crumb">Open Wi-Fi page<svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-right" /></svg></a>
 				{/if}
 				{#if data.device}
 					{#if i.state === 'open'}<hr class="rule" />{/if}

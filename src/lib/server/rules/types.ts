@@ -1,5 +1,6 @@
 import type { Settings } from '../settings';
 import type { History } from '../trends/history';
+import type { WifiSnapshot } from '../wifi/snapshot';
 import type { AppState, NewEvent, Severity } from '../types';
 
 export type RuleId =
@@ -26,7 +27,10 @@ export type RuleId =
 	| 'network.storm'
 	| 'battery.stale'
 	| 'coordinator.missing_router'
-	| 'active.scan_failing';
+	| 'active.scan_failing'
+	| 'wifi.channel_overlap'
+	| 'wifi.busy_air'
+	| 'wifi.unreachable';
 
 export interface EventRow extends NewEvent {
 	id: number;
@@ -47,6 +51,8 @@ export interface RuleContext {
 	history: History;
 	/** last two health samples, newest last */
 	health: { ts: number; queued: number | null }[];
+	/** from the UniFi poller; absent in tests that do not use it */
+	wifi?: WifiSnapshot & { enabled: boolean; failures: number; lastError: string | null };
 	/** from the active checks; missingRouters is from the latest ok coordinator check, null if none */
 	active?: { missingRouters: string[] | null; scanFailStreak: number; baseTopic?: string };
 }
