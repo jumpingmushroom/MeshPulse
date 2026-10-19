@@ -19,26 +19,34 @@
 </script>
 
 <figure class="chart">
-	<figcaption>{title}{unit ? ` (${unit})` : ''}{#if latest}<span class="muted">{` · latest ${latest}`}</span>{/if}</figcaption>
+	<div class="chart-head">
+		<span class="chart-title">{title}{unit ? ` (${unit})` : ''}</span>
+		{#if latest}<span class="chart-now">latest <b>{latest}</b></span>{/if}
+	</div>
 	{#if s.empty}
-		<p class="muted">No data yet</p>
+		<div class="chart-empty"><strong>No data yet</strong></div>
 	{:else}
-		<svg viewBox="0 0 {L + W + 8} {T + H + 20}" role="img" aria-label={summary}>
+		<svg class="plot" viewBox="0 0 {L + W + 8} {T + H + 20}" role="img" aria-label={summary}>
 			<g transform="translate({L},{T})">
 				{#each ticks as v (v)}
 					<line class="grid" x1="0" x2={W} y1={y(v)} y2={y(v)} />
-					<text class="tick" x="-6" y={y(v)} text-anchor="end" dominant-baseline="middle">{v}</text>
+					<text class="yl" x="-6" y={y(v)} dominant-baseline="middle">{v}</text>
 				{/each}
 				{#if s.band}<path class="band" d={s.band} />{/if}
 				<path class="line" d={s.line} />
-				{#if end}<circle class="dot" cx={end[0]} cy={end[1]} r="4" />{/if}
+				{#if end}<circle class="dot" cx={end[0]} cy={end[1]} r="4" fill="var(--accent)" />{/if}
 				{#each refs as ref (ref.label)}
 					<line class="ref" x1="0" x2={W} y1={y(ref.y)} y2={y(ref.y)} />
-					<text class="tick" x={W - 4} y={y(ref.y) - 4} text-anchor="end">{ref.label}</text>
+					<text class="rl ref-label" x={W - 4} y={y(ref.y) - 4}>{ref.label}</text>
 				{/each}
-				<text class="tick" x="0" y={H + 16}>{formatDuration(t1 - t0)} ago</text>
-				<text class="tick" x={W} y={H + 16} text-anchor="end">now</text>
+				<text x="0" y={H + 16}>{formatDuration(t1 - t0)} ago</text>
+				<text class="yl" x={W} y={H + 16}>now</text>
 			</g>
 		</svg>
+		<div class="chart-legend">
+			<span><i></i>{s.band ? 'Average' : title}</span>
+			{#if s.band}<span><i class="band"></i>Min–max</span>{/if}
+			{#each refs as ref (ref.label)}<span><i class="ref"></i>{ref.label}</span>{/each}
+		</div>
 	{/if}
 </figure>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteryRows, navSummary, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
+import { RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -134,10 +134,25 @@ describe('batteryRows', () => {
 describe('navSummary', () => {
 	const i = (severity: Severity, parentIssueId: number | null = null) => ({ severity, parentIssueId });
 	it('counts top-level issues and picks the worst severity', () => {
-		expect(navSummary([i('warning'), i('critical', 1), i('info')], { connected: true, downSince: null }))
+		expect(navSummary([i('warning'), i('critical', 1), i('info')], { connected: true, downSince: null, startedAt: 5 }))
 			.toEqual({ count: 2, worst: 'warning', stale: false, staleSince: null });
 	});
 	it('is stale while MQTT is down', () => {
-		expect(navSummary([], { connected: false, downSince: 1000 })).toEqual({ count: 0, worst: null, stale: true, staleSince: 1000 });
+		expect(navSummary([], { connected: false, downSince: 1000, startedAt: 5 })).toEqual({ count: 0, worst: null, stale: true, staleSince: 1000 });
+	});
+	it('falls back to the start time when MQTT never connected', () => {
+		expect(navSummary([], { connected: false, downSince: null, startedAt: 5 }).staleSince).toBe(5);
+	});
+});
+
+describe('labels', () => {
+	it('labels every rule', () => {
+		for (const id of ['bridge.offline', 'battery.stale', 'network.storm'] as const) expect(RULE_LABELS[id]).toBeTruthy();
+	});
+	it('scoreLabel', () => { expect([scoreLabel('green'), scoreLabel('amber'), scoreLabel('red')]).toEqual(['Good', 'Fair', 'Poor']); });
+	it('groupedSummary counts per rule, most first', () => {
+		const c = (rule: string) => ({ rule });
+		expect(groupedSummary([c('device.offline'), c('device.flapping'), c('device.offline')])).toBe('3 grouped issues: 2 device offline, 1 device flapping');
+		expect(groupedSummary([c('device.offline')])).toBe('1 grouped issue: 1 device offline');
 	});
 });
