@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lt, or, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, min, or, isNull } from 'drizzle-orm';
 import { autoRange, fillHours, summarise, type Point, type Span } from '../chart';
 import { formatVoltage } from '../views';
 import { baselines, devices, events, issues, samples, samplesHourly } from './db/schema';
@@ -18,7 +18,7 @@ type SpanInput = { avail: { ts: number; to: string }[]; outages: { from: number;
 	rolledHours: number[]; firstRolledHour: number | null; currentHour: number };
 
 /** Merged, sorted spans in [t0, t1] where MeshPulse has no data for a device: offline, network outage, or MeshPulse not running. */
-export function noDataSpans(i: SpanInput, t0: number, t1: number): Span[] {
+export function noDataSpans(i: SpanInput, t0: number, t1: number, minMs = 0): Span[] {
 	const all: Span[] = [];
 	let off: number | null = null;
 	for (const e of [...i.avail].sort((a, b) => a.ts - b.ts)) {
@@ -29,14 +29,15 @@ export function noDataSpans(i: SpanInput, t0: number, t1: number): Span[] {
 	for (const o of i.outages) all.push({ from: o.from, to: o.to ?? t1 });
 	if (i.firstRolledHour !== null) {
 		const rolled = new Set(i.rolledHours);
-		for (let h = Math.max(hourStart(t0), i.firstRolledHour); h < i.currentHour && h < t1; h += H) if (!rolled.has(h)) all.push({ from: h, to: h + H });
+		for (let h = Math.max(hourStart(t0), i.firstRolledHour); h < i.currentHour - H && // the previous hour is rolled up ~1 min late
+			 h < t1; h += H) if (!rolled.has(h)) all.push({ from: h, to: h + H });
 	}
 	const out: Span[] = [];
 	for (const s of all.map((s) => ({ from: Math.max(s.from, t0), to: Math.min(s.to, t1) })).filter((s) => s.to > s.from).sort((a, b) => a.from - b.from)) {
 		const l = out[out.length - 1];
 		if (l && s.from <= l.to) l.to = Math.max(l.to, s.to); else out.push(s);
 	}
-	return out;
+	return out.filter((s) => s.to - s.from >= minMs);
 }
 
 /** Charts for one device over `range` ending at `now`. battery/voltage are null for mains devices. */
@@ -60,17 +61,20 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 	const voltage: Point[] = fromRaw ? raw.map((s) => ({ t: s.ts, v: s.voltage })) : hourly.map((h) => ({ t: h.hour, v: h.voltageMin }));
 	const msgsAt = (f: (n: number) => number) => fillHours(hourly.map((h) => ({ t: h.hour, v: f(h.msgCount) })), hourStart(t1) - H);
 
-	const prior = db.select().from(events).where(and(eq(events.ieee, ieee), eq(events.kind, 'availability'), lt(events.ts, t0)))
-		.orderBy(desc(events.ts)).limit(1).all();
-	const inWin = db.select().from(events).where(and(eq(events.ieee, ieee), eq(events.kind, 'availability'), gte(events.ts, t0))).all();
+	const inWin = db.select().from(events).where(and(eq(events.ieee, ieee), eq(events.kind, 'availability'), gte(events.ts, t0)))
+		.orderBy(asc(events.ts)).all();
+	const to = (e: { detail: unknown }) => String((e.detail as { to?: unknown } | null)?.to);
+	// state at t0 without a backwards scan: the first in-window event's predecessor state, else the device's current state
+	const offlineAtT0 = inWin.length ? to(inWin[0]) === 'online' : d?.availability === 'offline';
+	const rolled = db.selectDistinct({ hour: samplesHourly.hour }).from(samplesHourly).where(gte(samplesHourly.hour, hourStart(t0))).all().map((r) => r.hour);
+	const first = db.select({ m: min(samplesHourly.hour) }).from(samplesHourly).get()?.m ?? null;
 	const outages = db.select().from(issues).where(and(inArray(issues.rule, ['bridge.offline', 'monitor.mqtt_lost']),
 		lt(issues.openedAt, t1), or(isNull(issues.resolvedAt), gte(issues.resolvedAt, t0)))).all();
-	const rolled = db.selectDistinct({ hour: samplesHourly.hour }).from(samplesHourly).all().map((r) => r.hour);
 	const gaps = noDataSpans({
-		avail: [...prior, ...inWin].map((e) => ({ ts: e.ts, to: String((e.detail as { to?: unknown } | null)?.to) })),
+		avail: [...(offlineAtT0 ? [{ ts: t0, to: 'offline' }] : []), ...inWin.map((e) => ({ ts: e.ts, to: to(e) }))],
 		outages: outages.map((o) => ({ from: o.openedAt, to: o.resolvedAt })),
-		rolledHours: rolled, firstRolledHour: rolled.length ? Math.min(...rolled) : null, currentHour: hourStart(t1)
-	}, t0, t1);
+		rolledHours: rolled, firstRolledHour: first, currentHour: hourStart(t1)
+	}, t0, t1, settings.graceMin * 60_000);
 
 	const lqiMean = db.select().from(baselines).where(and(eq(baselines.ieee, ieee), eq(baselines.metric, 'lqi_mean'))).get()?.value ?? null;
 	// sleepy sensors report less often than the default gap; don't break their line between normal reports

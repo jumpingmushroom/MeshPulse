@@ -46,8 +46,20 @@ describe('noDataSpans', () => {
 	});
 	it('counts whole unrolled past hours only, from the first rollup', () => {
 		const rolledHours = [10 * H, 11 * H, 13 * H];
-		const s = noDataSpans({ ...base, rolledHours, firstRolledHour: 10 * H, currentHour: 15 * H }, 5 * H, 15 * H + 1000);
-		expect(s).toEqual([{ from: 12 * H, to: 13 * H }, { from: 14 * H, to: 15 * H }]); // not 5-10 h, not the current hour
+		const s = noDataSpans({ ...base, rolledHours, firstRolledHour: 10 * H, currentHour: 16 * H }, 5 * H, 16 * H + 1000);
+		expect(s).toEqual([{ from: 12 * H, to: 13 * H }, { from: 14 * H, to: 15 * H }]); // not 5-10 h, not the unrolled previous or current hour
+	});
+	it('drops spans shorter than the minimum', () => {
+		const avail = [{ ts: 10 * H, to: 'offline' }, { ts: 10 * H + 60_000, to: 'online' }, { ts: 20 * H, to: 'offline' }, { ts: 21 * H, to: 'online' }];
+		expect(noDataSpans({ ...base, avail }, 0, 50 * H, 15 * 60_000)).toEqual([{ from: 20 * H, to: 21 * H }]);
+	});
+	it('handles several flips', () => {
+		const avail = [{ ts: 1 * H, to: 'offline' }, { ts: 2 * H, to: 'online' }, { ts: 3 * H, to: 'offline' }, { ts: 4 * H, to: 'online' }];
+		expect(noDataSpans({ ...base, avail }, 0, 50 * H)).toEqual([{ from: 1 * H, to: 2 * H }, { from: 3 * H, to: 4 * H }]);
+	});
+	it('does not flag the previous hour before its rollup lands', () => {
+		const s = noDataSpans({ ...base, rolledHours: [10 * H], firstRolledHour: 10 * H, currentHour: 12 * H }, 10 * H, 12 * H + 1000);
+		expect(s).toEqual([]);
 	});
 	it('merges overlapping spans', () => {
 		const s = noDataSpans({ ...base, avail: [{ ts: 10 * H, to: 'offline' }, { ts: 14 * H, to: 'online' }],
@@ -57,6 +69,15 @@ describe('noDataSpans', () => {
 });
 
 describe('deviceCharts gaps', () => {
+	it('uses mqtt_lost outages and the device state when no event precedes the window', () => {
+		const db = openDb(':memory:');
+		const now = 1_760_000_000_000;
+		db.insert(devices).values({ ieee: '0x8', availability: 'offline' }).run();
+		db.insert(issues).values({ rule: 'monitor.mqtt_lost', severity: 'critical', state: 'open', openedAt: now - 3_600_000,
+			updatedAt: now, summary: 's', action: 'a' }).run();
+		const c = deviceCharts(db, '0x8', '24h', DEFAULT_SETTINGS, now);
+		expect(c.lqi.gaps).toEqual([{ from: now - 24 * 3_600_000, to: now }]); // offline all window, merged with the outage
+	});
 	it('keeps the line through a quiet spell and reports an outage span', () => {
 		const db = openDb(':memory:');
 		const now = 1_760_000_000_000;

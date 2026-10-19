@@ -53,7 +53,7 @@
 			<span><i></i>{s.band ? 'Average' : title}</span>
 			{#if s.band}<span><i class="band"></i>Min–max</span>{/if}
 			{#each refs as ref (ref.label)}<span><i class="ref"></i>{ref.label}</span>{/each}
-				{#if gaps.length}<span><i class="gap"></i>No data</span>{/if}
+			{#if gaps.length}<span><i class="gap"></i>No data</span>{/if}
 		</div>
 	{/if}
 </figure>
