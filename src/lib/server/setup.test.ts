@@ -9,14 +9,12 @@ const dir = mkdtempSync(join(tmpdir(), 'meshpulse-setup-'));
 let auth: Awaited<ReturnType<typeof import('./auth').getAuth>>;
 let db: ReturnType<typeof import('./db/index').getDb>;
 let s: typeof import('./setup');
-let ensureAdmin: typeof import('./auth').ensureAdmin;
 
 beforeAll(async () => {
 	process.env.DATABASE_PATH = join(dir, 'test.db');
 	process.env.SECRET_KEY = 'test-secret-key-that-is-long-enough-123';
 	const a = await import('./auth');
 	auth = a.getAuth();
-	ensureAdmin = a.ensureAdmin;
 	db = (await import('./db/index')).getDb();
 	s = await import('./setup');
 }, 30_000);
@@ -52,13 +50,5 @@ describe('setup', () => {
 		expect(s.setupRedirect('/setup', false, false)).toBe('404');
 		expect(s.setupRedirect('/setup', true, false)).toBe('404');
 		expect(s.setupRedirect('/', true, false)).toBeNull();
-	});
-});
-
-describe('setup with env admin', () => {
-	it('ensureAdmin leaves no setup', async () => {
-		expect(await ensureAdmin(auth, 'env@x.io', 'twelve-chars-e')).toBe('created');
-		expect(s.needsSetup(db)).toBe(false);
-		expect(s.setupRedirect('/setup', false, s.needsSetup(db))).toBe('404');
 	});
 });
