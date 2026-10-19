@@ -11,6 +11,7 @@ import { lqiDegrading, lqiWeak } from './lqi';
 import { missingRouter } from './missing-router';
 import { massOffline } from './mass-offline';
 import { mqttLost } from './mqtt-lost';
+import { scanFailing } from './scan-failing';
 import { permitJoinOpen } from './permit-join';
 import { networkRouteErrors, routeFailures } from './route';
 import { deviceDominant, deviceStorm, networkStorm } from './storm';
@@ -19,7 +20,7 @@ export * from './types';
 
 export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, routeFailures, networkRouteErrors,
 	batteryForecast, massOffline, rejoinChurn, deviceLeave, networkChurn, interviewFailed, bridgeBacklog,
-	deviceStorm, deviceDominant, networkStorm, batteryStale, missingRouter];
+	deviceStorm, deviceDominant, networkStorm, batteryStale, missingRouter, scanFailing];
 
 const d = (minRuns: number, deviceLevel: boolean, notify = true) => ({ minRuns, resolveRuns: 2, deviceLevel, notify });
 export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: number; deviceLevel: boolean; notify: boolean }> = {
@@ -45,7 +46,8 @@ export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: numbe
 	'device.dominant': d(2, true),
 	'network.storm': d(2, false),
 	'battery.stale': d(1, true, false), // UI only
-	'coordinator.missing_router': { minRuns: 1, resolveRuns: 1, deviceLevel: true, notify: true }
+	'coordinator.missing_router': { minRuns: 1, resolveRuns: 1, deviceLevel: true, notify: true },
+	'active.scan_failing': { minRuns: 1, resolveRuns: 1, deviceLevel: false, notify: true }
 };
 
 export function evaluateRules(ctx: RuleContext): Finding[] {
