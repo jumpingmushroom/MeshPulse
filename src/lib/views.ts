@@ -242,7 +242,10 @@ export const RULE_LABELS: Record<RuleId, string> = {
 	'network.storm': 'Network storm',
 	'battery.stale': 'Battery stale',
 	'coordinator.missing_router': 'Missing from coordinator',
-	'active.scan_failing': 'Network scan failing'
+	'active.scan_failing': 'Network scan failing',
+	'wifi.channel_overlap': 'Wi-Fi overlaps Zigbee',
+	'wifi.busy_air': 'Busy Wi-Fi channel',
+	'wifi.unreachable': 'UniFi unreachable'
 };
 
 export const scoreLabel = (s: Status): 'Good' | 'Fair' | 'Poor' => ({ green: 'Good', amber: 'Fair', red: 'Poor' } as const)[s];
@@ -294,6 +297,10 @@ export function batteriesDue(rows: { ieee: string; days: number }[], state: Pick
 }
 
 /** The device an issue page may act on: present and not removed. */
+/** Wi-Fi issues use `wifi:<mac>` in the ieee slot; the AP name is in the evidence. */
+export const isWifiKey = (ieee: string | null) => !!ieee?.startsWith('wifi:');
+export const wifiApName = (ieee: string | null, evidence: Record<string, unknown> | null) => (isWifiKey(ieee) ? String(evidence?.ap ?? ieee!.slice(5)) : undefined);
+
 export function liveDevice<D extends { removedAt: number | null }>(devices: Map<string, D>, ieee: string | null): D | undefined {
 	const d = ieee ? devices.get(ieee) : undefined;
 	return d && d.removedAt === null ? d : undefined;

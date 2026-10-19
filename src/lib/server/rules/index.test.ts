@@ -32,7 +32,7 @@ describe('rules index', () => {
 	});
 
 	it('has defaults for every rule', () => {
-		expect(RULES).toHaveLength(24);
+		expect(RULES).toHaveLength(27);
 		expect(RULE_DEFAULTS['device.rejoin_churn']).toEqual({ minRuns: 2, resolveRuns: 2, deviceLevel: true, notify: true });
 		expect(RULE_DEFAULTS['network.churn'].deviceLevel).toBe(false);
 		expect(RULE_DEFAULTS['bridge.mqtt_backlog'].deviceLevel).toBe(false);

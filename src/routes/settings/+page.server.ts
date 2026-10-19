@@ -1,7 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { and, desc, eq, ne } from 'drizzle-orm';
 import { encrypt } from '../../lib/server/crypto';
-import { channels, outbox, scans } from '../../lib/server/db/schema';
+import { channels, outbox, scans, wifiAps, wifiAreas } from '../../lib/server/db/schema';
 import type { Message } from '../../lib/server/notify/channel';
 import { parseAppriseForm } from '../../lib/server/notify/apprise';
 import { WEBHOOK_RE } from '../../lib/server/notify/discord';
@@ -11,6 +11,7 @@ import { lastPing } from '../../lib/server/heartbeat';
 import { checkPrereqs } from '../../lib/server/prereqs';
 import { getRuntime } from '../../lib/server/runtime';
 import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveFormSettings } from '../../lib/server/settings';
+import { candidateAreas, saveAreas, suggestArea } from '../../lib/server/wifi/areas';
 import { getWifiConfig, getWifiForm, saveWifiConfig } from '../../lib/server/wifi/config';
 import { exclusive } from '../../lib/server/wifi/poller';
 import { createUnifi } from '../../lib/server/wifi/unifi';
@@ -34,6 +35,16 @@ function activeInfo(kind: 'coordinator_check' | 'networkmap', at: '03:30' | '04:
 	return { last: last ? { at: last.startedAt, status: last.status, reason: last.reason } : null, next };
 }
 
+/** Areas, APs with a hint against the saved areas, and area suggestions from device names. */
+function wifiAreas0(db: ReturnType<typeof getRuntime>['db']) {
+	const areas = db.select().from(wifiAreas).all();
+	return {
+		areas,
+		aps: db.select().from(wifiAps).all().map((a) => ({ mac: a.mac, name: a.name, model: a.model, area: a.area, hint: a.area ? null : suggestArea(a.name, areas.map((r) => r.name)) })),
+		suggested: candidateAreas([...getRuntime().state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator').map((d) => d.friendlyName))
+	};
+}
+
 export const load: PageServerLoad = () => {
 	const { db, state } = getRuntime();
 	const ch = discordChannel();
@@ -50,6 +61,7 @@ export const load: PageServerLoad = () => {
 		})(),
 		active: { check: activeInfo('coordinator_check', '03:30'), scan: activeInfo('networkmap', '04:00'), devices: [...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator').length },
 		wifi: { ...getWifiForm(db), enabled: getSettings(db).wifiEnabled, status: { ...state.wifi } },
+		areas: wifiAreas0(db),
 		prereqs: checkPrereqs(state.bridge.info),
 		failed: db.select().from(outbox).where(eq(outbox.status, 'failed')).orderBy(desc(outbox.createdAt)).limit(50).all()
 			.map((r) => ({ id: r.id, createdAt: r.createdAt, title: (r.message as Message).title, lastError: r.lastError }))
@@ -105,6 +117,15 @@ export const actions: Actions = {
 		});
 		if (!r) return fail(400, { section: 'wifi', error: 'A poll is running — try again in a moment', wifiValues: values });
 		return r.ok ? { section: 'wifi', tested: r.text, wifiValues: values } : fail(400, { section: 'wifi', error: r.text, wifiValues: values });
+	},
+	saveAreas: async ({ request }) => {
+		const form = await request.formData();
+		const names = form.getAll('areaName').map(String);
+		const matches = form.getAll('areaMatch').map(String);
+		const apAreas: Record<string, string | null> = {};
+		for (const mac of form.getAll('apMac').map(String)) apAreas[mac] = String(form.get(`ap:${mac}`) ?? '') || null;
+		saveAreas(getRuntime().db, names.map((name, i) => ({ name, match: matches[i] ?? '' })), apAreas);
+		return { section: 'areas', saved: true };
 	},
 	saveChannel: async ({ request }) => {
 		const { db, config } = getRuntime();

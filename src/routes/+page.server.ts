@@ -5,7 +5,7 @@ import { getRuntime } from '../lib/server/runtime';
 import { buildSeries, summarise } from '../lib/chart';
 import { networkScore } from '../lib/score';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
-import { batteriesDue, banner, counters, learning, peakQuiet, formatDuration, sortIssues } from '../lib/views';
+import { batteriesDue, banner, counters, learning, peakQuiet, formatDuration, sortIssues, wifiApName } from '../lib/views';
 import type { PageServerLoad } from './$types';
 
 const H = 3_600_000;
@@ -35,8 +35,8 @@ export const load: PageServerLoad = () => {
 		batteriesDue: { count: due.length, soonest: due[0] ?? null },
 		topLevel: list.length,
 		spark: { w: SPARK.w, h: SPARK.h, d: msgs.length >= 2 ? buildSeries(msgs, box, 3 * H).line : '', summary: summarise('Messages per minute, 24 h', '/min', msgs) },
-		issues: list.map(({ id, severity, state, summary, action, rule, ieee, openedAt }) =>
-			({ id, severity, state, summary, action, rule, ieee, deviceName: name(ieee), openedAt,
+		issues: list.map(({ id, severity, state, summary, action, rule, ieee, openedAt, evidence }) =>
+			({ id, severity, state, summary, action, rule, ieee, deviceName: wifiApName(ieee, evidence) ?? name(ieee), openedAt,
 				children: open.filter((c) => c.parentIssueId === id).map(({ id, summary, rule }) => ({ id, summary, rule })) })),
 		lastUpdate: bridge.lastLiveAt,
 		mqttConnected: state.monitor.connected,

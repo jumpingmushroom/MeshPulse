@@ -1,7 +1,7 @@
 import { count, desc, eq } from 'drizzle-orm';
 import { issues } from '../../lib/server/db/schema';
 import { getRuntime } from '../../lib/server/runtime';
-import { RULE_LABELS, sortIssues } from '../../lib/views';
+import { RULE_LABELS, sortIssues, wifiApName } from '../../lib/views';
 import type { PageServerLoad } from './$types';
 
 const TABS = ['open', 'acknowledged', 'resolved'] as const;
@@ -22,7 +22,7 @@ export const load: PageServerLoad = ({ url }) => {
 		tabs: TABS.map((t) => ({ key: t, label: t[0].toUpperCase() + t.slice(1), n: counts[t] ?? 0 })),
 		rules: Object.entries(RULE_LABELS).map(([key, label]) => ({ key, label })),
 		sevs: ['all', ...SEVS],
-		issues: (tab === 'resolved' ? match : sortIssues(match)).map(({ id, severity, state: st, summary, openedAt, ieee, rule }) =>
-			({ id, severity, state: st, summary, openedAt, ieee, rule, deviceName: (ieee && state.devices.get(ieee)?.friendlyName) || undefined }))
+		issues: (tab === 'resolved' ? match : sortIssues(match)).map(({ id, severity, state: st, summary, openedAt, ieee, rule, evidence }) =>
+			({ id, severity, state: st, summary, openedAt, ieee, rule, deviceName: wifiApName(ieee, evidence) ?? ((ieee && state.devices.get(ieee)?.friendlyName) || undefined) }))
 	};
 };

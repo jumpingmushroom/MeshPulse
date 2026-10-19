@@ -16,6 +16,11 @@
 	// after a failed save keep what the user typed
 	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
 	const wf = $derived(msg('wifi')?.values); // after a failed save/test keep what was typed (never the password)
+	// editable copy of the saved areas; "Suggest" adds unsaved rows, nothing is stored until Save
+	let rows = $state<{ name: string; match: string }[]>([]);
+	let apSel = $state<Record<string, string>>({});
+	$effect.pre(() => { rows = data.areas.areas.map((a) => ({ ...a })); apSel = Object.fromEntries(data.areas.aps.map((a) => [a.mac, a.area ?? ''])); });
+	const suggest = () => { for (const n of data.areas.suggested) if (!rows.some((r) => r.name.toLowerCase() === n.toLowerCase())) rows.push({ name: n, match: n }); };
 	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
 </script>
 
@@ -31,6 +36,7 @@
 			<a href="#failed">Failed notifications</a>
 			<a href="#active">Active features</a>
 			<a href="#wifi">Wi-Fi (UniFi)</a>
+			<a href="#areas">Areas</a>
 		</nav>
 		<div class="stack" style="gap: var(--space-12)">
 			<form method="post" action="?/save" class="stack" style="gap: var(--space-12)" use:enhance={keep}>
@@ -224,6 +230,39 @@
 						<button class="btn btn-primary">Save</button>
 						<button class="btn" formaction="?/testWifi" formnovalidate>Test connection</button>
 					</div>
+				</form>
+			</section>
+			<section id="areas" class="stack">
+				<h2>Areas</h2>
+				<p class="muted">Optional. Areas group devices and access points, for example by room or floor, so a Wi-Fi hint can name the access points near a device. A device belongs to an area when its name contains the match text. With no areas, everything is the whole network.</p>
+				<form method="post" action="?/saveAreas" class="stack" use:enhance={keep}>
+					{#each rows as r, n (n)}
+						<div class="field-grid">
+							<div class="field"><label for="an{n}">Area</label><input class="input" id="an{n}" name="areaName" bind:value={r.name} autocomplete="off" /></div>
+							<div class="field"><label for="am{n}">Device names containing</label><input class="input" id="am{n}" name="areaMatch" bind:value={r.match} autocomplete="off" placeholder={r.name} /></div>
+							<div class="field"><button type="button" class="btn" onclick={() => rows.splice(n, 1)}>Remove</button></div>
+						</div>
+					{/each}
+					<div class="form-actions">
+						<button type="button" class="btn" onclick={() => rows.push({ name: '', match: '' })}>Add area</button>
+						<button type="button" class="btn" onclick={suggest}>Suggest areas from device names</button>
+					</div>
+					{#if data.areas.aps.length}
+						<h3>Access points</h3>
+						{#each data.areas.aps as a (a.mac)}
+							<div class="field-grid">
+								<input type="hidden" name="apMac" value={a.mac} />
+								<div class="field"><label for="ap{a.mac}">{a.name} <span class="faint">{a.model}</span></label>
+									<select class="select" id="ap{a.mac}" name="ap:{a.mac}" bind:value={apSel[a.mac]}>
+										<option value="">Whole network</option>
+										{#each rows.filter((r) => r.name.trim()) as r (r.name)}<option value={r.name.trim()}>{r.name.trim()}</option>{/each}
+									</select></div>
+								{#if a.hint && !apSel[a.mac]}<div class="field"><span class="field-help">Looks like {a.hint}.</span> <button type="button" class="btn" onclick={() => (apSel[a.mac] = a.hint!)}>Apply</button></div>{/if}
+							</div>
+						{/each}
+					{/if}
+					{#if msg('areas')?.saved}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Saved.</p>{/if}
+					<div class="form-actions"><button class="btn btn-primary">Save</button></div>
 				</form>
 			</section>
 		</div>

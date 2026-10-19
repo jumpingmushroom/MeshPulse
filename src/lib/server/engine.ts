@@ -11,6 +11,7 @@ import { sendWeekly } from './notify/weekly';
 import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
 import { deviceSilentFor } from './rules/bridge-offline';
+import { loadWifiSnapshot } from './wifi/snapshot';
 import { loadHistory } from './trends/history';
 import { hourStart, computeBaselines, recordScore, rollupHours } from './trends/rollup';
 import { getSettings } from './settings';
@@ -46,7 +47,8 @@ export function runOnce(deps: EngineDeps, now: number): void {
 	const open = db.select().from(issues).where(ne(issues.state, 'resolved')).all().map(toRow);
 	const ctx = { now, state, events: evs, longEvents, settings, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))),
 		openCritical: new Set(open.filter((i) => i.severity === 'critical').map((i) => issueKey(i.rule, i.ieee))),
-		history: loadHistory(db, now), active: { ...loadActive(db), baseTopic: config.baseTopic },
+		history: loadHistory(db, now),
+		wifi: { ...loadWifiSnapshot(db, state, now), enabled: settings.wifiEnabled, failures: state.wifi.failures, lastError: state.wifi.lastError }, active: { ...loadActive(db), baseTopic: config.baseTopic },
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };
 	const findings = evaluateRules(ctx);
 	let parents: ReturnType<typeof latestParents> | undefined; // loaded only when grouping asks

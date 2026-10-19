@@ -14,13 +14,14 @@ import { mqttLost } from './mqtt-lost';
 import { scanFailing } from './scan-failing';
 import { permitJoinOpen } from './permit-join';
 import { networkRouteErrors, routeFailures } from './route';
+import { wifiBusyAir, wifiChannelOverlap, wifiUnreachable } from './wifi';
 import { deviceDominant, deviceStorm, networkStorm } from './storm';
 
 export * from './types';
 
 export const RULES: Rule[] = [bridgeOffline, bridgeRestarted, permitJoinOpen, mqttLost, deviceOffline, deviceFlapping, batteryLow, lqiWeak, lqiDegrading, routeFailures, networkRouteErrors,
 	batteryForecast, massOffline, rejoinChurn, deviceLeave, networkChurn, interviewFailed, bridgeBacklog,
-	deviceStorm, deviceDominant, networkStorm, batteryStale, missingRouter, scanFailing];
+	deviceStorm, deviceDominant, networkStorm, batteryStale, missingRouter, scanFailing, wifiChannelOverlap, wifiBusyAir, wifiUnreachable];
 
 const d = (minRuns: number, deviceLevel: boolean, notify = true) => ({ minRuns, resolveRuns: 2, deviceLevel, notify });
 export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: number; deviceLevel: boolean; notify: boolean }> = {
@@ -47,7 +48,11 @@ export const RULE_DEFAULTS: Record<RuleId, { minRuns: number; resolveRuns: numbe
 	'network.storm': d(2, false),
 	'battery.stale': d(1, true, false), // UI only
 	'coordinator.missing_router': { minRuns: 1, resolveRuns: 1, deviceLevel: true, notify: true },
-	'active.scan_failing': { minRuns: 1, resolveRuns: 1, deviceLevel: false, notify: true }
+	'active.scan_failing': { minRuns: 1, resolveRuns: 1, deviceLevel: false, notify: true },
+	// ieee slot holds wifi:<mac>, not a device
+	'wifi.channel_overlap': { minRuns: 1, resolveRuns: 1, deviceLevel: false, notify: true },
+	'wifi.busy_air': d(1, false, false),
+	'wifi.unreachable': d(1, false, false)
 };
 
 export function evaluateRules(ctx: RuleContext): Finding[] {
