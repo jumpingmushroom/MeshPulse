@@ -38,6 +38,7 @@ src/lib/server/rules/*.ts            one file per rule + index.ts (RULES, RULE_D
 src/lib/server/rules/{lqi,route,forecast}.ts  lqi.weak/degrading, route.failures, network.route_errors, battery.forecast
 src/lib/server/trends/               minutes.ts (in-memory per-minute counters), rollup.ts (hourly samples + baselines), forecast.ts, history.ts (per-run snapshot the rules read)
 src/lib/server/rules/{churn,storm,mass-offline,bridge-backlog}.ts  rejoin/network churn, leave, interview; device/network storm, dominant; mass offline; mqtt backlog
+src/lib/server/rules/wifi.ts          wifi.channel_overlap, wifi.busy_air, wifi.unreachable
 src/lib/server/rules/types.ts        RuleId, RuleContext, Finding, issueKey, inGrace
 src/lib/server/issues/lifecycle.ts   evaluate(input) -> LifecycleResult
 src/lib/server/issues/quiet.ts       isQuietHours(now, settings, tz)

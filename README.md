@@ -98,12 +98,12 @@ What you see:
 
 ## Wi-Fi interference (UniFi, optional)
 
-MeshPulse can read your UniFi access points to show whether Wi-Fi overlaps your Zigbee channel. It is off by default and strictly read-only: it logs in, reads the access point list, and logs out. It never changes anything in UniFi.
+MeshPulse can read your UniFi access points to show whether Wi-Fi overlaps your Zigbee channel. It is off by default and strictly read-only: it logs in, reads the access point list on a schedule, and reuses the session (it logs out on shutdown or when you change the settings). It never changes anything in UniFi.
 
 Every 5 minutes it reads the 2.4 GHz channel, width and airtime of each access point. What you see:
 
-- **Overlap** (Warning): an access point sits on a channel that overlaps your Zigbee channel. The issue names the Wi-Fi channels to move to.
-- **Busy air** (Info): an access point's airtime stays above the busy threshold.
+- **Wi-Fi overlaps Zigbee** (Warning): an access point sits on a channel that overlaps your Zigbee channel. The issue names the Wi-Fi channels to move to.
+- **Busy Wi-Fi channel** (Info): an access point that overlaps Zigbee stays above the busy threshold for 15 minutes.
 - **UniFi unreachable** (Info): polling keeps failing.
 - **Wi-Fi context** on Zigbee issues: a hint that names nearby access points that overlap.
 - **Wi-Fi page** (`/wifi`): the 2.4 GHz band with each access point, and a table of channel, airtime and clients.
