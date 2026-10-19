@@ -369,7 +369,7 @@ a.tile:hover { box-shadow: var(--shadow-md); }
 @media (max-width: 640px) { .dt-desktop { display: none; } .dcards { display: flex; } }
 
 /* ───────── Chart frame ───────── */
-.chart { padding: var(--space-6); background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.chart { margin: 0; padding: var(--space-6); background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
 .chart-wide { grid-column: 1 / -1; }
 .plot .xl { text-anchor: middle; } .plot .yl { text-anchor: end; } .plot .rl { text-anchor: end; }
@@ -410,10 +410,10 @@ a.tile:hover { box-shadow: var(--shadow-md); }
 
 /* ───────── Event timeline ───────── */
 .timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.timeline li { display: grid; grid-template-columns: 96px 22px minmax(0, 1fr); gap: var(--space-3); align-items: start; padding: 6px 0; font-size: var(--fs-md); position: relative; }
-.timeline li::before { content: ""; position: absolute; left: calc(96px + var(--space-3) + 10px); top: 26px; bottom: -6px; width: 1px; background: var(--divider-soft); }
+.timeline li { display: grid; grid-template-columns: var(--tl-time, 136px) 22px minmax(0, 1fr); gap: var(--space-3); align-items: start; padding: 6px 0; font-size: var(--fs-md); position: relative; }
+.timeline li::before { content: ""; position: absolute; left: calc(var(--tl-time, 136px) + var(--space-3) + 10px); top: 26px; bottom: -6px; width: 1px; background: var(--divider-soft); }
 .timeline li:last-child::before { display: none; }
-.timeline time { color: var(--text-faint); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.timeline time { white-space: nowrap; color: var(--text-faint); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; padding-top: 1px; }
 .timeline .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--text-muted); }
 .timeline .dot svg.i { width: 12px; height: 12px; }
 .timeline .dot.is-crit, .timeline .dot.is-warn, .timeline .dot.is-ok, .timeline .dot.is-info { background: var(--sev-bg); color: var(--sev-fg); }

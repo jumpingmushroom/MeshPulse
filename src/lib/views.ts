@@ -149,6 +149,7 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[l, formatTime(v, tz)]];
 		if (typeof v === 'number' && k.endsWith('Ms')) return [[l, formatDuration(v)]];
 		if (typeof v === 'boolean') return [[l, v ? 'Yes' : 'No']];
+		if (k === 'battery' && typeof v === 'number') return [[l, `${v} %`]];
 		return [[l, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
 	});
 }

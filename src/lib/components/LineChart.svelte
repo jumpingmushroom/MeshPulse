@@ -21,7 +21,7 @@
 <figure class="chart">
 	<div class="chart-head">
 		<span class="chart-title">{title}{unit ? ` (${unit})` : ''}</span>
-		{#if latest}<span class="chart-now">latest <b>{latest}</b></span>{/if}
+		{#if latest}<span class="chart-now">latest <b>{latest}{unit ? ` ${unit}` : ''}</b></span>{/if}
 	</div>
 	{#if s.empty}
 		<div class="chart-empty"><strong>No data yet</strong></div>
