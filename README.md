@@ -6,6 +6,130 @@ MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traff
 
 ![Overview with open issues](docs/screenshots/overview-amber.png)
 
+## Install with Docker Compose
+
+Save the compose file as `docker-compose.yml`. It pulls the published image.
+
+```yaml
+services:
+  meshpulse:
+    image: ghcr.io/jumpingmushroom/meshpulse:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - meshpulse-data:/data
+    ports:
+      - '3000:3000'
+
+volumes:
+  meshpulse-data: {}
+```
+
+Next to it, create a `.env` file with the broker address and your time zone. These are the only settings you need.
+
+```sh
+MQTT_URL=mqtt://192.168.1.10:1883
+TZ=Europe/Oslo
+```
+
+Start it:
+
+```sh
+docker compose up -d
+```
+
+## Install with `docker run`
+
+```sh
+docker run -d --name meshpulse --restart unless-stopped \
+  -v meshpulse-data:/data -p 3000:3000 \
+  -e MQTT_URL=mqtt://192.168.1.10:1883 \
+  -e TZ=Europe/Oslo \
+  ghcr.io/jumpingmushroom/meshpulse:latest
+```
+
+The image is built for `linux/amd64` and `linux/arm64`.
+
+## First run
+
+Open `http://<host>:3000`. With no account yet, MeshPulse redirects every page to `/setup`, where you create the admin account (a password of at least 12 characters). Once an account exists, `/setup` returns 404 and sign-up stays disabled.
+
+Create the account before you expose MeshPulse beyond your home network.
+
+If you would rather create the account from the environment, set `ADMIN_EMAIL` and `ADMIN_PASSWORD`; the account is created at startup.
+
+MeshPulse needs no secret key setting. When `SECRET_KEY` is unset, it generates a key into `secret.key` next to the database (`/data/secret.key` in Docker, mode 600). A `SECRET_KEY` that you set always wins. Keep `secret.key` with the database: changing the key logs everyone out and breaks the stored Discord webhook and Apprise URLs.
+
+If the broker can't be reached, or it's connected but nothing has come from `<base>/bridge/...` for 2 minutes, **Overview** shows a notice. Check `MQTT_URL`, the broker user, and that Zigbee2MQTT is running.
+
+The container reports `healthy` about 60 to 90 seconds after start, once the first rules run.
+
+## What Zigbee2MQTT needs
+
+- Zigbee2MQTT 2.x publishing to an MQTT broker.
+- An MQTT user with **subscribe** access to `<Z2M_BASE_TOPIC>/#` (`zigbee2mqtt/#` by default). Read-only is enough unless you use the active features below.
+
+Add these settings to Zigbee2MQTT's `configuration.yaml` and restart it. MeshPulse shows a warning banner for any that are missing.
+
+```yaml
+availability:
+  enabled: true
+```
+
+```yaml
+health:
+  interval: 10
+  reset_on_check: false
+```
+
+```yaml
+advanced:
+  log_output: [console, file, mqtt]
+  log_level: info
+```
+
+Zigbee2MQTT 2.x always publishes its log on `bridge/logging`, so it doesn't need `mqtt` in `log_output`. On 1.x, `mqtt` is required. The route-failure rules read this log.
+
+If you run the Home Assistant add-on, these settings go in Zigbee2MQTT's own `configuration.yaml` (or its web UI under **Settings**), not on the add-on's Configuration tab, which only accepts the add-on's own options.
+
+## Updating
+
+Back up the data folder first. SQLite runs in WAL mode, so stop the container before you copy the database:
+
+```sh
+docker compose stop meshpulse
+docker compose cp meshpulse:/data/meshpulse.db ./backup.db
+docker compose cp meshpulse:/data/secret.key ./secret.key.bak   # only if SECRET_KEY is unset
+docker compose start meshpulse
+```
+
+Then update:
+
+```sh
+docker compose pull && docker compose up -d
+```
+
+Images are tagged `latest`, `X.Y.Z` and `X.Y`. Pin `X.Y.Z` if you want to choose when to update.
+
+## Environment variables
+
+Only `MQTT_URL` is required.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MQTT_URL` | | **Required.** Broker URL, for example `mqtt://192.168.1.10:1883`. |
+| `MQTT_USERNAME`, `MQTT_PASSWORD` | | Broker credentials. |
+| `Z2M_BASE_TOPIC` | `zigbee2mqtt` | Zigbee2MQTT base topic. |
+| `TZ` | `Europe/Oslo` | Display time zone. |
+| `DATABASE_PATH` | `/data/meshpulse.db` | SQLite file. Keep the default in Docker. |
+| `SECRET_KEY` | generated | Optional. At least 32 characters. Generated into `secret.key` in the data folder when unset. |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | | Optional. When unset, the first visit shows the account setup page. |
+| `PUBLIC_URL` | derived from the request | URL you open in the browser, used for login and Discord links. If `https`, open MeshPulse only through that URL. |
+| `HEARTBEAT_URL` | | Uptime Kuma push URL, called every 60 seconds. |
+| `PUID`, `PGID` | `99`, `100` | User and group the container runs as after it takes ownership of `/data`. |
+
+Behind a reverse proxy, also see the commented `PROTOCOL_HEADER`, `HOST_HEADER`, `ADDRESS_HEADER` and `XFF_DEPTH` lines in `.env.example`.
+
 ## Device and Batteries pages
 
 Select a device on the **Devices** page to open its page (`/devices/<ieee>`). It shows link quality, battery, voltage, and messages-per-hour charts over 24 hours, 7 days, or 30 days, plus the battery forecast, recent events, and a mute control. **Ignore this device** stops all rules for that device.
@@ -127,87 +251,27 @@ Areas are optional. An area groups devices and access points, for example by roo
 
 **Events** lists the last 90 days of events, newest first. You can filter by kind and by device. The page shows 100 events at a time.
 
-## Requirements
-
-- Zigbee2MQTT 2.x publishing to an MQTT broker.
-- An MQTT user with **subscribe** access to `<Z2M_BASE_TOPIC>/#` (`zigbee2mqtt/#` by default). Read-only is enough unless you use the active features below.
-- Docker with Compose.
-
-## Configure Zigbee2MQTT
-
-Add these settings to Zigbee2MQTT's `configuration.yaml` and restart it. MeshPulse shows a warning banner for any that are missing.
-
-```yaml
-availability:
-  enabled: true
-health:
-  interval: 10
-  reset_on_check: false
-advanced:
-  log_level: info
-```
-
-Zigbee2MQTT 2.x always publishes its log on `bridge/logging`, so no `log_output` change is needed. On Zigbee2MQTT 1.x, add `mqtt` to `advanced.log_output`. The route-failure rules read this log.
-
-If you run the Home Assistant add-on, these settings go in Zigbee2MQTT's own `configuration.yaml` (or its web UI under **Settings**), not on the add-on's Configuration tab, which only accepts the add-on's own options.
-
-## Set up
-
-1. Copy the example environment file and edit it:
-
-   ```sh
-   cp .env.example .env
-   openssl rand -base64 32   # paste into SECRET_KEY
-   ```
-
-   Set at least `MQTT_URL`, `SECRET_KEY`, `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
-
-2. Start the container:
-
-   ```sh
-   docker compose up -d --build
-   ```
-
-3. Open `http://<host>:3000` and sign in with `ADMIN_EMAIL` and `ADMIN_PASSWORD`. The account is created on first start. Sign-up is disabled.
-
-The database lives in the named Docker volume `meshpulse-data`, which Docker lists as `<project>_meshpulse-data` (for example `meshpulse_meshpulse-data`). SQLite runs in WAL mode, so recent writes may sit in `meshpulse.db-wal` until the app stops. To back up, stop the container first, copy the database, then start it again:
-
-```sh
-docker compose stop meshpulse
-docker compose cp meshpulse:/data/meshpulse.db ./backup.db
-docker compose start meshpulse
-```
-
-The container reports `healthy` about 60 to 90 seconds after start, once the first rules run.
-
 ## Deploy with Dokploy
 
-1. Create a Compose application from this repository. Dokploy builds the image from the `Dockerfile`.
-2. Add the variables from `.env.example` in the environment tab.
+1. Create a Compose application from this repository. The compose file pulls `ghcr.io/jumpingmushroom/meshpulse:latest`.
+2. Add `MQTT_URL` (and any other variables from `.env.example` you need) in the environment tab.
 3. The named volume `meshpulse-data` (declared in `docker-compose.yml`) keeps the database across redeploys. Do not remove it.
 4. Add a domain and set `PUBLIC_URL` to the exact URL you open, for example `https://meshpulse.example.com`. Use `https` there so session cookies are marked Secure, and always open MeshPulse through that URL. Opening `http://host:3000` instead makes login fail silently, because the browser drops the Secure cookie.
 5. Behind the proxy, set `ADDRESS_HEADER=x-forwarded-for` and `XFF_DEPTH=1`. Otherwise the login rate limiter sees every user as the proxy's IP. The image already sets `PROTOCOL_HEADER=x-forwarded-proto`; add `HOST_HEADER=x-forwarded-host` if the proxy rewrites the host.
 
 ## Deploy on Unraid
 
-1. Build the image on the server (there is no published image yet; the repo is private, so clone with a GitHub token or copy the source over):
+1. Copy the template to your server:
 
    ```sh
-   git clone https://github.com/jumpingmushroom/MeshPulse /tmp/meshpulse
-   docker build -t meshpulse:latest /tmp/meshpulse
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-MeshPulse.xml \
+     https://raw.githubusercontent.com/jumpingmushroom/MeshPulse/main/unraid/meshpulse.xml
    ```
 
-1. Copy the template and generate a secret key:
+2. In **Docker > Add Container**, select **MeshPulse**, fill in the MQTT URL and broker user, and click **Apply**.
+3. Open the web UI and create the admin account.
 
-   ```sh
-   T=/boot/config/plugins/dockerMan/templates-user/my-MeshPulse.xml
-   cp /tmp/meshpulse/unraid/meshpulse.xml "$T"
-   sed -i "s#\(Target=\"SECRET_KEY\"[^>]*\)/>#\1>$(openssl rand -base64 32)</Config>#" "$T"
-   ```
-
-1. In **Docker > Add Container**, select **MeshPulse**, fill in the MQTT URL, broker user and admin login, and click **Apply**.
-
-The container stores its database in `/mnt/user/appdata/meshpulse`. It starts as root only to take ownership of that folder, then runs as `PUID:PGID` (default `99:100`). To update, rebuild the image and restart the container.
+The container stores its database in `/mnt/user/appdata/meshpulse`. It starts as root only to take ownership of that folder, then runs as `PUID:PGID` (default `99:100`). To update, use **Check for updates** in Unraid, or pull the image again.
 
 ## Discord notifications
 

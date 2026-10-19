@@ -50,6 +50,8 @@ src/lib/server/notify/weekly.ts     weekly digest (Sunday 18:00 TZ, once per ISO
 src/lib/server/crypto.ts             encrypt, decrypt
 src/lib/server/retention.ts          prune(db, now)
 src/lib/server/heartbeat.ts          heartbeatTick(deps, now); startHeartbeat(deps); lastPing() (in memory only)
+src/lib/server/setup.ts              first-run admin setup state (no account -> /setup)
+src/routes/setup                     first-run "Create the admin account" page
 src/lib/server/auth.ts               getAuth(), ensureAdmin()
 src/lib/server/login-limit.ts        createLimiter, loginLimiter (login rate limit)
 src/lib/server/store.ts              loadDevices, applyEffects, flushDevices, muteUntil (DB <-> AppState)
@@ -94,3 +96,4 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 - Replay gate: before a rule change merges, replay a real 24 h capture. A normal day must produce no Critical, and every would-be notification in the report goes in the PR description.
 - One git branch per milestone (`feat/mNN-<slug>`), conventional commits, PRs squash-merged (`gh pr merge --squash --delete-branch`). No AI attribution in commits or PRs.
 - Record progress with `paseo-progress` (milestones T02-T12): update the ticket stage at start, each stage, and done.
+- Release: tag `vX.Y.Z` on main (match `package.json` version); `.github/workflows/release.yml` builds amd64+arm64 and pushes `ghcr.io/jumpingmushroom/meshpulse` (`X.Y.Z`, `X.Y`, `latest`). `ci.yml` runs tests, check and a docker build on PRs and main.
