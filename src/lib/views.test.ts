@@ -255,7 +255,7 @@ describe('splitBatteries', () => {
 });
 
 it('formats a Wi-Fi channel change', () => {
-	expect(formatDetail('wifi_channel', { ap: 'Kitchen AP', from: 1, to: 6, widthFrom: 20, widthTo: 20 })).toBe('Kitchen AP: channel 1 → 6');
+	expect(formatDetail('wifi_channel', { ap: 'Kitchen AP', from: 1, to: 6, fromWidth: 20, toWidth: 20 })).toBe('Kitchen AP: channel 1 → 6');
 });
 
 describe('evidenceRows wifi', () => {
