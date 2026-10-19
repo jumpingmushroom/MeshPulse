@@ -517,3 +517,16 @@ a.tile:hover { box-shadow: var(--shadow-md); }
 .login-art .n { fill: var(--surface-2); stroke: var(--text-faint); stroke-width: 1; }
 .login-art .n-router { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.5; }
 .login-art .n-coord { fill: var(--accent); stroke: var(--accent-strong); stroke-width: 2; }
+
+/* network map */
+.map { width: 100%; height: auto; display: block; }
+.map .e { stroke: var(--text-faint); stroke-opacity: .55; }
+.map .e-weak { stroke: var(--warn-fg); stroke-opacity: .9; stroke-dasharray: 3 3; }
+.map .e-down { stroke: var(--crit-fg); stroke-opacity: .9; stroke-dasharray: 1 3; }
+.map .n { fill: var(--surface-2); stroke: var(--text-faint); stroke-width: 1; }
+.map .n-router { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.5; }
+.map .n-coord { fill: var(--accent); stroke: var(--accent-strong); stroke-width: 2; }
+.map .n-off { fill: var(--crit-bg); stroke: var(--crit-fg); stroke-width: 2; }
+.map a:focus-visible .n, .map a:hover .n { stroke: var(--text); stroke-width: 2.5; }
+.map .x { stroke: var(--crit-fg); stroke-width: 1.5; }
+.map text { fill: var(--text-muted); font: 400 10px var(--font); }
