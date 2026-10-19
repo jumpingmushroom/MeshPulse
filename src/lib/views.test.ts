@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows } from './views';
+import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, splitBatteries, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -105,6 +105,10 @@ describe('formatDetail', () => {
 		expect(formatDetail('bridge_restart', { reason: 'uptime', from: 5, to: 1 })).toBe('reason: uptime, from: 5, to: 1');
 		expect(formatDetail('join', { a: { b: 1 } })).toBe('a: {"b":1}');
 		expect(formatDetail('leave', null)).toBe('');
+		expect(formatDetail('device_announce', { friendly_name: 'X' })).toBe('Device announced');
+		expect(formatDetail('device_interview', { friendly_name: 'X', status: 'successful' })).toBe('Interview successful');
+		expect(formatDetail('route_error', { kind: 'command_failed', code: 233 })).toBe('Command failed, code 233');
+		expect(formatDetail('leave_count_up', { delta: 2 })).toBe('+2');
 	});
 });
 
@@ -237,5 +241,15 @@ describe('filterRows', () => {
 
 	it('ANDs the chips', () => {
 		expect(filterRows(rows, { ...none, routers: true, issues: true }).map((r) => r.name)).toEqual(['Hall plug']);
+	});
+});
+
+describe('splitBatteries', () => {
+	const r = (name: string, daysLeft: number | null) => ({ ieee: name, name, battery: 50, voltage: null, daysLeft, lastSwapAt: null, low: false, trend: '' });
+	it('splits by days left and orders each group', () => {
+		const out = splitBatteries([r('z', null), r('late', 55), r('soon', 6), r('a', null)]);
+		expect(out.soon.map((x) => x.name)).toEqual(['soon']);
+		expect(out.later.map((x) => x.name)).toEqual(['late']);
+		expect(out.none.map((x) => x.name)).toEqual(['a', 'z']);
 	});
 });

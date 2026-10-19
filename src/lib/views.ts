@@ -158,6 +158,11 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 export function formatDetail(kind: string, detail: Record<string, unknown> | null): string {
 	if (!detail) return '';
 	const { from, to } = detail;
+	const plain: Record<string, string> = { device_announce: 'Device announced', device_joined: 'Joined the network', device_leave: 'Left the network' };
+	if (kind in plain) return plain[kind]; // detail is only the friendly name, already in the Device column
+	if (kind === 'device_interview') return typeof detail.status === 'string' ? `Interview ${detail.status}` : 'Interview';
+	if (kind === 'route_error' && typeof detail.kind === 'string') return `${humanise(detail.kind.replace(/_/g, " "))}${detail.code != null ? `, code ${detail.code}` : ''}`;
+	if (typeof detail.delta === 'number' && Object.keys(detail).length === 1) return `+${detail.delta}`;
 	if ('to' in detail && Object.keys(detail).every((k) => k === 'from' || k === 'to')) {
 		const u = kind === 'battery_swap' ? '%' : '';
 		return `${from ?? '—'}${from == null ? '' : u} → ${to ?? '—'}${to == null ? '' : u}`;
@@ -173,17 +178,28 @@ export interface BatteryRow {
 	daysLeft: number | null;
 	lastSwapAt: number | null;
 	low: boolean;
+	/** Sparkline path of the last 30 days; empty when < 2 points. */
+	trend: string;
 }
 
 /** Shopping list order: low now (lowest charge first), then by forecast days left, then the rest (lowest charge first). */
-export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, lowPct = 25): BatteryRow[] {
+export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, lowPct = 25, trends: Map<string, string> = new Map()): BatteryRow[] {
 	const pct = (r: BatteryRow) => r.battery ?? 101;
 	const group = (r: BatteryRow) => (r.low ? 0 : r.daysLeft !== null ? 1 : 2);
 	return devices.filter((d) => d.powerSource === 'Battery' && d.removedAt === null).map((d) => ({
 		ieee: d.ieee, name: d.friendlyName, battery: d.battery, voltage: d.voltage,
 		daysLeft: daysLeft.get(d.ieee) ?? null, lastSwapAt: lastSwap.get(d.ieee) ?? null,
+		trend: trends.get(d.ieee) ?? '',
 		low: d.batteryLow === true || (d.battery !== null && d.battery <= lowPct)
 	})).sort((a, b) => group(a) - group(b) || (group(a) === 1 ? a.daysLeft! - b.daysLeft! : 0) || pct(a) - pct(b));
+}
+
+export function splitBatteries(rows: BatteryRow[], days = 30) {
+	const withFc = rows.filter((r) => r.daysLeft !== null).sort((a, b) => a.daysLeft! - b.daysLeft!);
+	return {
+		soon: withFc.filter((r) => r.daysLeft! <= days), later: withFc.filter((r) => r.daysLeft! > days),
+		none: rows.filter((r) => r.daysLeft === null).sort((a, b) => a.name.localeCompare(b.name))
+	};
 }
 
 /** "about 18 days", "about 1 day", "less than a day" */
