@@ -26,24 +26,33 @@ export interface DeviceRow {
 	mutedUntil: number | null;
 	openIssues: number;
 	score: number;
+	worst: Severity | null;
+	ignored: boolean;
+	lqi24: number | null;
+	lqiBase: number | null;
+	msgH: number | null;
 }
 
 // the coordinator is the network itself, not a device to watch
 const watched = (state: Pick<AppState, 'devices'>) =>
 	[...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator');
 
-export function deviceRows(state: Pick<AppState, 'devices'>, openIssues: { ieee: string | null; severity: Severity }[]): DeviceRow[] {
+export function deviceRows(state: Pick<AppState, 'devices'>, openIssues: { ieee: string | null; severity: Severity }[],
+	stats: Map<string, { lqi24: number | null; lqiBase: number | null; msgH: number | null }> = new Map()): DeviceRow[] {
 	const by = new Map<string, { severity: Severity }[]>();
 	for (const i of openIssues) if (i.ieee) by.set(i.ieee, [...(by.get(i.ieee) ?? []), i]);
 	return watched(state).map((d) => ({
 		ieee: d.ieee, name: d.friendlyName, type: d.type, battery: d.battery, voltage: d.voltage,
 		batteryPowered: d.powerSource === 'Battery' || d.battery !== null || d.voltage !== null,
 		availability: d.availability, lastSeenAt: d.lastSeenAt, lqi: d.lqi, mutedUntil: d.mutedUntil,
-		openIssues: by.get(d.ieee)?.length ?? 0, score: deviceScore(by.get(d.ieee) ?? [])
+		openIssues: by.get(d.ieee)?.length ?? 0, score: deviceScore(by.get(d.ieee) ?? []),
+		worst: (by.get(d.ieee) ?? []).reduce<Severity | null>((w, i) => (w === null || RANK[i.severity] > RANK[w] ? i.severity : w), null),
+		ignored: d.tags.includes('ignore'),
+		lqi24: stats.get(d.ieee)?.lqi24 ?? null, lqiBase: stats.get(d.ieee)?.lqiBase ?? null, msgH: stats.get(d.ieee)?.msgH ?? null
 	}));
 }
 
-export type SortKey = 'name' | 'type' | 'availability' | 'lastSeenAt' | 'lqi' | 'battery' | 'voltage' | 'openIssues' | 'score';
+export type SortKey = 'name' | 'type' | 'availability' | 'lastSeenAt' | 'lqi' | 'battery' | 'voltage' | 'openIssues' | 'score' | 'msgH';
 
 /** Unknown (null) values sort last in both directions. */
 export function sortRows(rows: DeviceRow[], key: SortKey, asc: boolean): DeviceRow[] {
@@ -54,6 +63,14 @@ export function sortRows(rows: DeviceRow[], key: SortKey, asc: boolean): DeviceR
 		if (y === null) return -1;
 		return (x < y ? -1 : 1) * (asc ? 1 : -1);
 	});
+}
+
+export interface RowFilter { q: string; routers: boolean; battery: boolean; offline: boolean; issues: boolean }
+
+export function filterRows(rows: DeviceRow[], f: RowFilter): DeviceRow[] {
+	const q = f.q.trim().toLowerCase();
+	return rows.filter((r) => (!q || r.name.toLowerCase().includes(q)) && (!f.routers || r.type === 'Router') && (!f.battery || r.batteryPowered)
+		&& (!f.offline || r.availability === 'offline') && (!f.issues || r.openIssues > 0));
 }
 
 export function counters(state: Pick<AppState, 'devices'>, batteryLowPct: number) {
