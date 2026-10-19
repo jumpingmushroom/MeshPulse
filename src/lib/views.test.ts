@@ -30,7 +30,7 @@ describe('views', () => {
 			dev({ ieee: 'e2', battery: 25, availability: null }),
 			dev({ ieee: 'gone', type: 'Router', removedAt: 1 })
 		]);
-		expect(counters(s, 25)).toEqual({ devicesOnline: 2, devicesTotal: 4, routersOnline: 1, routersTotal: 2, batteriesLow: 2 });
+		expect(counters(s)).toEqual({ devicesOnline: 2, devicesTotal: 4, routersOnline: 1, routersTotal: 2 });
 	});
 
 	it('builds device rows with open issue counts, skipping coordinator and removed', () => {

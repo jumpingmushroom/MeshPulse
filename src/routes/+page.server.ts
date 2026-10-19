@@ -2,7 +2,6 @@ import { eq, min, ne } from 'drizzle-orm';
 import { baselines, issues, samplesHourly } from '../lib/server/db/schema';
 import { checkPrereqs } from '../lib/server/prereqs';
 import { getRuntime } from '../lib/server/runtime';
-import { getSettings } from '../lib/server/settings';
 import { buildSeries, summarise } from '../lib/chart';
 import { networkScore } from '../lib/score';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
@@ -41,7 +40,7 @@ export const load: PageServerLoad = () => {
 				children: open.filter((c) => c.parentIssueId === id).map(({ id, summary, rule }) => ({ id, summary, rule })) })),
 		lastUpdate: bridge.lastLiveAt,
 		mqttConnected: state.monitor.connected,
-		counters: counters(state, getSettings(db).batteryLowPct),
+		counters: counters(state),
 		prereqs: checkPrereqs(info).filter((p) => !p.ok),
 		bridge: {
 			state: bridge.state,
