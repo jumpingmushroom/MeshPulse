@@ -240,7 +240,8 @@ export const RULE_LABELS: Record<RuleId, string> = {
 	'device.dominant': 'Dominant device',
 	'network.storm': 'Network storm',
 	'battery.stale': 'Battery stale',
-	'coordinator.missing_router': 'Missing from coordinator'
+	'coordinator.missing_router': 'Missing from coordinator',
+	'active.scan_failing': 'Network scan failing'
 };
 
 export const scoreLabel = (s: Status): 'Good' | 'Fair' | 'Poor' => ({ green: 'Good', amber: 'Fair', red: 'Poor' } as const)[s];

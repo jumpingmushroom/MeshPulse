@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { loadConfig } from '../config';
 import { openDb } from '../db/index';
-import { scans } from '../db/schema';
+import { scanLinks, scans } from '../db/schema';
 import type { Requester } from '../mqtt/request';
 import { saveSettings } from '../settings';
 import { createState } from '../types';
 import { startActive } from './loop';
-import { loadActive, runActive } from './run';
+import { loadActive, requestManualScan, runActive } from './run';
 import { lastDay } from './schedule';
 
 const NOW = Date.UTC(2026, 9, 20, 5, 0); // 07:00 Oslo
@@ -105,5 +105,123 @@ describe('loadActive', () => {
 		expect(d.db.select().from(scans).all()).toEqual([]);
 		loop.stop();
 		vi.useRealTimers();
+	});
+});
+
+const MAP = (failed: string[] = []) => ({
+	value: {
+		nodes: [{ ieeeAddr: '0xc', type: 'Coordinator' }, { ieeeAddr: '0xa', type: 'Router', failed }, { ieeeAddr: '0xb', type: 'EndDevice' }],
+		links: [{ source: { ieeeAddr: '0xb' }, target: { ieeeAddr: '0xa' }, linkquality: 90, depth: 1, relationship: 1 }, { source: { ieeeAddr: '0xa' }, target: { ieeeAddr: '0xc' }, lqi: 120, depth: 0, relationship: 2 }]
+	}
+});
+
+describe('runActive networkmap', () => {
+	it('stores counts, silent routers and links, and sets the day', async () => {
+		const d = setup(async () => MAP(['lqi']));
+		expect(await runActive(d, 'networkmap', 'scheduled', NOW)).toEqual({ status: 'ok' });
+		expect(d.req).toHaveBeenCalledWith('networkmap', { type: 'raw', routes: false }, 600_000);
+		const row = d.db.select().from(scans).get()!;
+		expect(row).toMatchObject({ kind: 'networkmap', status: 'ok', nodes: 3, links: 2, missing: ['0xa'] });
+		expect(d.db.select().from(scanLinks).all()).toEqual([
+			{ scanId: row.id, sourceIeee: '0xb', targetIeee: '0xa', lqi: 90, depth: 1, relationship: 1 },
+			{ scanId: row.id, sourceIeee: '0xa', targetIeee: '0xc', lqi: 120, depth: 0, relationship: 2 }
+		]);
+		expect(lastDay(d.db, 'networkmap')).toBe('2026-10-20');
+	});
+
+	it('records failed on a bad response and stores no links', async () => {
+		const d = setup(async () => ({ nope: 1 }));
+		expect((await runActive(d, 'networkmap', 'scheduled', NOW)).status).toBe('failed');
+		expect(d.db.select().from(scanLinks).all()).toEqual([]);
+	});
+
+	it('a drop mid-scan records failed, leaves nothing busy, and the next day runs', async () => {
+		vi.useFakeTimers({ now: NOW });
+		let pending = false;
+		const d = setup(() => { pending = true; return new Promise((_, rej) => setTimeout(() => { pending = false; rej(new Error('MQTT is disconnected')); }, 1000)); });
+		d.requester.busy = () => pending;
+		saveSettings(d.db, { activeNetworkScan: true });
+		const p = runActive(d, 'networkmap', 'scheduled', NOW);
+		expect(d.requester.busy('networkmap')).toBe(true);
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(await p).toEqual({ status: 'failed', reason: 'MQTT is disconnected' });
+		expect(d.requester.busy('networkmap')).toBe(false);
+		expect(d.db.select().from(scans).get()).toMatchObject({ status: 'failed', reason: 'MQTT is disconnected' });
+		d.req.mockResolvedValueOnce(MAP());
+		const next = NOW + 24 * 3_600_000;
+		expect((await runActive(d, 'networkmap', 'scheduled', next)).status).toBe('ok');
+		vi.useRealTimers();
+	});
+
+	it('the loop scans at 04:00 only when the scan is on', async () => {
+		vi.useFakeTimers({ now: Date.UTC(2026, 9, 20, 1, 55) }); // 03:55 Oslo
+		const d = setup(async () => MAP());
+		d.state.monitor.startedAt = Date.now() - 5 * 3_600_000;
+		const loop = startActive(d);
+		await vi.advanceTimersByTimeAsync(10 * 60_000);
+		expect(d.req).not.toHaveBeenCalled();
+		saveSettings(d.db, { activeNetworkScan: true });
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(d.req).toHaveBeenCalledTimes(1);
+		expect(d.req.mock.calls[0][0]).toBe('networkmap');
+		loop.stop();
+		vi.useRealTimers();
+	});
+});
+
+describe('requestManualScan', () => {
+	const on = (d: ReturnType<typeof setup>) => saveSettings(d.db, { activeNetworkScan: true });
+
+	it('refuses with the guard reason and sends nothing', async () => {
+		const d = setup(async () => MAP());
+		on(d);
+		d.state.monitor.connected = false;
+		expect(await requestManualScan(d, NOW)).toEqual({ ok: false, reason: 'MQTT is disconnected' });
+		expect(d.req).not.toHaveBeenCalled();
+		expect(d.db.select().from(scans).all()).toEqual([]);
+	});
+
+	it('refuses while the scan is off', async () => {
+		const d = setup(async () => MAP());
+		expect((await requestManualScan(d, NOW)).ok).toBe(false);
+		expect(d.req).not.toHaveBeenCalled();
+	});
+
+	it('refuses while a request runs', async () => {
+		const d = setup(async () => MAP());
+		on(d);
+		d.requester.busy = () => true;
+		expect(await requestManualScan(d, NOW)).toEqual({ ok: false, reason: 'A request is already running' });
+	});
+
+	it('starts without awaiting, then limits to one per 60 min', async () => {
+		let release: (v: unknown) => void = () => {};
+		const d = setup(() => new Promise((r) => { release = r; }));
+		on(d);
+		expect(await requestManualScan(d, NOW)).toEqual({ ok: true });
+		expect(d.req).toHaveBeenCalledTimes(1);
+		release(MAP());
+		await vi.waitFor(() => expect(d.db.select().from(scans).all()).toHaveLength(1));
+		expect(d.db.select().from(scans).get()).toMatchObject({ trigger: 'manual', status: 'ok' });
+		expect(lastDay(d.db, 'networkmap')).toBe('');
+		const r = await requestManualScan(d, NOW + 59 * 60_000);
+		expect(r).toEqual({ ok: false, reason: 'A manual scan ran less than an hour ago' });
+		d.req.mockResolvedValueOnce(MAP());
+		expect(await requestManualScan(d, NOW + 61 * 60_000)).toEqual({ ok: true });
+		expect(d.req).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('loadActive scanFailStreak', () => {
+	const fail = (d: ReturnType<typeof setup>, trigger: 'scheduled' | 'manual', at: number, status: 'ok' | 'failed' | 'skipped' = 'failed') =>
+		d.db.insert(scans).values({ kind: 'networkmap', trigger, startedAt: at, finishedAt: at, status }).run();
+
+	it('counts scheduled failures since the last ok, ignoring manual failures and skips', () => {
+		const d = setup();
+		fail(d, 'scheduled', 1, 'ok');
+		fail(d, 'scheduled', 2); fail(d, 'scheduled', 3); fail(d, 'manual', 4); fail(d, 'scheduled', 5, 'skipped'); fail(d, 'scheduled', 6);
+		expect(loadActive(d.db).scanFailStreak).toBe(3);
+		fail(d, 'manual', 7, 'ok');
+		expect(loadActive(d.db).scanFailStreak).toBe(0);
 	});
 });

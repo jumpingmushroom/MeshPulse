@@ -25,7 +25,8 @@ export type RuleId =
 	| 'device.dominant'
 	| 'network.storm'
 	| 'battery.stale'
-	| 'coordinator.missing_router';
+	| 'coordinator.missing_router'
+	| 'active.scan_failing';
 
 export interface EventRow extends NewEvent {
 	id: number;
