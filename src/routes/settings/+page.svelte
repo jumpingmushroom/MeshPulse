@@ -214,7 +214,7 @@
 			</section>
 			<section id="wifi" class="stack">
 				<h2>Wi-Fi (UniFi)</h2>
-				<p class="muted">Read-only: logs in to your UniFi controller every 5 minutes to read the 2.4 GHz channel and airtime of each access point. Use a local account without MFA. Off by default. The busy thresholds are under Thresholds.</p>
+				<p class="muted">Read-only: logs in to your UniFi controller every 5 minutes to read the 2.4 GHz channel and airtime of each access point. Use a local account without MFA. Off by default. The busy thresholds are under Thresholds. <a href="/wifi">Open the Wi-Fi page →</a></p>
 				<form method="post" action="?/saveWifi" class="stack" use:enhance={keep}>
 					<label class="toggle"><input name="wifiEnabled" type="checkbox" checked={wf ? !!wf.wifiEnabled : data.wifi.enabled} /><span class="track"></span>Enabled</label>
 					<div class="field-grid">

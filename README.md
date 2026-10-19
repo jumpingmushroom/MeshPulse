@@ -96,6 +96,30 @@ What you see:
 - **Parent badge** on a device page: the router the device is attached to, from the latest scan.
 - **Network map** (`/map`): the mesh from the latest scan, with its links.
 
+## Wi-Fi interference (UniFi, optional)
+
+MeshPulse can read your UniFi access points to show whether Wi-Fi overlaps your Zigbee channel. It is off by default and strictly read-only: it logs in, reads the access point list, and logs out. It never changes anything in UniFi.
+
+Every 5 minutes it reads the 2.4 GHz channel, width and airtime of each access point. What you see:
+
+- **Overlap** (Warning): an access point sits on a channel that overlaps your Zigbee channel. The issue names the Wi-Fi channels to move to.
+- **Busy air** (Info): an access point's airtime stays above the busy threshold.
+- **UniFi unreachable** (Info): polling keeps failing.
+- **Wi-Fi context** on Zigbee issues: a hint that names nearby access points that overlap.
+- **Wi-Fi page** (`/wifi`): the 2.4 GHz band with each access point, and a table of channel, airtime and clients.
+
+Wi-Fi issues do not affect the Zigbee health score.
+
+Set up:
+
+1. In UniFi, create a local account with the **View Only** role. Turn off MFA for it.
+2. In MeshPulse, open **Settings → Wi-Fi (UniFi)**. Enter the controller URL (for example `https://192.168.1.1`), the site (usually `default`), and the account's user name and password.
+3. Select **Test connection**, then switch **Enabled** on and save.
+
+This works with UniFi OS consoles (UDM, UCG, Cloud Key) and with self-hosted Network Applications.
+
+Areas are optional. An area groups devices and access points, for example by room or floor, so a hint can name the access points near a device. Use **Suggest areas from device names** to start from your Zigbee device names. With no areas, everything is the whole network.
+
 ## Events page
 
 **Events** lists the last 90 days of events, newest first. You can filter by kind and by device. The page shows 100 events at a time.
