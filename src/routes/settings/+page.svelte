@@ -206,7 +206,7 @@
 				<h2>Wi-Fi (UniFi)</h2>
 				<p class="muted">Read-only: logs in to your UniFi controller every 5 minutes to read the 2.4 GHz channel and airtime of each access point. Use a local account without MFA. Off by default. The busy thresholds are under Thresholds.</p>
 				<form method="post" action="?/saveWifi" class="stack" use:enhance={keep}>
-					<label class="toggle"><input name="wifiEnabled" type="checkbox" checked={wf ? wf.wifiEnabled === true : data.wifi.enabled} /><span class="track"></span>Enabled</label>
+					<label class="toggle"><input name="wifiEnabled" type="checkbox" checked={wf ? !!wf.wifiEnabled : data.wifi.enabled} /><span class="track"></span>Enabled</label>
 					<div class="field-grid">
 						<div class="field"><label for="wifi-url">Controller URL</label><input class="input" id="wifi-url" name="url" autocomplete="off" value={wf?.url ?? data.wifi.url} placeholder="https://192.168.1.1" /></div>
 						<div class="field"><label for="wifi-site">Site</label><input class="input" id="wifi-site" name="site" autocomplete="off" value={wf?.site ?? data.wifi.site} placeholder="default" /></div>
