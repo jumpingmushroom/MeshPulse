@@ -47,7 +47,7 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 	const chart = (title: string, unit: string, points: Point[], y0: number, y1: number, f = round, maxGapMs = g.maxGapMs,
 		refs: { y: number; label: string }[] = []): ChartProps =>
 		({ ...g, maxGapMs, title, unit, points, y0, y1, refs, latest: latest(points, f), summary: summarise(title, unit, points) });
-	const [v0, v1] = autoRange(voltage.map((p) => p.v));
+	const [v0, v1] = autoRange(voltage.some((p) => p.v !== null) ? [...voltage.map((p) => p.v), settings.voltageLow] : []); // keep the low line on the plot
 	batteryPowered ??= d?.powerSource === 'Battery' || (last?.battery ?? null) !== null || (last?.voltage ?? null) !== null;
 	const perHour = msgsAt((n) => n);
 	const perMin = msgsAt((n) => n / 60);

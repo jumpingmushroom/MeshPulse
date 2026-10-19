@@ -62,7 +62,7 @@
 							<li><time>{formatTime(e.ts, data.tz)}</time><span class="dot"></span><div class="what">{e.label} <span class="faint">{formatDetail(e.kind, e.detail)}</span></div></li>
 						{/each}
 					</ol>{:else}<p class="muted">No events yet.</p>{/if}
-					<a class="btn btn-sm" style="margin-top:8px" href="/events?device={d.ieee}">Show all {data.eventCount} events</a>
+					{#if data.eventCount}<a class="btn btn-sm" style="margin-top:8px" href="/events?device={d.ieee}">Show all {data.eventCount} events</a>{/if}
 				</section>
 		</div>
 
