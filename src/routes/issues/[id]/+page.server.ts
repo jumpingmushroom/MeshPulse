@@ -22,7 +22,7 @@ export const load: PageServerLoad = ({ params }) => {
 	const charts = which && device ? deviceCharts(db, device.ieee, '7d', getSettings(db), Date.now(), device.powerSource === 'Battery' || device.battery !== null || device.voltage !== null) : null;
 	return {
 		issue,
-		byName: Object.fromEntries([...state.devices.values()].map((d) => [d.friendlyName, d.ieee])),
+		byName: Object.fromEntries([...state.devices.values()].filter((d) => d.removedAt === null).map((d) => [d.friendlyName, d.ieee])),
 		chart: (which && charts?.[which]) || null,
 		parent: issue.parentIssueId === null ? null
 			: db.select({ id: issues.id, summary: issues.summary }).from(issues).where(eq(issues.id, issue.parentIssueId)).get() ?? null,
