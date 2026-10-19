@@ -37,8 +37,9 @@ export const load: PageServerLoad = () => {
 
 export const actions: Actions = {
 	save: async ({ request }) => {
-		const r = parseSettingsForm(await request.formData());
-		if ('error' in r) return fail(400, { section: 'settings', error: r.error });
+		const form = await request.formData();
+		const r = parseSettingsForm(form);
+		if ('error' in r) return fail(400, { section: 'settings', error: r.error, errors: r.errors, values: Object.fromEntries(form) as Record<string, string> });
 		saveSettings(getRuntime().db, r.settings);
 		return { section: 'settings', saved: true };
 	},

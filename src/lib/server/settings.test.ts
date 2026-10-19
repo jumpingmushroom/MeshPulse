@@ -65,3 +65,13 @@ describe('parseSettingsForm ordering', () => {
 		expect(parseSettingsForm(form({ silenceMinH: '25' }))).toHaveProperty('settings');
 	});
 });
+
+describe('parseSettingsForm errors', () => {
+	it('collects every bad field', () => {
+		const r = parseSettingsForm(form({ batteryCriticalPct: '30', graceMin: 'x' }));
+		expect(r).toHaveProperty('errors');
+		if (!('errors' in r)) return;
+		expect(r.errors.map((e) => e.field).sort()).toEqual(['batteryCriticalPct', 'graceMin']);
+		expect(r.error).toBe(r.errors[0].message);
+	});
+});

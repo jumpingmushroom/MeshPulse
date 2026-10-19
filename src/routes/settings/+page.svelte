@@ -1,148 +1,174 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { formatTime } from '../../lib/views';
+	import { GROUPS } from './groups';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	const s = $derived(data.settings);
-	const NUMBERS: [keyof typeof data.settings, string, string][] = [
-		['batteryLowPct', 'Battery low', '%'], ['batteryCriticalPct', 'Battery critical', '%'], ['batteryClearPct', 'Battery OK again', '%'],
-		['voltageLow', 'Coin cell low', 'V'], ['voltageCritical', 'Coin cell critical', 'V'], ['voltageClear', 'Coin cell OK again', 'V'],
-		['coinCellMaxV', 'Coin cell max voltage', 'V'],
-		['graceMin', 'Offline grace', 'min'], ['bridgeSilenceMin', 'Bridge silence', 'min'], ['permitJoinMaxMin', 'Permit join max', 'min'],
-		['mqttLostSec', 'MQTT lost after', 's'], ['restartWarnCount', 'Bridge restarts warning', 'per day'],
-		['silenceMultiplier', 'Silent after typical gap ×', ''], ['silenceMinH', 'Silence at least', 'h'], ['silenceMaxH', 'Silence at most', 'h'],
-		['flappingCount', 'Flapping at', 'drops'], ['flappingClearBelow', 'Flapping clears below', 'drops'], ['flappingWindowH', 'Flapping window', 'h'],
-		['reminderCriticalH', 'Remind critical every', 'h'], ['reminderWarningH', 'Remind warning every', 'h'],
-		['lqiWeak', 'Weak link below', 'LQI'], ['lqiWeakClear', 'Weak link clears above', 'LQI'], ['lqiMinHours', 'Link rules need data in', 'h'],
-		['lqiDegradePct', 'Link degrading at', '% below normal'], ['lqiRecoverPct', 'Link recovered within', '% of normal'],
-		['baselineMinDays', 'Baseline needs', 'days'],
-		['routeFailWarn', 'Route failures warning at', 'per 24 h'], ['routeFailCrit', 'Route failures critical at', 'per 24 h'],
-		['routeFailClear', 'Route failures clear below', 'per 24 h'],
-		['netRouteFactor', 'Network failures above', '× normal per hour'], ['netRouteMin', 'Network failures at least', 'per hour'],
-		['netRouteClearFactor', 'Network failures clear below', '× normal per hour'],
-		['forecastTargetPct', 'Battery forecast target', '%'], ['forecastWarnDays', 'Forecast warns within', 'days'],
-		['forecastClearDays', 'Forecast clears above', 'days'], ['forecastMinDays', 'Forecast needs', 'days of data'],
-		['massOfflineDevices', 'Mass offline at', 'devices'], ['massOfflineRouterPct', 'Mass offline at', '% of routers'],
-		['massOfflineWindowMin', 'Mass offline window', 'min'], ['massOfflineClearPct', 'Mass offline clears below', '% of routers'],
-		['routerGroupWindowMin', 'Group end devices with a router within', 'min'],
-		['churnAnnounce', 'Rejoin churn at', 'announces'], ['churnAddrChanges', 'Rejoin churn at', 'address changes'],
-		['churnWindowH', 'Rejoin churn window', 'h'], ['churnCritical', 'Rejoin churn critical at', 'rejoins in 24 h'],
-		['churnClearH', 'Rejoin churn clears after', 'h quiet'], ['netChurnDevices', 'Network churn at', 'devices'],
-		['netChurnWindowMin', 'Network churn window', 'min'], ['netChurnQuietH', 'Network churn clears after', 'h quiet'],
-		['stormFactor', 'Device storm above', '× normal'], ['stormMinPerMin', 'Device storm at least', 'msgs/min'],
-		['stormCritPerMin', 'Device storm critical above', 'msgs/min'], ['stormSustainMin', 'Storm lasts at least', 'min'],
-		['stormClearFactor', 'Device storm clears below', '× normal'], ['stormClearMin', 'Storm clears after', 'min'],
-		['netStormFactor', 'Network storm above', '× normal'], ['netStormClearFactor', 'Network storm clears below', '× normal'],
-		['dominantPct', 'Dominant device above', '% of messages'], ['dominantClearPct', 'Dominant device clears below', '% of messages'],
-		['dominantWindowMin', 'Dominant device window', 'min'], ['dominantClearMin', 'Dominant device clears after', 'min'],
-		['dominantMinMsgs', 'Dominant device needs', 'network msgs in window'],
-		['causingBatteryPct', 'Battery causing issues at', '%'], ['causingWindowH', 'Battery causing issues window', 'h'],
-		['staleBatteryDays', 'Battery stale after', 'days'],
-		['backlogHigh', 'MQTT backlog above', 'messages'], ['backlogClear', 'MQTT backlog clears below', 'messages']
-	];
 	const msg = (section: string) => (form?.section === section ? form : null);
+	const errs = $derived(msg('settings')?.errors ?? []);
+	const errOf = (key: string) => errs.find((e) => e.field === key)?.message;
+	// after a failed save keep what the user typed
+	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
+	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
 </script>
 
-<h1>Settings</h1>
+<div class="page">
+	<div class="page-head"><div><h1>Settings</h1><p class="sub">Thresholds, notifications and prerequisites.</p></div></div>
+	<div class="settings-layout">
+		<nav class="subnav" aria-label="Settings sections">
+			<a href="#thresholds">Thresholds{#if errs.length}<span class="sev" aria-label="{errs.length} errors">{errs.length}</span>{/if}</a>
+			<a href="#quiet">Quiet hours</a>
+			<a href="#notifications">Notifications</a>
+			<a href="#heartbeat">Heartbeat</a>
+			<a href="#z2m">Zigbee2MQTT</a>
+			<a href="#failed">Failed notifications</a>
+		</nav>
+		<div class="stack" style="gap: var(--space-12)">
+			<form method="post" action="?/save" class="stack" style="gap: var(--space-12)" use:enhance={keep}>
+				<section id="thresholds" class="stack" style="gap: var(--space-8)">
+					<h2>Thresholds</h2>
+					{#if msg('settings')?.error}
+						<div class="form-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>
+							<div><strong>{errs.length} setting{errs.length === 1 ? '' : 's'} need{errs.length === 1 ? 's' : ''} fixing.</strong> Nothing was saved; your other changes are kept below.</div></div>
+					{/if}
+					{#each GROUPS as [title, fields] (title)}
+						<fieldset class="fieldset"><legend>{title}</legend>
+							<div class="field-grid">
+								{#each fields as [key, label, unit, help] (key)}
+									<div class="field">
+										<label for={key}>{label}</label>
+										<div class="input-unit">
+											<input class="input" id={key} name={key} type="number" step="any" min="0" value={val(key)} required
+												aria-invalid={errOf(key) ? 'true' : undefined} aria-describedby="{key}-help" />
+											{#if unit}<span>{unit}</span>{/if}
+										</div>
+										<span class="field-help" id="{key}-help">{help}</span>
+										{#if errOf(key)}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf(key)}</span>{/if}
+									</div>
+								{/each}
+							</div>
+						</fieldset>
+					{/each}
+				</section>
 
-<form method="post" action="?/save" use:enhance={() => ({ update }) => update({ reset: false })}>
-	<h2>Thresholds</h2>
-	<div class="grid">
-		{#each NUMBERS as [key, label, unit] (key)}
-			<label>{label} {#if unit}<span class="muted">({unit})</span>{/if}
-				<input name={key} type="number" step="any" min="0" value={s[key]} required />
-			</label>
-		{/each}
+				<section id="quiet" class="stack">
+					<h2>Quiet hours</h2>
+					<label class="toggle"><input name="quietEnabled" type="checkbox" checked={msg('settings')?.values ? msg('settings')?.values?.quietEnabled === 'on' : s.quietEnabled} /><span class="track"></span>Hold non-critical messages during quiet hours</label>
+					<div class="field-grid">
+						<div class="field"><label for="quietStart">From</label><input class="input" id="quietStart" name="quietStart" type="time" value={val('quietStart')} required /></div>
+						<div class="field"><label for="quietEnd">To</label><input class="input" id="quietEnd" name="quietEnd" type="time" value={val('quietEnd')} required /></div>
+					</div>
+				</section>
+
+				<section id="heartbeat" class="stack">
+					<h2>Heartbeat</h2>
+					<div class="field">
+						<label for="heartbeatUrl">Heartbeat URL</label>
+						<input class="input" id="heartbeatUrl" name="heartbeatUrl" type="url" value={val('heartbeatUrl')} placeholder="https://…"
+							aria-invalid={errOf('heartbeatUrl') ? 'true' : undefined} />
+						<span class="field-help">Pinged every minute while MeshPulse runs, so an external monitor can tell when it stops.</span>
+						{#if errOf('heartbeatUrl')}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf('heartbeatUrl')}</span>{/if}
+					</div>
+				</section>
+
+				{#if msg('settings')?.saved}<p role="status">Saved.</p>{/if}
+				<div class="form-actions"><button class="btn btn-primary">Save settings</button></div>
+			</form>
+
+			<section id="notifications" class="stack" style="gap: var(--space-8)">
+				<h2>Notifications</h2>
+				<form method="post" action="?/saveChannel" class="channel" use:enhance={keep}>
+					<div class="channel-head"><h3>Discord</h3>
+						<label class="toggle"><input name="enabled" type="checkbox" checked={data.channel?.enabled ?? true} /><span class="track"></span>Enabled</label></div>
+					<div class="field">
+						<label for="webhookUrl">Webhook URL</label>
+						<input class="input" id="webhookUrl" name="webhookUrl" type="url" autocomplete="off"
+							placeholder={data.channel?.configured ? 'Configured (leave empty to keep it)' : 'https://discord.com/api/webhooks/…'} />
+						<span class="field-help">{data.channel?.configured ? 'A webhook is configured.' : 'No webhook configured.'} It is write-only and never shown again.</span>
+					</div>
+					<div class="field-grid">
+						<div class="field"><label for="d-sev">Minimum severity</label>
+							<select class="select" id="d-sev" name="minSeverity" value={data.channel?.minSeverity ?? 'warning'}>
+								<option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
+							</select></div>
+						<label class="toggle"><input name="mentionCritical" type="checkbox" checked={data.channel?.mentionCritical ?? false} /><span class="track"></span>@here on critical</label>
+						<label class="toggle"><input name="weeklyDigest" type="checkbox" checked={data.channel?.weeklyDigest ?? true} /><span class="track"></span>Weekly digest (Sunday 18:00)</label>
+					</div>
+					{#if msg('channel')?.error}<div class="form-error" role="alert"><svg class="i"><use href="#i-crit" /></svg><div>{msg('channel')?.error}</div></div>{/if}
+					{#if msg('channel')?.saved}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Channel saved.</p>{/if}
+					{#if msg('channel')?.tested}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Test message sent.</p>{/if}
+					<div class="form-actions">
+						<button class="btn btn-primary">Save channel</button>
+						{#if data.channel}<button class="btn" formaction="?/test" formnovalidate>Send test</button>{/if}
+					</div>
+				</form>
+
+				<form method="post" action="?/saveApprise" class="channel" use:enhance={keep}>
+					<div class="channel-head"><h3>Apprise</h3>
+						<label class="toggle"><input name="enabled" type="checkbox" checked={data.apprise?.enabled ?? true} /><span class="track"></span>Enabled</label></div>
+					<div class="field-grid">
+						<div class="field"><label for="apiUrl">Apprise API URL</label>
+							<input class="input" id="apiUrl" name="apiUrl" type="url" required autocomplete="off" value={data.apprise?.apiUrl ?? ''} placeholder="http://apprise:8000" /></div>
+						<div class="field"><label for="key">Config key (stateful mode)</label>
+							<input class="input" id="key" name="key" autocomplete="off" value={data.apprise?.key ?? ''} /></div>
+					</div>
+					<div class="field">
+						<label for="urls">Notification URLs (stateless mode, one per line)</label>
+						<textarea class="input" id="urls" name="urls" rows="3" autocomplete="off"
+							placeholder={data.apprise?.urlsConfigured ? 'Configured (leave empty to keep them)' : 'tgram://…'}></textarea>
+						<span class="field-help">Use either a key or notification URLs. {data.apprise?.urlsConfigured ? 'Notification URLs are configured.' : ''}</span>
+					</div>
+					<div class="field-grid">
+						<div class="field"><label for="a-sev">Minimum severity</label>
+							<select class="select" id="a-sev" name="minSeverity" value={data.apprise?.minSeverity ?? 'warning'}>
+								<option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
+							</select></div>
+						<label class="toggle"><input name="weeklyDigest" type="checkbox" checked={data.apprise?.weeklyDigest ?? false} /><span class="track"></span>Weekly digest (Sunday 18:00)</label>
+					</div>
+					{#if msg('apprise')?.error}<div class="form-error" role="alert"><svg class="i"><use href="#i-crit" /></svg><div>{msg('apprise')?.error}</div></div>{/if}
+					{#if msg('apprise')?.saved}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Channel saved.</p>{/if}
+					{#if msg('apprise')?.tested}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Test message sent.</p>{/if}
+					<div class="form-actions">
+						<button class="btn btn-primary">Save channel</button>
+						{#if data.apprise}<button class="btn" formaction="?/testApprise" formnovalidate>Send test</button>{/if}
+					</div>
+				</form>
+			</section>
+
+			<section id="z2m" class="stack">
+				<h2>Zigbee2MQTT prerequisites</h2>
+				{#if data.prereqs.length}
+					<ul class="checklist">
+						{#each data.prereqs as p (p.key)}
+							<li class={p.ok ? 'ok' : 'bad'}>
+								<svg class="i"><use href={p.ok ? '#i-ok' : '#i-warn'} /></svg>
+								<code>{p.key}</code>
+								<span>{p.ok ? 'OK' : 'Missing'}{#if !p.ok}<pre>{p.fix}</pre>{/if}</span>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="muted">Unknown until the bridge reports its configuration.</p>
+				{/if}
+			</section>
+
+			<section id="failed" class="stack">
+				<h2>Failed notifications</h2>
+				{#if data.failed.length}
+					<table class="dt compact">
+						<thead><tr><th scope="col">Time</th><th scope="col">Message</th><th scope="col">Error</th></tr></thead>
+						<tbody>
+							{#each data.failed as f (f.id)}
+								<tr><td>{formatTime(f.createdAt, data.tz)}</td><td>{f.title}</td><td>{f.lastError}</td></tr>
+							{/each}
+						</tbody>
+					</table>
+				{:else}
+					<p class="muted">None.</p>
+				{/if}
+			</section>
+		</div>
 	</div>
-	<p class="muted">Bridge silence: on a small or very quiet mesh, raise this. It is the time without any device message before "Zigbee network silent" fires.</p>
-	<h2>Quiet hours</h2>
-	<div class="grid">
-		<label><input name="quietEnabled" type="checkbox" checked={s.quietEnabled} /> Hold non-critical messages during quiet hours</label>
-		<label>From <input name="quietStart" type="time" value={s.quietStart} required /></label>
-		<label>To <input name="quietEnd" type="time" value={s.quietEnd} required /></label>
-	</div>
-	<h2>Heartbeat</h2>
-	<label>Heartbeat URL <input name="heartbeatUrl" type="url" value={s.heartbeatUrl} placeholder="https://…" /></label>
-	{#if msg('settings')?.error}<p class="error" role="alert">{msg('settings')?.error}</p>{/if}
-	{#if msg('settings')?.saved}<p role="status">Saved.</p>{/if}
-	<p><button>Save settings</button></p>
-</form>
-
-<h2>Discord</h2>
-<form method="post" action="?/saveChannel" use:enhance={() => ({ update }) => update({ reset: false })}>
-	<label>Webhook URL
-		<input name="webhookUrl" type="url" autocomplete="off"
-			placeholder={data.channel?.configured ? 'Configured (leave empty to keep it)' : 'https://discord.com/api/webhooks/…'} />
-	</label>
-	<p class="muted">{data.channel?.configured ? 'A webhook is configured.' : 'No webhook configured.'}</p>
-	<label><input name="enabled" type="checkbox" checked={data.channel?.enabled ?? true} /> Enabled</label>
-	<label><input name="mentionCritical" type="checkbox" checked={data.channel?.mentionCritical ?? false} /> @here on critical</label>
-	<label><input name="weeklyDigest" type="checkbox" checked={data.channel?.weeklyDigest ?? true} /> Weekly digest (Sunday 18:00)</label>
-	<label>Minimum severity
-		<select name="minSeverity" value={data.channel?.minSeverity ?? 'warning'}>
-			<option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
-		</select>
-	</label>
-	{#if msg('channel')?.error}<p class="error" role="alert">{msg('channel')?.error}</p>{/if}
-	{#if msg('channel')?.saved}<p role="status">Channel saved.</p>{/if}
-	{#if msg('channel')?.tested}<p role="status">Test message sent.</p>{/if}
-	<p>
-		<button>Save channel</button>
-		{#if data.channel}<button formaction="?/test" formnovalidate>Send test</button>{/if}
-	</p>
-</form>
-
-<h2>Apprise</h2>
-<form method="post" action="?/saveApprise" use:enhance={() => ({ update }) => update({ reset: false })}>
-	<label>Apprise API URL
-		<input name="apiUrl" type="url" required autocomplete="off" value={data.apprise?.apiUrl ?? ''} placeholder="http://apprise:8000" />
-	</label>
-	<label>Config key (stateful mode)
-		<input name="key" autocomplete="off" value={data.apprise?.key ?? ''} />
-	</label>
-	<label>Notification URLs (stateless mode, one per line)
-		<textarea name="urls" rows="3" autocomplete="off"
-			placeholder={data.apprise?.urlsConfigured ? 'Configured (leave empty to keep them)' : 'tgram://…'}></textarea>
-	</label>
-	<p class="muted">Use either a key or notification URLs. {data.apprise?.urlsConfigured ? 'Notification URLs are configured.' : ''}</p>
-	<label><input name="enabled" type="checkbox" checked={data.apprise?.enabled ?? true} /> Enabled</label>
-	<label><input name="weeklyDigest" type="checkbox" checked={data.apprise?.weeklyDigest ?? false} /> Weekly digest (Sunday 18:00)</label>
-	<label>Minimum severity
-		<select name="minSeverity" value={data.apprise?.minSeverity ?? 'warning'}>
-			<option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
-		</select>
-	</label>
-	{#if msg('apprise')?.error}<p class="error" role="alert">{msg('apprise')?.error}</p>{/if}
-	{#if msg('apprise')?.saved}<p role="status">Channel saved.</p>{/if}
-	{#if msg('apprise')?.tested}<p role="status">Test message sent.</p>{/if}
-	<p>
-		<button>Save channel</button>
-		{#if data.apprise}<button formaction="?/testApprise" formnovalidate>Send test</button>{/if}
-	</p>
-</form>
-
-<h2>Zigbee2MQTT prerequisites</h2>
-{#if data.prereqs.length}
-	<ul>
-		{#each data.prereqs as p (p.key)}
-			<li>{p.key}: <strong>{p.ok ? 'OK' : 'missing'}</strong>{#if !p.ok}<pre>{p.fix}</pre>{/if}</li>
-		{/each}
-	</ul>
-{:else}
-	<p>Unknown until the bridge reports its configuration.</p>
-{/if}
-
-<h2>Failed messages</h2>
-{#if data.failed.length}
-	<table>
-		<thead><tr><th scope="col">Time</th><th scope="col">Message</th><th scope="col">Error</th></tr></thead>
-		<tbody>
-			{#each data.failed as f (f.id)}
-				<tr><td>{formatTime(f.createdAt, data.tz)}</td><td>{f.title}</td><td>{f.lastError}</td></tr>
-			{/each}
-		</tbody>
-	</table>
-{:else}
-	<p>None.</p>
-{/if}
+</div>
