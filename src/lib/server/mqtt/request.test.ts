@@ -27,12 +27,15 @@ describe('requester', () => {
 		await expect(p).resolves.toEqual({ x: 2 });
 	});
 
-	it('rejects timeout, then ignores a late response', async () => {
+	it('rejects with a hint on timeout, then ignores a late response', async () => {
 		const { sent, r, reply } = setup();
 		const p = r.request('coordinator_check', {}, 1000);
-		const assertion = expect(p).rejects.toThrow('timeout');
+		const assertion = expect(p).rejects.toThrow(
+			'No response from Zigbee2MQTT within 1 s — check that the MQTT user may publish on zigbee2mqtt/bridge/request/#'
+		);
 		await vi.advanceTimersByTimeAsync(1000);
 		await assertion;
+		expect(r.busy('coordinator_check')).toBe(false);
 		expect(() => reply('coordinator_check', { data: {}, status: 'ok', transaction: sent[0].body.transaction })).not.toThrow();
 	});
 
@@ -60,8 +63,39 @@ describe('requester', () => {
 		await p;
 		expect(r.busy('networkmap')).toBe(false);
 
-		const bad = createRequester(async () => { throw new Error('Not authorized'); }, base);
-		await expect(bad.request('networkmap', {}, 1000)).rejects.toThrow('MQTT user needs publish on `zigbee2mqtt/bridge/request/#`');
+	});
+
+	it('rethrows publish errors with their own message and clears state', async () => {
+		const bad = createRequester(async () => { throw new Error('store full'); }, base);
+		await expect(bad.request('networkmap', {}, 1000)).rejects.toThrow('store full');
 		expect(bad.busy('networkmap')).toBe(false);
+		const sync = createRequester(() => { throw new Error('sync boom'); }, base);
+		await expect(sync.request('networkmap', {}, 1000)).rejects.toThrow('sync boom');
+		expect(sync.busy('networkmap')).toBe(false);
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it('publishes nothing and rejects when disconnected', async () => {
+		const sent: string[] = [];
+		const r = createRequester(async (t) => {
+			if (t) throw new Error('MQTT is disconnected');
+			sent.push(t);
+		}, base);
+		await expect(r.request('networkmap', {}, 1000)).rejects.toThrow('MQTT is disconnected');
+		expect(sent).toEqual([]);
+		expect(r.busy('networkmap')).toBe(false);
+	});
+
+	it('ignores a duplicate response and one on another response topic', async () => {
+		const { sent, r, reply } = setup();
+		const p = r.request('networkmap', {}, 1000);
+		await vi.advanceTimersByTimeAsync(0);
+		const transaction = sent[0].body.transaction;
+		reply('coordinator_check', { data: { wrong: 1 }, status: 'ok', transaction });
+		expect(r.busy('networkmap')).toBe(true);
+		reply('networkmap', { data: { n: 1 }, status: 'ok', transaction });
+		reply('networkmap', { data: { n: 2 }, status: 'ok', transaction });
+		await expect(p).resolves.toEqual({ n: 1 });
+		expect(r.busy('networkmap')).toBe(false);
 	});
 });

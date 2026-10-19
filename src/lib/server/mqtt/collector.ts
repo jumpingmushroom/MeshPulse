@@ -12,9 +12,15 @@ export function startCollector({ config, state, onEffects }: {
 	const client = mqtt.connect(config.mqttUrl, {
 		username: config.mqttUsername,
 		password: config.mqttPassword,
-		reconnectPeriod: 5000
+		reconnectPeriod: 5000,
+		queueQoSZero: false
 	});
-	const requester = createRequester(async (t, b) => void (await client.publishAsync(t, b)), config.baseTopic);
+	// never queue a request while offline: a stale networkmap must not fire on reconnect
+	const publish = async (topic: string, body: string) => {
+		if (!client.connected) throw new Error('MQTT is disconnected');
+		await client.publishAsync(topic, body);
+	};
+	const requester = createRequester(publish, config.baseTopic);
 	const down = () => {
 		state.monitor.connected = false;
 		state.monitor.downSince ??= Date.now();

@@ -23,12 +23,12 @@ export function createRequester(publish: (topic: string, body: string) => Promis
 					name,
 					resolve: (d) => { done(); resolve(d); },
 					reject: (e) => { done(); reject(e); },
-					timer: setTimeout(() => p.reject(new Error('timeout')), timeoutMs)
+					timer: setTimeout(() => p.reject(new Error(`No response from Zigbee2MQTT within ${timeoutMs / 1000} s — check that the MQTT user may publish on ${baseTopic}/bridge/request/#`)), timeoutMs)
 				};
 				pending.set(transaction, p);
-				publish(`${baseTopic}/bridge/request/${name}`, JSON.stringify({ ...payload, transaction })).catch(() =>
-					p.reject(new Error(`MQTT user needs publish on \`${baseTopic}/bridge/request/#\``))
-				);
+				Promise.resolve()
+					.then(() => publish(`${baseTopic}/bridge/request/${name}`, JSON.stringify({ ...payload, transaction })))
+					.catch((e) => p.reject(e instanceof Error ? e : new Error(String(e))));
 			});
 		},
 		onMessage(topic, payload) {
@@ -36,7 +36,7 @@ export function createRequester(publish: (topic: string, body: string) => Promis
 			try {
 				const m = JSON.parse(payload.toString());
 				const p = typeof m?.transaction === 'string' ? pending.get(m.transaction) : undefined;
-				if (!p) return;
+				if (!p || topic !== respPrefix + p.name) return;
 				if (m.status === 'error') p.reject(new Error(String(m.error ?? 'request failed')));
 				else p.resolve(m.data);
 			} catch {
