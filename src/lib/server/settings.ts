@@ -74,7 +74,9 @@ export const DEFAULT_SETTINGS = {
 	staleBatteryDays: 7,
 	backlogHigh: 50,
 	backlogClear: 10,
-	heartbeatUrl: ''
+	heartbeatUrl: '',
+	activeCoordinatorCheck: false,
+	activeNetworkScan: false
 };
 
 export type Settings = typeof DEFAULT_SETTINGS;
