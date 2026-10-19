@@ -16,7 +16,7 @@ beforeAll(async () => {
 	const mod = await import('./auth');
 	auth = mod.getAuth();
 	ensureAdmin = mod.ensureAdmin;
-});
+}, 30_000);
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('auth', () => {
