@@ -24,7 +24,8 @@ export const devices = sqliteTable('devices', {
 	tags: text('tags', { mode: 'json' }).$type<{ chatty?: boolean; ignore?: boolean }>(),
 	ignoreRules: text('ignore_rules', { mode: 'json' }).$type<string[]>(),
 	typicalGapMs: integer('typical_gap_ms'),
-	maxVoltage: real('max_voltage')
+	maxVoltage: real('max_voltage'),
+	batteryLow: integer('battery_low', { mode: 'boolean' })
 });
 
 export const samples = sqliteTable(

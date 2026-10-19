@@ -43,6 +43,13 @@
       "when": 1792414844331,
       "tag": "0005_groovy_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792432416707,
+      "tag": "0006_left_the_leader",
+      "breakpoints": true
     }
   ]
 }

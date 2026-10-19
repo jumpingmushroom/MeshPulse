@@ -78,7 +78,7 @@ export function batteryLow(ctx: RuleContext): Finding[] {
 			? instabilities(ctx, d) : [];
 		const bad = causing.length > 0 || (ctx.open.has(issueKey('battery.low', d.ieee))
 			? d.batteryLow === true || (pct !== null && pct <= s.batteryClearPct) || (v !== null && v <= s.voltageClear) ||
-				// batteryLow is not persisted: after a restart hold until the device reports again
+				// nothing known yet (e.g. a row from before battery_low was stored): hold until the device reports
 				(d.powerSource === 'Battery' && d.batteryLow === null && pct === null && d.voltage === null)
 			: d.batteryLow === true || (pct !== null && pct <= s.batteryLowPct) || (v !== null && v <= s.voltageLow));
 		if (!bad) continue;

@@ -19,7 +19,7 @@ const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : n
 // Columns persisted in `devices`; a change in any of them emits `dirty`.
 const persisted = (d: DeviceState) =>
 	JSON.stringify([d.friendlyName, d.type, d.powerSource, d.model, d.vendor, d.firmware, d.networkAddress,
-		d.availability, d.lastSeenAt, d.removedAt, d.typicalGapMs, d.maxVoltage]);
+		d.availability, d.lastSeenAt, d.removedAt, d.typicalGapMs, d.maxVoltage, d.batteryLow]);
 
 function median(xs: number[]): number {
 	const s = [...xs].sort((a, b) => a - b);
