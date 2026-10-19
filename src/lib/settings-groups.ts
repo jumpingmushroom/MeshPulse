@@ -90,5 +90,9 @@ export const GROUPS: [string, [keyof Settings, string, string, string][]][] = [
 	['MQTT backlog', [
 		['backlogHigh', 'MQTT backlog above', 'messages', 'Queue length that raises an issue.'],
 		['backlogClear', 'MQTT backlog clears below', 'messages', 'Clears below this queue length.']
+	]],
+	['Wi-Fi', [
+		['wifiBusyPct', 'Wi-Fi busy at', '% airtime', 'A 2.4 GHz channel counts as busy at or above this channel utilisation for 15 minutes.'],
+		['wifiClearPct', 'Wi-Fi busy clears below', '% airtime', 'Clears below this utilisation for 30 minutes.']
 	]]
 ];

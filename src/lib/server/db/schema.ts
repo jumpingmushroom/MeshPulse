@@ -166,3 +166,28 @@ export const scanLinks = sqliteTable('scan_links', {
 	depth: integer('depth'),
 	relationship: integer('relationship')
 }, (t) => [index('scan_links_scan').on(t.scanId)]);
+
+export const wifiAps = sqliteTable('wifi_aps', {
+	mac: text('mac').primaryKey(),
+	name: text('name').notNull(),
+	model: text('model').notNull(),
+	area: text('area'),
+	lastSeen: integer('last_seen').notNull()
+});
+
+export const wifiSamples = sqliteTable('wifi_samples', {
+	ts: integer('ts').notNull(),
+	mac: text('mac').notNull(),
+	channel: integer('channel').notNull(),
+	width: integer('width').notNull(),
+	cuTotal: real('cu_total'),
+	cuSelfRx: real('cu_self_rx'),
+	cuSelfTx: real('cu_self_tx'),
+	numSta: integer('num_sta'),
+	txPower: real('tx_power')
+}, (t) => [index('wifi_samples_mac_ts').on(t.mac, t.ts)]);
+
+export const wifiAreas = sqliteTable('wifi_areas', {
+	name: text('name').primaryKey(),
+	match: text('match').notNull()
+});

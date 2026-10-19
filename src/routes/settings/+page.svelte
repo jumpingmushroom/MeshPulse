@@ -15,6 +15,7 @@
 	const errOf = (key: string) => errs.find((e) => e.field === key)?.message;
 	// after a failed save keep what the user typed
 	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
+	const wf = $derived(msg('wifi')?.values); // after a failed save/test keep what was typed (never the password)
 	const keep = () => ({ update }: { update: (o: { reset: boolean }) => Promise<void> }) => update({ reset: false });
 </script>
 
@@ -29,6 +30,7 @@
 			<a href="#z2m">Zigbee2MQTT</a>
 			<a href="#failed">Failed notifications</a>
 			<a href="#active">Active features</a>
+			<a href="#wifi">Wi-Fi (UniFi)</a>
 		</nav>
 		<div class="stack" style="gap: var(--space-12)">
 			<form method="post" action="?/save" class="stack" style="gap: var(--space-12)" use:enhance={keep}>
@@ -198,6 +200,30 @@
 					{/each}
 					{#if msg('active')?.saved}<p role="status">Saved.</p>{/if}
 					<div class="form-actions"><button class="btn btn-primary">Save</button></div>
+				</form>
+			</section>
+			<section id="wifi" class="stack">
+				<h2>Wi-Fi (UniFi)</h2>
+				<p class="muted">Read-only: logs in to your UniFi controller every 5 minutes to read the 2.4 GHz channel and airtime of each access point. Use a local account without MFA. Off by default. The busy thresholds are under Thresholds.</p>
+				<form method="post" action="?/saveWifi" class="stack" use:enhance={keep}>
+					<label class="toggle"><input name="wifiEnabled" type="checkbox" checked={wf ? !!wf.wifiEnabled : data.wifi.enabled} /><span class="track"></span>Enabled</label>
+					<div class="field-grid">
+						<div class="field"><label for="wifi-url">Controller URL</label><input class="input" id="wifi-url" name="url" autocomplete="off" value={wf?.url ?? data.wifi.url} placeholder="https://192.168.1.1" /></div>
+						<div class="field"><label for="wifi-site">Site</label><input class="input" id="wifi-site" name="site" autocomplete="off" value={wf?.site ?? data.wifi.site} placeholder="default" /></div>
+						<div class="field"><label for="wifi-user">User</label><input class="input" id="wifi-user" name="user" autocomplete="off" value={wf?.user ?? data.wifi.user} /></div>
+						<div class="field"><label for="wifi-pass">Password</label>
+							<input class="input" id="wifi-pass" name="password" type="password" autocomplete="new-password" placeholder={data.wifi.passwordSet ? 'Configured (leave empty to keep it)' : ''} />
+							<span class="field-help">Write-only and never shown again.</span></div>
+					</div>
+					<p class="field-help">Last poll: {#if data.wifi.status.lastOkAt}{formatTime(data.wifi.status.lastOkAt, data.tz)}, ok{:else}none yet{/if}.
+						{#if data.wifi.status.lastError}Failing ({data.wifi.status.failures} in a row): {data.wifi.status.lastError}{/if}</p>
+					{#if msg('wifi')?.error}<div class="form-error" role="alert"><svg class="i"><use href="#i-crit" /></svg><div>{msg('wifi')?.error}</div></div>{/if}
+					{#if msg('wifi')?.saved}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Saved.</p>{/if}
+					{#if msg('wifi')?.tested}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>{msg('wifi')?.tested}</p>{/if}
+					<div class="form-actions">
+						<button class="btn btn-primary">Save</button>
+						<button class="btn" formaction="?/testWifi" formnovalidate>Test connection</button>
+					</div>
 				</form>
 			</section>
 		</div>

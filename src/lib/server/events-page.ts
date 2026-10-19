@@ -18,7 +18,8 @@ export const EVENT_KINDS: Record<EventKind, string> = {
 	battery_swap: 'Battery swap',
 	route_error: 'Route error',
 	leave_count_up: 'Leave count up',
-	address_changed: 'Address changed'
+	address_changed: 'Address changed',
+	wifi_channel: 'Wi-Fi channel'
 };
 
 export function queryEvents(db: Db, knownIeees: ReadonlySet<string>, params: URLSearchParams, now: number) {
