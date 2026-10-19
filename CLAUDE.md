@@ -43,13 +43,17 @@ src/lib/server/notify/*.ts           channel registry, discord, apprise, outbox 
 src/lib/server/notify/weekly.ts     weekly digest (Sunday 18:00 TZ, once per ISO week)
 src/lib/server/crypto.ts             encrypt, decrypt
 src/lib/server/retention.ts          prune(db, now)
-src/lib/server/heartbeat.ts          heartbeatTick(deps, now); startHeartbeat(deps)
+src/lib/server/heartbeat.ts          heartbeatTick(deps, now); startHeartbeat(deps); lastPing() (in memory only)
 src/lib/server/auth.ts               getAuth(), ensureAdmin()
 src/lib/server/login-limit.ts        createLimiter, loginLimiter (login rate limit)
 src/lib/server/store.ts              loadDevices, applyEffects, flushDevices, muteUntil (DB <-> AppState)
 src/lib/chart.ts                     chart scale/path helpers
-src/lib/components/LineChart.svelte  SVG line chart
-src/lib/views.ts                     pure view helpers for pages (status, formatTime, FOREVER)
+src/lib/components/                  Icons, IssueRow, KV, LineChart, ScoreRing, SevBadge, Sparkline, Tile
+src/lib/server/device-history.ts     deviceCharts, RANGES (device page charts)
+src/lib/server/device-stats.ts       deviceStats (24 h per-device stats)
+src/lib/settings-groups.ts           GROUPS: settings labels, units, help
+src/lib/views.ts                     pure view helpers for pages: navSummary, banner, learning, peakQuiet, evidenceRows, RULE_LABELS, groupedSummary, chartFor, row helpers, formatTime/formatAgo, FOREVER
+src/app.css                          ported mockup stylesheet (the only source of classes); font static/fonts/inter-latin.woff2; mockup in docs/superpowers/design/
 src/lib/server/runtime.ts            startRuntime(), runtime singleton (state, db, config)
 src/routes/...                       pages (devices/[ieee], batteries, events), api/health
 scripts/replay.ts                    replay(lines) -> report; formatReport
@@ -71,8 +75,9 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 - TypeScript `strict: true`. Server code uses relative imports (`#lib/*` without extensions does not type-check).
 - SvelteKit 3: use `$app/env`, not `$app/environment`. adapter-node has no `ORIGIN` env; origin comes from the `Host` header or `PROTOCOL_HEADER`/`HOST_HEADER`.
 - No dependency beyond the stack (SvelteKit 3, Svelte 5, TS, Vite, Drizzle, better-sqlite3, mqtt, better-auth, vitest, adapter-node) without asking.
+- Pages are `<div class="page">` inside the layout's `<main>`; no `<main>` in pages. Use only classes from `src/app.css`.
 - Severity values: `'info' | 'warning' | 'critical'`.
-- Design docs are the authority: `docs/superpowers/specs/2026-10-16-meshpulse-mvp-design.md`, `2026-10-18-meshpulse-phase2-design.md`, `2026-10-18-meshpulse-phase3-design.md` (same folder; the later phase wins); plan in `docs/superpowers/plans/`.
+- Design docs are the authority: `docs/superpowers/specs/2026-10-16-meshpulse-mvp-design.md`, `2026-10-18-meshpulse-phase2-design.md`, `2026-10-18-meshpulse-phase3-design.md`, `2026-10-19-meshpulse-ui-redesign-design.md` (same folder; the later phase wins); plan in `docs/superpowers/plans/`.
 
 ## Workflow
 

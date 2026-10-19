@@ -14,7 +14,7 @@ Select a device on the **Devices** page to open its page (`/devices/<ieee>`). It
 
 ![Battery device page, 30 days](docs/screenshots/device-battery-30d.png)
 
-The **Batteries** page is a shopping list. It marks devices as **Low now** or **Due soon**, and shows the forecast days left, the last battery swap, and a 30-day sparkline.
+The **Batteries** page is a shopping list. It has two tables, **Buy within 30 days** and **Later**. Each row shows the forecast days left, the date the battery is expected to run out, the battery level, the voltage, a 30-day trend, and the last battery swap.
 
 ![Batteries page](docs/screenshots/batteries.png)
 
@@ -54,7 +54,7 @@ Phase 3 rules work from live message counts and `bridge/health` data. Thresholds
 
 The storm rules need 3 days of history for a baseline. The rules that depend on announces, leaves, or message rates don't run during the grace period (15 minutes by default) after a MeshPulse or Zigbee2MQTT restart.
 
-If a device is expected to send many messages, such as an mmWave presence sensor, open its page and select **Mark as chatty**. A chatty device is never reported as a dominant device.
+If a device is expected to send many messages, such as an mmWave presence sensor, open its page and turn on **Chatty device**. A chatty device is never reported as a dominant device.
 
 ### Whole-network outages
 
@@ -72,7 +72,7 @@ When the parent resolves, MeshPulse sends one message for each child that is sti
 
 ## Health score
 
-The network score is 100, minus 25 for each Critical issue, 8 for each Warning, and 1 for each Info, with a minimum of 0. Only top-level issues count, so an incident and its children cost one deduction. The score is green at 85 or higher with no Critical or Warning, red below 60 or with any Critical, and amber otherwise. The status also shows as a text label next to the score. Each device has its own score from its own open issues, shown in the sortable **Score** column on **Devices**. **Overview** also shows a sparkline of network messages per minute over the last 24 hours.
+The network score is 100, minus 25 for each Critical issue, 8 for each Warning, and 1 for each Info, with a minimum of 0. Only top-level issues count, so an incident and its children cost one deduction. The score is green at 85 or higher with no Critical or Warning, red below 60 or with any Critical, and amber otherwise. The score ring on **Overview** shows only the label (Good, Fair or Poor), not the number. For the first 3 days it shows Learning, with a progress bar. Each device has its own score from its own open issues, shown in the sortable **Health** column on **Devices**. **Overview** also shows a sparkline of network messages per minute over the last 24 hours.
 
 ## Weekly digest
 
@@ -167,7 +167,7 @@ The container stores its database in `/mnt/user/appdata/meshpulse`. It starts as
 ## Discord notifications
 
 1. In Discord, open the channel's **Edit Channel > Integrations > Webhooks** and create a webhook. Copy its URL.
-2. In MeshPulse, open **Settings**, paste the URL, and select **Send test**.
+2. In MeshPulse, open **Settings**, paste the URL, select **Save channel**, then select **Send test**. **Send test** is disabled until the channel is saved.
 
 ## Apprise notifications
 
@@ -177,7 +177,7 @@ Apprise delivers to services such as ntfy, Telegram, Pushover, and email through
 2. Enter the apprise-api URL.
 3. Enter either a stored configuration key or one or more Apprise URLs. MeshPulse encrypts the URLs and doesn't show them again.
 4. Select the minimum severity to send.
-5. Save, then select **Send test**.
+5. Select **Save channel**, then select **Send test**.
 
 ## Heartbeat
 
