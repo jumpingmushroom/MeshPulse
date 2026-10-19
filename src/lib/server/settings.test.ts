@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, parseSettingsForm } from './settings';
+import { openDb } from './db/index';
+import { saveWifiConfig } from './wifi/config';
+import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveSettings } from './settings';
 
 const form = (o: Record<string, string | null> = {}) => {
 	const f = new FormData();
@@ -81,4 +83,14 @@ it('Wi-Fi must clear below the busy percentage', () => {
 	for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) if (typeof v !== 'boolean') f.set(k, String(v));
 	f.set('wifiClearPct', '60');
 	expect(parseSettingsForm(f)).toMatchObject({ errors: [{ field: 'wifiClearPct' }] });
+});
+
+it('getSettings returns only known keys, never raw rows like wifiConfig', () => {
+	const db = openDb(':memory:');
+	saveWifiConfig(db, 'k', { url: 'https://x', site: 'default', user: 'u', password: 'hunter2' });
+	saveSettings(db, { weeklyDigestWeek: '2026-W43' } as never);
+	const out = JSON.stringify(getSettings(db));
+	expect(out).not.toContain('wifiConfig');
+	expect(out).not.toContain('weeklyDigestWeek');
+	expect(Object.keys(getSettings(db)).sort()).toEqual(Object.keys(DEFAULT_SETTINGS).sort());
 });

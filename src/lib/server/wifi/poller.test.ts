@@ -4,7 +4,7 @@ import { events, wifiAps, wifiSamples } from '../db/schema';
 import { saveSettings } from '../settings';
 import { createState } from '../types';
 import { saveWifiConfig } from './config';
-import { pollWifi, startWifi, type WifiClient } from './poller';
+import { exclusive, pollWifi, startWifi, type WifiClient } from './poller';
 import type { WifiAp } from './unifi';
 
 const radio = (channel: number, width = 20) => ({ channel, width, cuTotal: 30, cuSelfRx: 5, cuSelfTx: 2, numSta: 4, txPower: 17 });
@@ -72,5 +72,65 @@ describe('startWifi', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('an unreadable stored password is reported as a failure and makes no login', async () => {
+		vi.useFakeTimers();
+		try {
+			const db = openDb(':memory:');
+			saveWifiConfig(db, 'old-key', { url: 'https://c', site: 'default', user: 'u', password: 'p' });
+			saveSettings(db, { wifiEnabled: true });
+			const create = vi.fn();
+			const state = createState(0);
+			const loop = startWifi({ db, state, secretKey: 'new-key', create });
+			await vi.advanceTimersByTimeAsync(300_000);
+			expect(create).not.toHaveBeenCalled();
+			expect(state.wifi.lastError).toBe('Stored password can no longer be decrypted — re-enter it in Settings');
+			expect(state.wifi.failures).toBeGreaterThanOrEqual(2);
+			await loop.stop();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('disabling resets the status; stop waits for an in-flight poll, then logs out', async () => {
+		vi.useFakeTimers();
+		try {
+			const db = openDb(':memory:');
+			saveWifiConfig(db, 'k', { url: 'https://c', site: 'default', user: 'u', password: 'p' });
+			saveSettings(db, { wifiEnabled: true });
+			const order: string[] = [];
+			let release!: () => void;
+			const gate = new Promise<void>((r) => (release = r));
+			const create = () => ({ devices: async () => { await gate; order.push('devices'); return [ap(1)]; }, describe: () => '', logout: async () => { order.push('logout'); } });
+			const state = createState(0);
+			state.wifi = { lastOkAt: 5, failures: 2, lastError: 'x' };
+			const loop = startWifi({ db, state, secretKey: 'k', create });
+			await vi.advanceTimersByTimeAsync(0);
+			const stopped = loop.stop();
+			release();
+			await stopped;
+			expect(order).toEqual(['devices', 'logout']);
+			const off = openDb(':memory:');
+			const st2 = createState(0);
+			st2.wifi = { lastOkAt: 5, failures: 2, lastError: 'x' };
+			const l2 = startWifi({ db: off, state: st2, secretKey: 'k', create });
+			await vi.advanceTimersByTimeAsync(0);
+			expect(st2.wifi).toEqual({ lastOkAt: null, failures: 0, lastError: null });
+			await l2.stop();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+describe('exclusive', () => {
+	it('refuses a second job while one runs', async () => {
+		let release!: () => void;
+		const first = exclusive(() => new Promise<string>((r) => (release = () => r('a'))));
+		expect(await exclusive(async () => 'b')).toBeNull();
+		release();
+		expect(await first).toBe('a');
+		expect(await exclusive(async () => 'c')).toBe('c');
 	});
 });

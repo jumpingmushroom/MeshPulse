@@ -12,11 +12,13 @@ import { checkPrereqs } from '../../lib/server/prereqs';
 import { getRuntime } from '../../lib/server/runtime';
 import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveFormSettings } from '../../lib/server/settings';
 import { getWifiConfig, getWifiForm, saveWifiConfig } from '../../lib/server/wifi/config';
+import { exclusive } from '../../lib/server/wifi/poller';
 import { createUnifi } from '../../lib/server/wifi/unifi';
 import { saveSettings } from '../../lib/server/settings';
 import type { Severity } from '../../lib/server/types';
 import type { Actions, PageServerLoad } from './$types';
 
+const URL_RE = /^https?:\/\/[^\s/]+$/;
 const SEVERITIES: Severity[] = ['info', 'warning', 'critical'];
 const channelOf = (kind: string) => getRuntime().db.select().from(channels).where(eq(channels.kind, kind)).get();
 const discordChannel = () => channelOf('discord');
@@ -72,27 +74,37 @@ export const actions: Actions = {
 		const { db, config } = getRuntime();
 		const form = await request.formData();
 		const text = (k: string) => String(form.get(k) ?? '').trim();
-		const url = text('url').replace(/\/+$/, '');
-		if (url && !/^https?:\/\/[^\s/]+$/.test(url)) return fail(400, { section: 'wifi', error: 'The controller URL must look like https://192.168.1.1' });
-		const enabled = form.get('wifiEnabled') === 'on';
-		if (enabled && (!url || !text('user') || (!text('password') && !getWifiForm(db).passwordSet))) return fail(400, { section: 'wifi', error: 'Enter the URL, user and password before enabling.' });
-		saveWifiConfig(db, config.secretKey, { url, site: text('site') || 'default', user: text('user'), password: String(form.get('password') ?? '') });
-		saveSettings(db, { wifiEnabled: enabled });
+		const values = { url: text('url'), site: text('site'), user: text('user'), wifiEnabled: form.get('wifiEnabled') === 'on' }; // never the password
+		const url = values.url.replace(/\/+$/, '');
+		if (url && !URL_RE.test(url)) return fail(400, { section: 'wifi', error: 'The controller URL must look like https://192.168.1.1', wifiValues: values });
+		if (values.wifiEnabled && (!url || !values.user || (!text('password') && !getWifiForm(db).passwordSet))) return fail(400, { section: 'wifi', error: 'Enter the URL, user and password before enabling.', wifiValues: values });
+		saveWifiConfig(db, config.secretKey, { url, site: values.site || 'default', user: values.user, password: String(form.get('password') ?? '') });
+		saveSettings(db, { wifiEnabled: values.wifiEnabled });
 		return { section: 'wifi', saved: true };
 	},
-	testWifi: async () => {
+	testWifi: async ({ request }) => {
 		const { db, config } = getRuntime();
-		const cfg = getWifiConfig(db, config.secretKey);
-		if (!cfg) return fail(400, { section: 'wifi', error: 'Save the controller details first.' });
-		const client = createUnifi(cfg);
-		try {
-			await client.devices(); // one login and one stat/device call
-			return { section: 'wifi', tested: client.describe() };
-		} catch (e) {
-			return fail(400, { section: 'wifi', error: e instanceof Error ? e.message : String(e) });
-		} finally {
-			await client.logout();
-		}
+		const form = await request.formData();
+		const text = (k: string) => String(form.get(k) ?? '').trim();
+		const values = { url: text('url'), site: text('site'), user: text('user'), wifiEnabled: form.get('wifiEnabled') === 'on' };
+		const url = values.url.replace(/\/+$/, '');
+		if (!url || !URL_RE.test(url) || !values.user) return fail(400, { section: 'wifi', error: 'Enter the controller URL (like https://192.168.1.1) and user to test.', wifiValues: values });
+		// a typed password wins, otherwise the stored one; nothing is saved
+		const password = String(form.get('password') ?? '') || getWifiConfig(db, config.secretKey)?.password || '';
+		if (!password) return fail(400, { section: 'wifi', error: 'Enter the password to test.', wifiValues: values });
+		const r = await exclusive(async () => {
+			const client = createUnifi({ url, site: values.site || 'default', user: values.user, password });
+			try {
+				await client.devices(); // one login and one stat/device call
+				return { ok: true as const, text: client.describe() };
+			} catch (e) {
+				return { ok: false as const, text: e instanceof Error ? e.message : String(e) };
+			} finally {
+				await client.logout();
+			}
+		});
+		if (!r) return fail(400, { section: 'wifi', error: 'A poll is running — try again in a moment', wifiValues: values });
+		return r.ok ? { section: 'wifi', tested: r.text, wifiValues: values } : fail(400, { section: 'wifi', error: r.text, wifiValues: values });
 	},
 	saveChannel: async ({ request }) => {
 		const { db, config } = getRuntime();

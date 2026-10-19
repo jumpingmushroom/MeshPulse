@@ -85,7 +85,8 @@ export const DEFAULT_SETTINGS = {
 export type Settings = typeof DEFAULT_SETTINGS;
 
 export function getSettings(db: Db): Settings {
-	const rows = Object.fromEntries(db.select().from(settings).all().map((r) => [r.key, r.value]));
+	// only known keys: raw rows (wifiConfig, weeklyDigestWeek, ...) must never reach a page
+	const rows = Object.fromEntries(db.select().from(settings).all().filter((r) => r.key in DEFAULT_SETTINGS).map((r) => [r.key, r.value]));
 	return { ...DEFAULT_SETTINGS, ...rows };
 }
 
