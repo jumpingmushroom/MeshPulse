@@ -8,6 +8,7 @@
 		issue: { id: number; severity: Severity; state: string; summary: string; action?: string; ieee: string | null; deviceName?: string; rule: string; openedAt: number };
 		now: number; children?: { id: number; summary: string; rule: string }[];
 	} = $props();
+	const STATE = { open: ['state-open', 'Open'], acknowledged: ['state-ack', 'Acknowledged'], resolved: ['state-resolved', 'Resolved'] } as const;
 	const sev = { critical: 'is-crit', warning: 'is-warn', info: 'is-info' } as const;
 </script>
 
@@ -21,7 +22,7 @@
 			<span>{RULE_LABELS[issue.rule as RuleId] ?? issue.rule}</span>
 		</div>
 	</div>
-	<div class="issue-when"><span>opened {formatAgo(issue.openedAt, now)}</span>{#if issue.state !== 'open'}<span>{issue.state === 'acknowledged' ? 'Acknowledged' : 'Resolved'}</span>{/if}</div>
+	<div class="issue-when"><span>opened {formatAgo(issue.openedAt, now)}</span><span class="state {STATE[issue.state as keyof typeof STATE]?.[0]}">{STATE[issue.state as keyof typeof STATE]?.[1] ?? issue.state}</span></div>
 	{#if children.length}
 		<details class="issue-children">
 			<summary><svg class="i" aria-hidden="true"><use href="#i-caret" /></svg>{groupedSummary(children)}</summary>

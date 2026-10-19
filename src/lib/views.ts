@@ -94,13 +94,45 @@ export function formatVoltage(v: number | null): string {
 	return two.endsWith('0') ? v.toFixed(1) : two;
 }
 
+/** "batteryLow" -> "Battery low" */
+export function humanise(key: string): string {
+	const w = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+	return w.charAt(0).toUpperCase() + w.slice(1);
+}
+
+export const EVIDENCE_LABELS: Record<string, string> = {
+	offlineSince: 'Offline since', lastSeenAt: 'Last seen', typicalGapMs: 'Typical gap', thresholdMs: 'Threshold',
+	availability: 'Availability', avg: 'Average LQI', avg12h: 'Average LQI, 12 h', hours: 'Hours of data', hours12h: 'Hours of data, 12 h',
+	threshold: 'Threshold', clearAbove: 'Clears above', baseline: 'Baseline', baselineDays: 'Baseline days',
+	battery: 'Battery', voltage: 'Voltage', daysLeft: 'Days left', basedOnDays: 'Based on days', count: 'Count',
+	perMin: 'Messages per minute', factor: 'Factor', windowH: 'Window (h)', windowMin: 'Window (min)', changes: 'Changes',
+	announces: 'Announces', leftAt: 'Left at', failedAt: 'Failed at', names: 'Devices', devices: 'Device count', top: 'Top senders', downSince: 'Down since',
+	routersOffline: 'Routers offline', routersTotal: 'Routers total', lastReportAt: 'Last report', typicalGapH: 'Typical gap (h)'
+};
+
 /** Issue evidence as readable [key, value] pairs: *At/*Since are times, *Ms are durations, nulls hidden. */
-export function evidenceRows(evidence: Record<string, unknown>, tz: string): [string, string][] {
-	return Object.entries(evidence).flatMap(([k, v]): [string, string][] => {
+export function evidenceRows(evidence: Record<string, unknown>, tz: string, byName: Map<string, string> = new Map()): [string, string | { text: string; href: string }[]][] {
+	// device lists ("names": string[], "top": {name, perMin}[]) become links when every name resolves to an ieee
+	const links = (v: unknown) => {
+		if (!Array.isArray(v) || !v.length) return null;
+		const out = v.map((x) => {
+			const name = typeof x === 'string' ? x : x && typeof x === 'object' && typeof (x as { name?: unknown }).name === 'string' ? (x as { name: string }).name : null;
+			const ieee = name === null ? undefined : byName.get(name);
+			const rate = x && typeof x === 'object' ? (x as { perMin?: unknown }).perMin : undefined;
+			return ieee === undefined ? null : { text: rate === undefined ? name! : `${name} (${rate}/min)`, href: `/devices/${ieee}` };
+		});
+		return out.every((x) => x !== null) ? out : null;
+	};
+	return Object.entries(evidence).flatMap(([k, v]): [string, string | { text: string; href: string }[]][] => {
 		if (v === null || v === undefined) return [];
-		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[k, formatTime(v, tz)]];
-		if (typeof v === 'number' && k.endsWith('Ms')) return [[k, formatDuration(v)]];
-		return [[k, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
+		if (k === 'level') return []; // internal rule variant, e.g. battery.low
+		const l = EVIDENCE_LABELS[k] ?? humanise(k);
+		const ls = links(v);
+		if (ls) return [[l, ls]];
+		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[l, formatTime(v, tz)]];
+		if (typeof v === 'number' && k.endsWith('Ms')) return [[l, formatDuration(v)]];
+		if (typeof v === 'boolean') return [[l, v ? 'Yes' : 'No']];
+		return [[l, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
 	});
 }
 
@@ -185,4 +217,55 @@ export function groupedSummary(children: { rule: string }[]): string {
 	for (const c of children) n.set(c.rule, (n.get(c.rule) ?? 0) + 1);
 	const parts = [...n].sort((a, b) => b[1] - a[1]).map(([r, k]) => `${k} ${(RULE_LABELS[r as RuleId] ?? r).toLowerCase()}`);
 	return `${children.length} grouped issue${children.length === 1 ? '' : 's'}: ${parts.join(', ')}`;
+}
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const dot = (s: string) => (/[.!?]$/.test(s) ? s : s + '.');
+
+/** Overview banner from the sorted top-level open issues. */
+export function banner(top: { severity: Severity; summary: string; action: string }[]): { tone: 'ok' | 'warn' | 'crit'; kicker: string; title: string; sub: string } {
+	if (!top.length) return { tone: 'ok', kicker: 'All good', title: 'All good', sub: 'No open issues.' };
+	const crit = top.filter((i) => i.severity === 'critical').length;
+	if (!crit) return { tone: 'warn', kicker: 'Needs attention', title: `${plural(top.length, 'unresolved issue')}`, sub: `Nothing critical. Start with: ${dot(top[0].action)}` };
+	const warn = top.filter((i) => i.severity === 'warning').length;
+	return {
+		tone: 'crit', kicker: 'Critical', title: top[0].summary,
+		sub: `${plural(crit, 'critical issue')}${warn ? ` and ${plural(warn, 'warning')}` : ''}. Start with: ${dot(top[0].action)}`
+	};
+}
+
+/** Hours of history since the first hourly sample; done after `days`. */
+export function learning(firstHour: number | null, now: number, days = 3): { hours: number; done: boolean } {
+	const hours = firstHour === null ? 0 : Math.max(0, Math.floor((now - firstHour) / 3_600_000));
+	return { hours, done: hours >= days * 24 };
+}
+
+/** Current, peak and quietest messages per minute over the series. */
+export function peakQuiet(points: { t: number; v: number }[], tz: string): { now: number | null; peak: string; quiet: string } | null {
+	if (points.length < 2) return null;
+	const hm = (t: number) => new Date(t).toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+	const peak = points.reduce((a, p) => (p.v > a.v ? p : a));
+	const quiet = points.reduce((a, p) => (p.v < a.v ? p : a));
+	return { now: Math.round(points[points.length - 1].v), peak: `${Math.round(peak.v)}/min at ${hm(peak.t)}`, quiet: hm(quiet.t) };
+}
+
+/** Battery forecasts within `within` days for devices that exist and are not removed, soonest first. */
+export function batteriesDue(rows: { ieee: string; days: number }[], state: Pick<AppState, 'devices'>, within = 30): { name: string; days: number }[] {
+	return rows.flatMap((r) => {
+		const d = state.devices.get(r.ieee);
+		return d && d.removedAt === null && r.days <= within ? [{ name: d.friendlyName, days: Math.round(r.days) }] : [];
+	}).sort((a, b) => a.days - b.days);
+}
+
+/** The device an issue page may act on: present and not removed. */
+export function liveDevice<D extends { removedAt: number | null }>(devices: Map<string, D>, ieee: string | null): D | undefined {
+	const d = ieee ? devices.get(ieee) : undefined;
+	return d && d.removedAt === null ? d : undefined;
+}
+
+/** Which device chart best shows the evidence for a rule. */
+export function chartFor(rule: string): 'battery' | 'lqi' | 'msgs' | null {
+	if (rule.startsWith('battery.')) return 'battery';
+	if (rule.startsWith('lqi.') || rule === 'route.failures') return 'lqi';
+	return rule === 'device.storm' || rule === 'device.dominant' ? 'msgs' : null;
 }

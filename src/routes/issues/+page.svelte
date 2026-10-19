@@ -1,37 +1,46 @@
 <script lang="ts">
-	import { formatTime } from '../../lib/views';
+	import IssueRow from '../../lib/components/IssueRow.svelte';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+	const href = (over: Record<string, string>) => `?${new URLSearchParams({ tab: data.tab, rule: data.rule, sev: data.sev, ...over })}`;
 </script>
 
-<h1>Issues</h1>
-<nav class="tabs" aria-label="Issue state">
-	{#each data.tabs as t (t)}
-		<a href="?state={t}" aria-current={data.tab === t ? 'page' : undefined}>{t[0].toUpperCase() + t.slice(1)}</a>
-	{/each}
-</nav>
+<div class="page">
+	<div class="page-head">
+		<div>
+			<h1>Issues</h1>
+			<p class="sub">Acknowledging stops reminders. An issue stays listed until MeshPulse sees it resolve.</p>
+		</div>
+	</div>
 
-{#if data.issues.length}
-	<table>
-		<thead>
-			<tr>
-				<th scope="col">Severity</th><th scope="col">Summary</th><th scope="col">Device</th><th scope="col">Opened</th>
-				{#if data.tab === 'resolved'}<th scope="col">Resolved</th>{/if}
-			</tr>
-		</thead>
-		<tbody>
-			{#each data.issues as i (i.id)}
-				<tr>
-					<td><span class="sev {i.severity}">{i.severity}</span></td>
-					<td><a href="/issues/{i.id}">{i.summary}</a></td>
-					<td>{i.device ?? ''}</td>
-					<td>{formatTime(i.openedAt, data.tz)}</td>
-					{#if data.tab === 'resolved'}<td>{formatTime(i.resolvedAt, data.tz)}</td>{/if}
-				</tr>
-			{/each}
-		</tbody>
-	</table>
-{:else}
-	<p>No {data.tab} issues.</p>
-{/if}
+	<nav class="tabs" aria-label="Issue state">
+		{#each data.tabs as t (t.key)}
+			<a href={href({ tab: t.key })} aria-current={data.tab === t.key ? 'page' : undefined}>{t.label}<span class="n">{t.n}</span></a>
+		{/each}
+	</nav>
+
+	<form method="get" class="toolbar" aria-label="Filter issues">
+		<input type="hidden" name="tab" value={data.tab} />
+		<div class="field" style="flex-direction:row;align-items:center;gap:8px">
+			<label for="rule" style="font-weight:400" class="muted">Rule</label>
+			<select class="select" id="rule" name="rule" style="width:220px" onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+				<option value="all" selected={data.rule === 'all'}>All rules</option>
+				{#each data.rules as r (r.key)}<option value={r.key} selected={data.rule === r.key}>{r.label}</option>{/each}
+			</select>
+		</div>
+		<div class="seg" role="group" aria-label="Severity">
+			{#each data.sevs as s (s)}<a href={href({ sev: s })} aria-current={data.sev === s ? 'true' : undefined}>{s === 'all' ? 'All' : s[0].toUpperCase() + s.slice(1)}</a>{/each}
+		</div>
+		<input type="hidden" name="sev" value={data.sev} />
+		<noscript><button class="btn btn-sm">Apply</button></noscript>
+	</form>
+
+	{#if data.issues.length}
+		<div class="issues">
+			{#each data.issues as i (i.id)}<IssueRow issue={i} now={data.now} />{/each}
+		</div>
+	{:else}
+		<div class="panel"><div class="empty"><strong>No {data.tab} issues{data.rule !== 'all' || data.sev !== 'all' ? ' match these filters' : ''}</strong></div></div>
+	{/if}
+</div>
