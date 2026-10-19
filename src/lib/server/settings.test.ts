@@ -75,3 +75,10 @@ describe('parseSettingsForm errors', () => {
 		expect(r.error).toBe(r.errors[0].message);
 	});
 });
+
+it('Wi-Fi must clear below the busy percentage', () => {
+	const f = new FormData();
+	for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) if (typeof v !== 'boolean') f.set(k, String(v));
+	f.set('wifiClearPct', '60');
+	expect(parseSettingsForm(f)).toMatchObject({ errors: [{ field: 'wifiClearPct' }] });
+});

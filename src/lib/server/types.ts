@@ -76,6 +76,8 @@ export interface AppState {
 	minutes: MinuteCounters;
 	/** last bridge/health counters per device; null until the first sample */
 	lastHealth: Record<string, { leaves: number; addr: number }> | null;
+	/** UniFi poller status (not persisted) */
+	wifi: { lastOkAt: number | null; failures: number; lastError: string | null };
 }
 
 export type EventKind =
@@ -90,7 +92,8 @@ export type EventKind =
 	| 'battery_swap'
 	| 'route_error'
 	| 'leave_count_up'
-	| 'address_changed';
+	| 'address_changed'
+	| 'wifi_channel';
 
 export interface NewEvent {
 	ts: number;
@@ -129,6 +132,7 @@ export function createState(now: number): AppState {
 		monitor: { connected: false, downSince: null, connectedAt: null, startedAt: now, lastRulesRunAt: null },
 		msgCounts: new Map(),
 		minutes: new MinuteCounters(),
-		lastHealth: null
+		lastHealth: null,
+		wifi: { lastOkAt: null, failures: 0, lastError: null }
 	};
 }

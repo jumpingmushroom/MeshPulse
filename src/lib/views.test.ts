@@ -253,3 +253,7 @@ describe('splitBatteries', () => {
 		expect(out.none.map((x) => x.name)).toEqual(['a', 'z']);
 	});
 });
+
+it('formats a Wi-Fi channel change', () => {
+	expect(formatDetail('wifi_channel', { ap: 'Kitchen AP', from: 1, to: 6, widthFrom: 20, widthTo: 20 })).toBe('Kitchen AP: channel 1 → 6');
+});

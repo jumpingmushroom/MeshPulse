@@ -47,6 +47,15 @@ describe('active switches', () => {
 		expect(getSettings(db)).toMatchObject({ activeCoordinatorCheck: true, activeNetworkScan: true });
 	});
 
+	it('a thresholds save leaves the Wi-Fi switch on', () => {
+		const db = openDb(':memory:');
+		saveSettings(db, { wifiEnabled: true });
+		const r = parseSettingsForm(thresholds());
+		if ('error' in r) throw new Error(r.error);
+		saveFormSettings(db, r.settings);
+		expect(getSettings(db).wifiEnabled).toBe(true);
+	});
+
 	it('turning on seeds today as the last run day; off leaves it alone', () => {
 		const db = openDb(':memory:');
 		const now = Date.parse('2026-10-20T10:00:00+02:00');

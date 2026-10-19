@@ -76,7 +76,10 @@ export const DEFAULT_SETTINGS = {
 	backlogClear: 10,
 	heartbeatUrl: '',
 	activeCoordinatorCheck: false,
-	activeNetworkScan: false
+	activeNetworkScan: false,
+	wifiEnabled: false,
+	wifiBusyPct: 60,
+	wifiClearPct: 40
 };
 
 export type Settings = typeof DEFAULT_SETTINGS;
@@ -93,11 +96,11 @@ export function saveSettings(db: Db, patch: Partial<Settings>): void {
 
 /** Saves the Settings form. The active switches live in their own form: an absent checkbox here must not turn them off. */
 export function saveFormSettings(db: Db, s: Settings): void {
-	const { activeCoordinatorCheck: _c, activeNetworkScan: _n, ...rest } = s;
+	const { activeCoordinatorCheck: _c, activeNetworkScan: _n, wifiEnabled: _w, ...rest } = s;
 	saveSettings(db, rest);
 }
 
-const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct'];
+const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct', 'wifiBusyPct', 'wifiClearPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
 const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
@@ -107,7 +110,7 @@ const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', '
 	'churnAnnounce', 'churnAddrChanges', 'churnWindowH', 'churnCritical', 'churnClearH', 'netChurnDevices', 'netChurnWindowMin', 'netChurnQuietH',
 	'stormFactor', 'stormMinPerMin', 'stormCritPerMin', 'stormSustainMin', 'stormClearFactor', 'stormClearMin',
 	'dominantPct', 'dominantClearPct', 'dominantWindowMin', 'dominantClearMin', 'dominantMinMsgs', 'netStormFactor', 'netStormClearFactor',
-	'backlogHigh', 'backlogClear', 'causingWindowH', 'staleBatteryDays'];
+	'backlogHigh', 'backlogClear', 'wifiBusyPct', 'wifiClearPct', 'causingWindowH', 'staleBatteryDays'];
 
 const LABEL: Record<string, string> = { quietStart: 'Quiet hours start', quietEnd: 'Quiet hours end', heartbeatUrl: 'Heartbeat URL',
 	...Object.fromEntries(GROUPS.flatMap(([, fs]) => fs.map(([k, label]) => [k, label]))) };
@@ -156,6 +159,7 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.backlogClear < v.backlogHigh, 'backlogClear', 'MQTT backlog must clear below the queue that raises it'],
 		[v.stormClearFactor < v.stormFactor && v.netStormClearFactor < v.netStormFactor, 'stormClearFactor', 'Storms must clear below the factor that raises them'],
 		[v.stormMinPerMin < v.stormCritPerMin, 'stormMinPerMin', 'Storm critical rate must be above the storm minimum rate'],
+		[v.wifiClearPct < v.wifiBusyPct, 'wifiClearPct', 'Wi-Fi must clear below the busy percentage that raises it'],
 		[v.dominantClearPct < v.dominantPct, 'dominantClearPct', 'Dominant device must clear below the share that raises it'],
 		// minute counters keep the last 60 minutes
 		[Math.max(v.stormSustainMin, v.stormClearMin, v.dominantWindowMin, v.dominantClearMin) <= 60, 'stormSustainMin', 'Storm and dominant windows can be at most 60 minutes']

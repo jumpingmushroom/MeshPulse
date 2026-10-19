@@ -11,6 +11,9 @@ import { lastPing } from '../../lib/server/heartbeat';
 import { checkPrereqs } from '../../lib/server/prereqs';
 import { getRuntime } from '../../lib/server/runtime';
 import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveFormSettings } from '../../lib/server/settings';
+import { getWifiConfig, getWifiForm, saveWifiConfig } from '../../lib/server/wifi/config';
+import { createUnifi } from '../../lib/server/wifi/unifi';
+import { saveSettings } from '../../lib/server/settings';
 import type { Severity } from '../../lib/server/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -44,6 +47,7 @@ export const load: PageServerLoad = () => {
 				minSeverity: a.minSeverity, enabled: a.enabled } : null;
 		})(),
 		active: { check: activeInfo('coordinator_check', '03:30'), scan: activeInfo('networkmap', '04:00'), devices: [...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator').length },
+		wifi: { ...getWifiForm(db), enabled: getSettings(db).wifiEnabled, status: { ...state.wifi } },
 		prereqs: checkPrereqs(state.bridge.info),
 		failed: db.select().from(outbox).where(eq(outbox.status, 'failed')).orderBy(desc(outbox.createdAt)).limit(50).all()
 			.map((r) => ({ id: r.id, createdAt: r.createdAt, title: (r.message as Message).title, lastError: r.lastError }))
@@ -63,6 +67,32 @@ export const actions: Actions = {
 		const form = await request.formData();
 		setActive(db, { activeCoordinatorCheck: form.get('activeCoordinatorCheck') === 'on', activeNetworkScan: form.get('activeNetworkScan') === 'on' }, Date.now(), config.tz);
 		return { section: 'active', saved: true };
+	},
+	saveWifi: async ({ request }) => {
+		const { db, config } = getRuntime();
+		const form = await request.formData();
+		const text = (k: string) => String(form.get(k) ?? '').trim();
+		const url = text('url').replace(/\/+$/, '');
+		if (url && !/^https?:\/\/[^\s/]+$/.test(url)) return fail(400, { section: 'wifi', error: 'The controller URL must look like https://192.168.1.1' });
+		const enabled = form.get('wifiEnabled') === 'on';
+		if (enabled && (!url || !text('user') || (!text('password') && !getWifiForm(db).passwordSet))) return fail(400, { section: 'wifi', error: 'Enter the URL, user and password before enabling.' });
+		saveWifiConfig(db, config.secretKey, { url, site: text('site') || 'default', user: text('user'), password: String(form.get('password') ?? '') });
+		saveSettings(db, { wifiEnabled: enabled });
+		return { section: 'wifi', saved: true };
+	},
+	testWifi: async () => {
+		const { db, config } = getRuntime();
+		const cfg = getWifiConfig(db, config.secretKey);
+		if (!cfg) return fail(400, { section: 'wifi', error: 'Save the controller details first.' });
+		const client = createUnifi(cfg);
+		try {
+			await client.devices(); // one login and one stat/device call
+			return { section: 'wifi', tested: client.describe() };
+		} catch (e) {
+			return fail(400, { section: 'wifi', error: e instanceof Error ? e.message : String(e) });
+		} finally {
+			await client.logout();
+		}
 	},
 	saveChannel: async ({ request }) => {
 		const { db, config } = getRuntime();

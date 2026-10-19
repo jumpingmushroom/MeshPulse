@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db/index';
-import { events, healthSamples, healthScores, issues, outbox, samples, samplesHourly, scanLinks, scans } from './db/schema';
+import { events, healthSamples, healthScores, issues, outbox, samples, samplesHourly, scanLinks, scans, wifiSamples } from './db/schema';
 import { prune } from './retention';
 
 const D = 86_400_000;
@@ -76,4 +76,13 @@ it('keeps the latest ok coordinator check and networkmap (with links), however o
 	prune(db, now);
 	expect(db.select().from(scans).all().map((r) => r.id).sort()).toEqual([2, 5]);
 	expect(db.select().from(scanLinks).all().map((r) => r.scanId)).toEqual([2]);
+});
+
+it('prunes wifi samples after 30 days', () => {
+	const db = openDb(':memory:');
+	const now = 1000 * D;
+	const w = { mac: 'a', channel: 1, width: 20 };
+	db.insert(wifiSamples).values([{ ...w, ts: now - 31 * D }, { ...w, ts: now - 29 * D }]).run();
+	prune(db, now);
+	expect(db.select().from(wifiSamples).all().map((r) => r.ts)).toEqual([now - 29 * D]);
 });
