@@ -12,13 +12,15 @@ export function xy(box: Box, t: number, v: number): [number, number] {
 	return [r(x), r(Math.min(box.h, Math.max(0, y)))];
 }
 
+export type Span = { from: number; to: number };
+
 /** Runs of points where `has` holds, split where consecutive times are more than maxGapMs apart. */
-function runs(points: Point[], has: (p: Point) => boolean, maxGapMs: number): Point[][] {
+function runs(points: Point[], has: (p: Point) => boolean, maxGapMs: number, breaks: Span[] = []): Point[][] {
 	const out: Point[][] = [];
 	let cur: Point[] = [];
 	for (const p of points) {
 		if (!ok(p.t) || !has(p)) { cur = []; continue; }
-		if (cur.length && p.t - cur[cur.length - 1].t > maxGapMs) cur = [];
+		if (cur.length && (p.t - cur[cur.length - 1].t > maxGapMs || breaks.some((b) => b.from < p.t && b.to > cur[cur.length - 1].t))) cur = [];
 		if (!cur.length) out.push(cur);
 		cur.push(p);
 	}
@@ -27,9 +29,9 @@ function runs(points: Point[], has: (p: Point) => boolean, maxGapMs: number): Po
 
 const path = (pts: [number, number][]) => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join('');
 
-export function buildSeries(points: Point[], box: Box, maxGapMs: number): { line: string; band: string; empty: boolean } {
-	const lines = runs(points, (p) => ok(p.v), maxGapMs);
-	const bands = runs(points, (p) => ok(p.lo) && ok(p.hi), maxGapMs);
+export function buildSeries(points: Point[], box: Box, maxGapMs: number, breaks: Span[] = []): { line: string; band: string; empty: boolean } {
+	const lines = runs(points, (p) => ok(p.v), maxGapMs, breaks);
+	const bands = runs(points, (p) => ok(p.lo) && ok(p.hi), maxGapMs, breaks);
 	return {
 		line: lines.map((s) => path(s.map((p) => xy(box, p.t, p.v!)))).join(''),
 		band: bands.map((s) => path([...s.map((p) => xy(box, p.t, p.hi!)), ...s.reverse().map((p) => xy(box, p.t, p.lo!))]) + 'Z').join(''),

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { buildSeries, niceTicks, xy, type Point } from '../chart';
+	import { buildSeries, niceTicks, xy, type Point, type Span } from '../chart';
 	import { formatDuration } from '../views';
 
-	let { title, unit, points, t0, t1, y0, y1, maxGapMs, refs = [], summary, latest, integer = false, w = 600 }: {
+	let { title, unit, points, t0, t1, y0, y1, maxGapMs, gaps = [], refs = [], summary, latest, integer = false, w = 600 }: {
 		title: string; unit: string; points: Point[]; t0: number; t1: number; y0: number; y1: number;
-		maxGapMs: number; refs?: { y: number; label: string }[]; summary: string;
+		maxGapMs: number; gaps?: Span[]; refs?: { y: number; label: string }[]; summary: string;
 		latest?: string; integer?: boolean; // integer: whole-number ticks (counts)
 		w?: number; // plot width in viewBox units; use ~300 for half-width charts so text keeps its size
 	} = $props();
@@ -13,7 +13,7 @@
 	const [H, L, T] = [140, 40, 8];
 	const W = $derived(w);
 	const box = $derived({ w: W, h: H, t0, t1, y0, y1 });
-	const s = $derived(buildSeries(points, box, maxGapMs));
+	const s = $derived(buildSeries(points, box, maxGapMs, gaps));
 	const ticks = $derived(niceTicks(y0, y1, 4, integer ? 1 : 0));
 	const last = $derived(points.findLast((p) => p.v !== null && Number.isFinite(p.v)));
 	const end = $derived(last ? xy(box, last.t, last.v!) : null);
@@ -34,6 +34,10 @@
 					<line class="grid" x1="0" x2={W} y1={y(v)} y2={y(v)} />
 					<text class="yl" x="-6" y={y(v)} dominant-baseline="middle">{v}</text>
 				{/each}
+				{#each gaps as g (g.from)}
+					{@const x0 = xy(box, g.from, y0)[0]}
+					<rect class="gap" x={x0} y="0" width={Math.max(1, xy(box, g.to, y0)[0] - x0)} height={H} />
+				{/each}
 				{#if s.band}<path class="band" d={s.band} />{/if}
 				<path class="line" d={s.line} />
 				{#if end}<circle class="dot" cx={end[0]} cy={end[1]} r="4" fill="var(--accent)" />{/if}
@@ -49,6 +53,7 @@
 			<span><i></i>{s.band ? 'Average' : title}</span>
 			{#if s.band}<span><i class="band"></i>Min–max</span>{/if}
 			{#each refs as ref (ref.label)}<span><i class="ref"></i>{ref.label}</span>{/each}
+			{#if gaps.length}<span><i class="gap"></i>No data</span>{/if}
 		</div>
 	{/if}
 </figure>
