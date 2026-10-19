@@ -14,7 +14,7 @@ Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issu
 
 ## Architecture
 
-One Node process (SvelteKit, adapter-node). `src/hooks.server.ts` starts once: the collector (mqtt.js on `${Z2M_BASE_TOPIC}/#`, keeps state in memory, writes SQLite, never publishes), the rules loop (60 s: rules, then lifecycle; hourly trend job: rollups, baselines, battery forecasts), the outbox worker (2 s), and the heartbeat (60 s).
+One Node process (SvelteKit, adapter-node). `src/hooks.server.ts` starts once: the collector (mqtt.js on `${Z2M_BASE_TOPIC}/#`, keeps state in memory, writes SQLite, never publishes itself; it owns the publish function used only by `mqtt/request.ts`), the active loop (opt-in coordinator check and network scan via `mqtt/request.ts`), the rules loop (60 s: rules, then lifecycle; hourly trend job: rollups, baselines, battery forecasts), the outbox worker (2 s), and the heartbeat (60 s).
 
 ```
 src/hooks.server.ts                  init -> startRuntime(); handle -> auth + login guard
@@ -27,6 +27,8 @@ src/lib/server/types.ts              AppState, DeviceState, Finding, IssueRow, M
 src/lib/server/mqtt/route.ts         route(state, msg, baseTopic) -> Effect[]
 src/lib/server/mqtt/parse.ts         parseJson, parseAvailability, parseLastSeen, normaliseVoltage
 src/lib/server/mqtt/logparse.ts     parseRouteError: parses bridge/logging lines (route.ts emits route_error events)
+src/lib/server/mqtt/request.ts       createRequester: the only publisher; `networkmap` and `coordinator_check` only
+src/lib/server/active/               schedule.ts, run.ts, loop.ts, parse.ts, parents.ts (opt-in active features)
 src/lib/server/mqtt/collector.ts     startCollector(deps) - mqtt.js + effect persistence
 src/lib/server/prereqs.ts            checkPrereqs(config) -> Prereq[]
 src/lib/server/rules/*.ts            one file per rule + index.ts (RULES, RULE_DEFAULTS)
@@ -55,9 +57,12 @@ src/lib/settings-groups.ts           GROUPS: settings labels, units, help
 src/lib/views.ts                     pure view helpers for pages: navSummary, banner, learning, peakQuiet, evidenceRows, RULE_LABELS, groupedSummary, chartFor, row helpers, formatTime/formatAgo, FOREVER
 src/app.css                          ported mockup stylesheet (the only source of classes); font static/fonts/inter-latin.woff2; mockup in docs/superpowers/design/
 src/lib/server/runtime.ts            startRuntime(), runtime singleton (state, db, config)
-src/routes/...                       pages (devices/[ieee], batteries, events), api/health
+src/routes/...                       pages (devices/[ieee], batteries, events, map), api/health
+src/routes/map                       network map page
+src/lib/map.ts                       map layout helpers
 scripts/replay.ts                    replay(lines) -> report; formatReport
 Tables added in Phase 2: samples_hourly, baselines
+Tables added in Phase 4: scans, scan_links
 scripts/capture.ts                   record zigbee2mqtt/# to JSONL
 tests/fixtures/*.jsonl               fixture traffic (line: {"ts","topic","payload","retain"})
 tests/helpers/simulate.ts            pure replay harness: router -> rules -> lifecycle
@@ -69,7 +74,7 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 
 ## Conventions
 
-- Read-only on MQTT: the app never publishes.
+- Read-only on MQTT, except the two opt-in requests (`networkmap`, `coordinator_check`) in `mqtt/request.ts`, off by default. Nothing else publishes.
 - All storage keyed by IEEE address. `devices.instance_id` defaults to `'default'`.
 - Timestamps are UTC epoch ms in the DB; display in `TZ` (default `Europe/Oslo`).
 - TypeScript `strict: true`. Server code uses relative imports (`#lib/*` without extensions does not type-check).
@@ -77,7 +82,7 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 - No dependency beyond the stack (SvelteKit 3, Svelte 5, TS, Vite, Drizzle, better-sqlite3, mqtt, better-auth, vitest, adapter-node) without asking.
 - Pages are `<div class="page">` inside the layout's `<main>`; no `<main>` in pages. Use only classes from `src/app.css`.
 - Severity values: `'info' | 'warning' | 'critical'`.
-- Design docs are the authority: `docs/superpowers/specs/2026-10-16-meshpulse-mvp-design.md`, `2026-10-18-meshpulse-phase2-design.md`, `2026-10-18-meshpulse-phase3-design.md`, `2026-10-19-meshpulse-ui-redesign-design.md` (same folder; the later phase wins); plan in `docs/superpowers/plans/`.
+- Design docs are the authority: `docs/superpowers/specs/2026-10-16-meshpulse-mvp-design.md`, `2026-10-18-meshpulse-phase2-design.md`, `2026-10-18-meshpulse-phase3-design.md`, `2026-10-19-meshpulse-ui-redesign-design.md`, `2026-10-19-meshpulse-phase4-design.md` (same folder; the later phase wins); plan in `docs/superpowers/plans/`.
 
 ## Workflow
 

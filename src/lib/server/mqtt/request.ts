@@ -23,7 +23,7 @@ export function createRequester(publish: (topic: string, body: string) => Promis
 					name,
 					resolve: (d) => { done(); resolve(d); },
 					reject: (e) => { done(); reject(e); },
-					timer: setTimeout(() => p.reject(new Error(`No response from Zigbee2MQTT within ${timeoutMs / 1000} s — check that the MQTT user may publish on ${baseTopic}/bridge/request/#`)), timeoutMs)
+					timer: setTimeout(() => p.reject(new Error(`No response from Zigbee2MQTT within ${timeoutMs / 1000} s — MQTT may have dropped, Zigbee2MQTT may have restarted, or the MQTT user may not publish on ${baseTopic}/bridge/request/#`)), timeoutMs)
 				};
 				pending.set(transaction, p);
 				Promise.resolve()

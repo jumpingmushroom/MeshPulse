@@ -1,9 +1,13 @@
+import { eq } from 'drizzle-orm';
+import { scans } from '../db/schema';
 import { getSettings } from '../settings';
 import { runActive, type ActiveDeps } from './run';
 import { NETWORK_SCAN_AT, due, lastDay } from './schedule';
 
 export function startActive(deps: ActiveDeps): { stop(): void } {
 	let running = false;
+	// a row still running belongs to a previous process
+	deps.db.update(scans).set({ status: 'failed', finishedAt: Date.now(), reason: 'MeshPulse restarted during the run' }).where(eq(scans.status, 'running')).run();
 	const timer = setInterval(async () => {
 		if (running) return; // a slow request must not make later ticks write skipped rows
 		running = true;

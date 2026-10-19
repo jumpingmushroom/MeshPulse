@@ -7,7 +7,7 @@ export function scanFailing(ctx: RuleContext): Finding[] {
 		ieee: null,
 		severity: 'info',
 		summary: 'Network scan keeps failing',
-		action: 'Check that the MQTT user may publish on zigbee2mqtt/bridge/request/# and that Zigbee2MQTT is healthy',
+		action: `Check that the MQTT user may publish on ${ctx.active!.baseTopic ?? 'zigbee2mqtt'}/bridge/request/# and that Zigbee2MQTT is healthy`,
 		evidence: { failedInARow: ctx.active!.scanFailStreak }
 	}];
 }

@@ -12,6 +12,12 @@ describe('active.scan_failing', () => {
 		expect(f).toHaveLength(1);
 		expect(f[0]).toMatchObject({ rule: 'active.scan_failing', ieee: null, severity: 'info', summary: 'Network scan keeps failing' });
 	});
+	it('names the configured base topic', () => {
+		const c = withStreak(3);
+		expect(scanFailing(c)[0].action).toContain('zigbee2mqtt/bridge/request/#');
+		c.active!.baseTopic = 'z2m-home';
+		expect(scanFailing(c)[0].action).toContain('z2m-home/bridge/request/#');
+	});
 	it('is silent after an ok scan or without active data', () => {
 		expect(scanFailing(withStreak(0))).toEqual([]);
 		expect(scanFailing(ctx())).toEqual([]);

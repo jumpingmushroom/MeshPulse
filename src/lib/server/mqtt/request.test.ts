@@ -31,7 +31,7 @@ describe('requester', () => {
 		const { sent, r, reply } = setup();
 		const p = r.request('coordinator_check', {}, 1000);
 		const assertion = expect(p).rejects.toThrow(
-			'No response from Zigbee2MQTT within 1 s — check that the MQTT user may publish on zigbee2mqtt/bridge/request/#'
+			'No response from Zigbee2MQTT within 1 s — MQTT may have dropped, Zigbee2MQTT may have restarted, or the MQTT user may not publish on zigbee2mqtt/bridge/request/#'
 		);
 		await vi.advanceTimersByTimeAsync(1000);
 		await assertion;

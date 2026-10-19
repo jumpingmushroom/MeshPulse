@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, gt, ne, notInArray } from 'drizzle-orm';
 import type { Config } from '../config';
 import type { Db } from '../db/index';
 import { issues, scanLinks, scans } from '../db/schema';
@@ -15,10 +15,14 @@ export type RunResult = { status: 'ok' | 'failed' | 'skipped'; reason?: string }
 
 const TIMEOUT = { networkmap: 600_000, coordinator_check: 60_000 };
 
+/** A networkmap row (any trigger, running included) started within the hour, or null. */
+const scanTooRecent = (db: Db, now: number) =>
+	db.select({ id: scans.id }).from(scans).where(and(eq(scans.kind, 'networkmap'), ne(scans.status, 'skipped'), gt(scans.startedAt, now - 3_600_000))).get() ? 'A scan ran less than an hour ago' : null;
+
 export async function runActive(deps: ActiveDeps, kind: Kind, trigger: 'scheduled' | 'manual', now: number): Promise<RunResult> {
 	const { db, state, requester, config } = deps;
 	const open = new Set(db.select().from(issues).where(ne(issues.state, 'resolved')).all().map((i) => issueKey(i.rule, i.ieee)));
-	const skip = activeGuard(state, open, now, requester.busy(kind));
+	const skip = activeGuard(state, open, now, requester.busy(kind), config.tz) ?? (kind === 'networkmap' ? scanTooRecent(db, now) : null);
 	if (skip) {
 		// one skipped row per day: later ticks update it rather than adding another
 		const last = db.select().from(scans).where(eq(scans.kind, kind)).orderBy(desc(scans.startedAt), desc(scans.id)).get();
@@ -27,15 +31,18 @@ export async function runActive(deps: ActiveDeps, kind: Kind, trigger: 'schedule
 		else db.insert(scans).values({ kind, trigger, startedAt: now, finishedAt: now, status: 'skipped', reason: skip }).run();
 		return { status: 'skipped', reason: skip };
 	}
+	// recorded before the request, so a restart mid-run leaves a row and the day is not scanned twice
+	const { id } = db.insert(scans).values({ kind, trigger, startedAt: now, status: 'running' }).returning({ id: scans.id }).get();
+	if (trigger === 'scheduled') setLastDay(db, kind, localDay(now, config.tz));
 	let res: RunResult;
 	try {
 		if (kind === 'coordinator_check') {
 			const missing = parseCoordinatorCheck(await requester.request(kind, {}, TIMEOUT[kind]));
-			db.insert(scans).values({ kind, trigger, startedAt: now, finishedAt: Date.now(), status: 'ok', missing }).run();
+			db.update(scans).set({ finishedAt: Date.now(), status: 'ok', missing }).where(eq(scans.id, id)).run();
 		} else {
 			const map = parseNetworkmap(await requester.request(kind, { type: 'raw', routes: false }, TIMEOUT[kind]));
 			db.transaction((tx) => {
-				const { id } = tx.insert(scans).values({ kind, trigger, startedAt: now, finishedAt: Date.now(), status: 'ok', nodes: map.nodes.length, links: map.links.length, missing: map.nodes.filter((n) => n.failed).map((n) => n.ieee) }).returning({ id: scans.id }).get();
+				tx.update(scans).set({ finishedAt: Date.now(), status: 'ok', nodes: map.nodes.length, links: map.links.length, missing: map.nodes.filter((n) => n.failed).map((n) => n.ieee) }).where(eq(scans.id, id)).run();
 				for (let i = 0; i < map.links.length; i += 100)
 					tx.insert(scanLinks).values(map.links.slice(i, i + 100).map((l) => ({ scanId: id, sourceIeee: l.source, targetIeee: l.target, lqi: l.lqi, depth: l.depth, relationship: l.relationship }))).run();
 			});
@@ -43,10 +50,9 @@ export async function runActive(deps: ActiveDeps, kind: Kind, trigger: 'schedule
 		res = { status: 'ok' };
 	} catch (e) {
 		const reason = e instanceof Error ? e.message : String(e);
-		db.insert(scans).values({ kind, trigger, startedAt: now, finishedAt: Date.now(), status: 'failed', reason }).run();
+		db.update(scans).set({ finishedAt: Date.now(), status: 'failed', reason }).where(eq(scans.id, id)).run();
 		res = { status: 'failed', reason };
 	}
-	if (trigger === 'scheduled') setLastDay(db, kind, localDay(now, config.tz));
 	return res;
 }
 
@@ -55,21 +61,21 @@ export function loadActive(db: Db): { missingRouters: string[] | null; scanFailS
 	const ok = !getSettings(db).activeCoordinatorCheck ? undefined
 		: db.select().from(scans).where(and(eq(scans.kind, 'coordinator_check'), eq(scans.status, 'ok'))).orderBy(desc(scans.startedAt), desc(scans.id)).get();
 	// manual failures say nothing about the nightly scan; an ok manual scan does clear it
-	const recent = db.select({ status: scans.status, trigger: scans.trigger }).from(scans).where(and(eq(scans.kind, 'networkmap'), ne(scans.status, 'skipped'))).orderBy(desc(scans.startedAt), desc(scans.id)).limit(50).all()
+	const recent = db.select({ status: scans.status, trigger: scans.trigger }).from(scans).where(and(eq(scans.kind, 'networkmap'), notInArray(scans.status, ['skipped', 'running']))).orderBy(desc(scans.startedAt), desc(scans.id)).limit(50).all()
 		.filter((r) => r.status === 'ok' || r.trigger === 'scheduled');
 	const firstOk = recent.findIndex((r) => r.status === 'ok');
-	return { missingRouters: ok?.missing ?? null, scanFailStreak: firstOk === -1 ? recent.length : firstOk };
+	return { missingRouters: ok?.missing ?? null, scanFailStreak: !getSettings(db).activeNetworkScan ? 0 : firstOk === -1 ? recent.length : firstOk };
 }
 
-/** Starts a manual network scan without awaiting it; refused by the guard, when the scan is off, or within 60 min of the last manual one. */
+/** Starts a manual network scan without awaiting it; refused by the guard, when the scan is off, or within 60 min of any scan. */
 export async function requestManualScan(deps: ActiveDeps, now: number): Promise<{ ok: true } | { ok: false; reason: string }> {
-	const { db, state, requester } = deps;
+	const { db, state, requester, config } = deps;
 	if (!getSettings(db).activeNetworkScan) return { ok: false, reason: 'The network scan is off' };
 	const open = new Set(db.select().from(issues).where(ne(issues.state, 'resolved')).all().map((i) => issueKey(i.rule, i.ieee)));
-	const reason = activeGuard(state, open, now, requester.busy('networkmap'));
+	const reason = activeGuard(state, open, now, requester.busy('networkmap'), config.tz);
 	if (reason) return { ok: false, reason };
-	const last = db.select().from(scans).where(and(eq(scans.kind, 'networkmap'), eq(scans.trigger, 'manual'), ne(scans.status, 'skipped'))).orderBy(desc(scans.startedAt)).get();
-	if (last && now - last.startedAt < 3_600_000) return { ok: false, reason: 'A manual scan ran less than an hour ago' };
+	const recent = scanTooRecent(db, now);
+	if (recent) return { ok: false, reason: recent };
 	// runActive reaches request() synchronously, so busy() is already true when this returns
 	void runActive(deps, 'networkmap', 'manual', now).catch((e) => console.error('active: manual scan failed', e));
 	return { ok: true };

@@ -72,19 +72,19 @@ describe('activeGuard', () => {
 	};
 	it('returns the first matching reason', () => {
 		const s = healthy();
-		expect(activeGuard(s, new Set(), now, false)).toBeNull();
-		expect(activeGuard(s, new Set(), now, true)).toBe('A request is already running');
+		expect(activeGuard(s, new Set(), now, false, TZ)).toBeNull();
+		expect(activeGuard(s, new Set(), now, true, TZ)).toBe('A request is already running');
 		s.bridge.restartedAt = now - 30 * 60_000;
-		expect(activeGuard(s, new Set(), now, true)).toBe('Zigbee2MQTT or MeshPulse restarted less than an hour ago');
-		expect(activeGuard(s, new Set(['network.storm|']), now, true)).toBe('An outage is open (network.storm)');
+		expect(activeGuard(s, new Set(), now, true, TZ)).toBe('Zigbee2MQTT or MeshPulse restarted less than an hour ago — try again after 05:30');
+		expect(activeGuard(s, new Set(['network.storm|']), now, true, TZ)).toBe('An outage is open (network.storm)');
 		s.bridge.state = 'offline';
-		expect(activeGuard(s, new Set(['network.storm|']), now, true)).toBe('Zigbee2MQTT bridge is not online');
+		expect(activeGuard(s, new Set(['network.storm|']), now, true, TZ)).toBe('Zigbee2MQTT bridge is not online');
 		s.monitor.connected = false;
-		expect(activeGuard(s, new Set(), now, true)).toBe('MQTT is disconnected');
+		expect(activeGuard(s, new Set(), now, true, TZ)).toBe('MQTT is disconnected');
 	});
 	it('treats MeshPulse starting less than an hour ago as a restart', () => {
 		const s = healthy();
 		s.monitor.startedAt = now - 10 * 60_000;
-		expect(activeGuard(s, new Set(), now, false)).toBe('Zigbee2MQTT or MeshPulse restarted less than an hour ago');
+		expect(activeGuard(s, new Set(), now, false, TZ)).toBe('Zigbee2MQTT or MeshPulse restarted less than an hour ago — try again after 05:50');
 	});
 });

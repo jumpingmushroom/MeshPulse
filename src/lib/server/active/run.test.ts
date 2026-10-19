@@ -102,7 +102,7 @@ describe('loadActive', () => {
 		const loop = startActive(d);
 		await vi.advanceTimersByTimeAsync(3 * 60_000);
 		expect(d.req).toHaveBeenCalledTimes(1);
-		expect(d.db.select().from(scans).all()).toEqual([]);
+		expect(d.db.select().from(scans).all()).toMatchObject([{ status: 'running', trigger: 'scheduled', finishedAt: null }]);
 		loop.stop();
 		vi.useRealTimers();
 	});
@@ -205,7 +205,7 @@ describe('requestManualScan', () => {
 		expect(d.db.select().from(scans).get()).toMatchObject({ trigger: 'manual', status: 'ok' });
 		expect(lastDay(d.db, 'networkmap')).toBe('');
 		const r = await requestManualScan(d, NOW + 59 * 60_000);
-		expect(r).toEqual({ ok: false, reason: 'A manual scan ran less than an hour ago' });
+		expect(r).toEqual({ ok: false, reason: 'A scan ran less than an hour ago' });
 		d.req.mockResolvedValueOnce(MAP());
 		expect(await requestManualScan(d, NOW + 61 * 60_000)).toEqual({ ok: true });
 		expect(d.req).toHaveBeenCalledTimes(2);
@@ -213,15 +213,75 @@ describe('requestManualScan', () => {
 });
 
 describe('loadActive scanFailStreak', () => {
-	const fail = (d: ReturnType<typeof setup>, trigger: 'scheduled' | 'manual', at: number, status: 'ok' | 'failed' | 'skipped' = 'failed') =>
+	const fail = (d: ReturnType<typeof setup>, trigger: 'scheduled' | 'manual', at: number, status: 'ok' | 'failed' | 'skipped' | 'running' = 'failed') =>
 		d.db.insert(scans).values({ kind: 'networkmap', trigger, startedAt: at, finishedAt: at, status }).run();
+
+	it('is 0 while the scan is off, and ignores a running row', () => {
+		const d = setup();
+		fail(d, 'scheduled', 1); fail(d, 'scheduled', 2); fail(d, 'scheduled', 3);
+		expect(loadActive(d.db).scanFailStreak).toBe(0);
+		saveSettings(d.db, { activeNetworkScan: true });
+		fail(d, 'scheduled', 4, 'running');
+		expect(loadActive(d.db).scanFailStreak).toBe(3);
+	});
 
 	it('counts scheduled failures since the last ok, ignoring manual failures and skips', () => {
 		const d = setup();
+		saveSettings(d.db, { activeNetworkScan: true });
 		fail(d, 'scheduled', 1, 'ok');
 		fail(d, 'scheduled', 2); fail(d, 'scheduled', 3); fail(d, 'manual', 4); fail(d, 'scheduled', 5, 'skipped'); fail(d, 'scheduled', 6);
 		expect(loadActive(d.db).scanFailStreak).toBe(3);
 		fail(d, 'manual', 7, 'ok');
 		expect(loadActive(d.db).scanFailStreak).toBe(0);
+	});
+});
+
+describe('run records', () => {
+	it('inserts a running row at start, sets the day, and closes the row at the end', async () => {
+		let release: (v: unknown) => void = () => {};
+		const d = setup(() => new Promise((r) => { release = r; }));
+		const p = runActive(d, 'networkmap', 'scheduled', NOW);
+		expect(d.db.select().from(scans).all()).toMatchObject([{ status: 'running', startedAt: NOW, finishedAt: null }]);
+		expect(lastDay(d.db, 'networkmap')).toBe('2026-10-20');
+		release(MAP());
+		await p;
+		const rows = d.db.select().from(scans).all();
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({ status: 'ok', nodes: 3, links: 2 });
+		expect(rows[0].finishedAt).not.toBeNull();
+		expect(d.db.select().from(scanLinks).all()).toHaveLength(2);
+	});
+
+	it('a restart mid-run leaves a failed row and the scheduled scan does not run again that day', async () => {
+		vi.useFakeTimers({ now: NOW });
+		const d = setup(() => new Promise(() => {}));
+		saveSettings(d.db, { activeNetworkScan: true });
+		void runActive(d, 'networkmap', 'scheduled', NOW); // the process dies here
+		const after = setup(async () => MAP());
+		const restarted = { ...after, db: d.db };
+		const loop = startActive(restarted);
+		await vi.advanceTimersByTimeAsync(5 * 60_000);
+		expect(restarted.req).not.toHaveBeenCalled();
+		expect(d.db.select().from(scans).all()).toMatchObject([{ status: 'failed', reason: 'MeshPulse restarted during the run' }]);
+		expect(d.db.select().from(scans).get()!.finishedAt).not.toBeNull();
+		loop.stop();
+		vi.useRealTimers();
+	});
+
+	it('the manual limit counts a running row', async () => {
+		const d = setup(async () => MAP());
+		saveSettings(d.db, { activeNetworkScan: true });
+		d.db.insert(scans).values({ kind: 'networkmap', trigger: 'scheduled', startedAt: NOW - 10 * 60_000, status: 'running' }).run();
+		expect(await requestManualScan(d, NOW)).toEqual({ ok: false, reason: 'A scan ran less than an hour ago' });
+		expect(d.req).not.toHaveBeenCalled();
+	});
+
+	it('a scheduled scan is skipped, day left open, when a scan started less than an hour ago', async () => {
+		const d = setup(async () => MAP());
+		d.db.insert(scans).values({ kind: 'networkmap', trigger: 'manual', startedAt: NOW - 30 * 60_000, finishedAt: NOW - 25 * 60_000, status: 'ok' }).run();
+		expect(await runActive(d, 'networkmap', 'scheduled', NOW)).toEqual({ status: 'skipped', reason: 'A scan ran less than an hour ago' });
+		expect(d.req).not.toHaveBeenCalled();
+		expect(lastDay(d.db, 'networkmap')).toBe('');
+		expect((await runActive(d, 'networkmap', 'scheduled', NOW + 31 * 60_000)).status).toBe('ok');
 	});
 });
