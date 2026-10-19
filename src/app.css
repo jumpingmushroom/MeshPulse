@@ -146,7 +146,9 @@ body { margin: 0; }
 .nav-end { margin-left: auto; display: flex; align-items: center; gap: var(--space-4); }
 @media (max-width: 760px) {
   .topnav { flex-wrap: wrap; height: auto; padding: var(--space-3) var(--space-6) 0; row-gap: 0; }
-  .navlinks { order: 3; width: 100%; height: 42px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--space-6) * -1); padding: 0 var(--space-4); width: calc(100% + var(--space-6) * 2); }
+  /* the <nav> is the flex item, so it must be the one that scrolls */
+  .topnav nav { order: 3; min-width: 0; overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--space-6) * -1); padding: 0 var(--space-4); width: calc(100% + var(--space-6) * 2); }
+  .navlinks { height: 42px; width: max-content; }
   .navlinks a { white-space: nowrap; }
   .nav-end .signout-label { display: none; }
 }

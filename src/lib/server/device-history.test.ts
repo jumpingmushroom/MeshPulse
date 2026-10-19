@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { openDb } from './db';
-import { devices, issues, samples } from './db/schema';
+import { devices, issues, samples, samplesHourly } from './db/schema';
 import { deviceCharts, noDataSpans } from './device-history';
 import { DEFAULT_SETTINGS } from './settings';
 
@@ -87,5 +87,19 @@ describe('deviceCharts gaps', () => {
 		const c = deviceCharts(db, '0x9', '24h', DEFAULT_SETTINGS, now);
 		expect(c.lqi.maxGapMs).toBe(Infinity);
 		expect(c.lqi.gaps).toContainEqual({ from: now - 4 * 3_600_000, to: now - 2 * 3_600_000 });
+	});
+	it('shows a no-data span on the message charts as null hours and a gap', () => {
+		const db = openDb(':memory:');
+		const H = 3_600_000;
+		const now = 1_760_000_000_000;
+		const a = Math.floor(now / H) * H - 10 * H;
+		db.insert(samplesHourly).values([a, a + 3 * H, a + 4 * H].map((hour) => ({ ieee: '0xa', hour, msgCount: 60 }))).run();
+		const c = deviceCharts(db, '0xa', '7d', DEFAULT_SETTINGS, now);
+		const v = (t: number) => c.msgsHour.points.find((p) => p.t === t)?.v;
+		expect([v(a), v(a + H), v(a + 2 * H), v(a + 3 * H)]).toEqual([60, null, null, 60]);
+		expect(c.msgsHour.gaps).toContainEqual({ from: a + H, to: a + 3 * H });
+		expect(c.msgs.gaps).toEqual(c.msgsHour.gaps);
+		expect(c.msgs.maxGapMs).toBe(Infinity);
+		expect(c.msgsHour.maxGapMs).toBe(Infinity);
 	});
 });

@@ -59,7 +59,6 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 		: hourly.map((h) => ({ t: h.hour, v: h.lqiAvg, lo: h.lqiMin, hi: h.lqiMax }));
 	const battery: Point[] = fromRaw ? raw.map((s) => ({ t: s.ts, v: s.battery })) : hourly.map((h) => ({ t: h.hour, v: h.batteryMin }));
 	const voltage: Point[] = fromRaw ? raw.map((s) => ({ t: s.ts, v: s.voltage })) : hourly.map((h) => ({ t: h.hour, v: h.voltageMin }));
-	const msgsAt = (f: (n: number) => number) => fillHours(hourly.map((h) => ({ t: h.hour, v: f(h.msgCount) })), hourStart(t1) - H);
 
 	const inWin = db.select().from(events).where(and(eq(events.ieee, ieee), eq(events.kind, 'availability'), gte(events.ts, t0)))
 		.orderBy(asc(events.ts)).all();
@@ -76,9 +75,12 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 		rolledHours: rolled, firstRolledHour: first, currentHour: hourStart(t1)
 	}, t0, t1, settings.graceMin * 60_000);
 
+	// hours with no row inside a no-data span are unknown, not zero
+	const have = new Set(hourly.map((h) => h.hour));
+	const msgsAt = (f: (n: number) => number) => fillHours(hourly.map((h) => ({ t: h.hour, v: f(h.msgCount) })), hourStart(t1) - H)
+		.map((p) => !have.has(p.t) && gaps.some((s) => s.from < p.t + H && s.to > p.t) ? { ...p, v: null } : p);
+
 	const lqiMean = db.select().from(baselines).where(and(eq(baselines.ieee, ieee), eq(baselines.metric, 'lqi_mean'))).get()?.value ?? null;
-	// sleepy sensors report less often than the default gap; don't break their line between normal reports
-	const gap = (min: number) => Math.max(min, 3 * (d?.typicalGapMs ?? 0));
 	const g = { t0, t1 };
 	const latest = (points: Point[], f: (v: number) => string) => {
 		const v = points.findLast((p) => p.v !== null && Number.isFinite(p.v))?.v;
@@ -103,7 +105,7 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 			{ y: settings.batteryLowPct, label: `Low ${settings.batteryLowPct} %` }, { y: settings.batteryCriticalPct, label: `Critical ${settings.batteryCriticalPct} %` }]) : null,
 		voltage: batteryPowered ? chart('Voltage', 'V', voltage, v0, v1, formatVoltage, Infinity, gaps,
 			voltage.some((p) => p.v !== null) ? [{ y: settings.voltageLow, label: `Coin cell low ${settings.voltageLow} V` }] : []) : null,
-		msgs: chart('Messages per minute', '/min', perMin, 0, top(perMin), (v) => v.toFixed(1), gap(3 * H), []),
-		msgsHour: { ...chart('Messages per hour', '', perHour, 0, top(perHour), round, gap(3 * H), []), integer: true }
+		msgs: chart('Messages per minute', '/min', perMin, 0, top(perMin), (v) => v.toFixed(1), Infinity, gaps),
+		msgsHour: { ...chart('Messages per hour', '', perHour, 0, top(perHour), round, Infinity, gaps), integer: true }
 	};
 }
