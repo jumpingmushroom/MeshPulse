@@ -211,6 +211,15 @@ describe('computeBaselines', () => {
 			expect(get(db, IEEE, 'battery_drop')!.value).toBeCloseTo(38 - (30 - (10 * 23) / 24), 5);
 		});
 
+		it('no battery_days_left for a rechargeable device, but battery_drop still', () => {
+			const { db } = setup();
+			db.insert(devices).values({ ieee: IEEE, powerSource: 'Battery', tags: { rechargeable: true } }).run();
+			battery(db, T - 10 * D, 10, 80, 1);
+			computeBaselines(db, T);
+			expect(get(db, IEEE, 'battery_days_left')).toBeUndefined();
+			expect(get(db, IEEE, 'battery_drop')).toBeDefined();
+		});
+
 		it('deletes a stale row and ignores mains devices', () => {
 			const { db } = setup();
 			addDevice(db);

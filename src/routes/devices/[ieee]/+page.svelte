@@ -77,9 +77,9 @@
 				<section class="panel panel-pad stack" style="gap:11px" aria-labelledby="dev-bat">
 					<h2 id="dev-bat" class="muted" style="font-size:12px;font-weight:500">Battery forecast</h2>
 					<p style="font-size:20px;font-weight:500;letter-spacing:-0.01em;text-wrap:pretty">
-						{data.daysLeft !== null ? `${formatDaysLeft(data.daysLeft).replace(/^about/, 'About')} until ${data.targetPct} %` : 'No forecast yet'}
+						{d.rechargeable ? 'No forecast' : data.daysLeft !== null ? `${formatDaysLeft(data.daysLeft).replace(/^about/, 'About')} until ${data.targetPct} %` : 'No forecast yet'}
 					</p>
-					<p class="muted" style="font-size:13px">{empty ? `Empty around ${empty}.` : 'Not enough battery readings yet.'}</p>
+					<p class="muted" style="font-size:13px">{d.rechargeable ? 'Rechargeable batteries stay level and then drop fast, so MeshPulse warns on a sudden drop instead.' : empty ? `Empty around ${empty}.` : 'Not enough battery readings yet.'}</p>
 					<hr class="rule" />
 					<dl class="kv">
 						<dt>Now</dt><dd>{d.battery !== null ? `${Math.round(d.battery)} %` : '—'}{d.voltage !== null ? ` · ${formatVoltage(d.voltage)} V` : ''}</dd>

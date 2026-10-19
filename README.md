@@ -28,7 +28,8 @@ These rules work from hourly rollups of link quality, battery, and message count
 | Degrading link (`lqi.degrading`) | The 24-hour average is below the device's own 7-day baseline. | 25% below |
 | Route failures (`route.failures`) | Commands to a device fail. Failed availability pings and commands sent while the device is offline don't count for a single device. | 5 in 24 hours: Warning; 20: Critical |
 | Network route errors (`network.route_errors`) | Route errors across the network exceed the normal hourly rate. | More than 3 times normal and at least 10 per hour |
-| Battery forecast (`battery.forecast`) | The battery is forecast to reach 10% soon. Shown in the interface only; it never notifies. | 21 days |
+| Battery forecast (`battery.forecast`) | The battery is forecast to reach 10% soon. Shown in the interface only; it never notifies. Not for rechargeable devices. | 21 days |
+| Rechargeable dropping (`battery.dropping`) | A device tagged rechargeable has lost many points since its battery went in. Warning. | 15 points |
 
 Needs history: the first rollup appears after the first full hour. Degrading link and network route errors start after 3 days of history, and the battery forecast needs 7 days since the last battery swap. You can change every threshold in the **Thresholds** section of **Settings**.
 
@@ -55,6 +56,8 @@ Phase 3 rules work from live message counts and `bridge/health` data. Thresholds
 The storm rules need 3 days of history for a baseline. The rules that depend on announces, leaves, or message rates don't run during the grace period (15 minutes by default) after a MeshPulse or Zigbee2MQTT restart.
 
 If a device is expected to send many messages, such as an mmWave presence sensor, open its page and turn on **Chatty device**. A chatty device is never reported as a dominant device.
+
+Rechargeable NiMH batteries (such as IKEA LADDA) run at 1.2 V, so most devices report them at 30-60 % even when fully charged, then drop quickly near empty. Turn on **Rechargeable battery** on the device page: the device then uses the rechargeable thresholds (low at 10 %, critical at 5 %, OK again above 20 %), warns when the level drops 15 points since the battery went in, and gets no forecast.
 
 ### Whole-network outages
 
