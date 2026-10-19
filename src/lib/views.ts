@@ -100,15 +100,28 @@ export const EVIDENCE_LABELS: Record<string, string> = {
 	threshold: 'Threshold', clearAbove: 'Clears above', baseline: 'Baseline', baselineDays: 'Baseline days',
 	battery: 'Battery', voltage: 'Voltage', daysLeft: 'Days left', basedOnDays: 'Based on days', count: 'Count',
 	perMin: 'Messages per minute', factor: 'Factor', windowH: 'Window (h)', windowMin: 'Window (min)', changes: 'Changes',
-	announces: 'Announces', leftAt: 'Left at', failedAt: 'Failed at', names: 'Devices', devices: 'Devices', downSince: 'Down since',
+	announces: 'Announces', leftAt: 'Left at', failedAt: 'Failed at', names: 'Devices', devices: 'Device count', top: 'Top senders', downSince: 'Down since',
 	routersOffline: 'Routers offline', routersTotal: 'Routers total', lastReportAt: 'Last report', typicalGapH: 'Typical gap (h)'
 };
 
 /** Issue evidence as readable [key, value] pairs: *At/*Since are times, *Ms are durations, nulls hidden. */
-export function evidenceRows(evidence: Record<string, unknown>, tz: string): [string, string][] {
-	return Object.entries(evidence).flatMap(([k, v]): [string, string][] => {
+export function evidenceRows(evidence: Record<string, unknown>, tz: string, byName: Map<string, string> = new Map()): [string, string | { text: string; href: string }[]][] {
+	// device lists ("names": string[], "top": {name, perMin}[]) become links when every name resolves to an ieee
+	const links = (v: unknown) => {
+		if (!Array.isArray(v) || !v.length) return null;
+		const out = v.map((x) => {
+			const name = typeof x === 'string' ? x : x && typeof x === 'object' && typeof (x as { name?: unknown }).name === 'string' ? (x as { name: string }).name : null;
+			const ieee = name === null ? undefined : byName.get(name);
+			const rate = x && typeof x === 'object' ? (x as { perMin?: unknown }).perMin : undefined;
+			return ieee === undefined ? null : { text: rate === undefined ? name! : `${name} (${rate}/min)`, href: `/devices/${ieee}` };
+		});
+		return out.every((x) => x !== null) ? out : null;
+	};
+	return Object.entries(evidence).flatMap(([k, v]): [string, string | { text: string; href: string }[]][] => {
 		if (v === null || v === undefined) return [];
 		const l = EVIDENCE_LABELS[k] ?? k;
+		const ls = links(v);
+		if (ls) return [[l, ls]];
 		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[l, formatTime(v, tz)]];
 		if (typeof v === 'number' && k.endsWith('Ms')) return [[l, formatDuration(v)]];
 		return [[l, typeof v === 'object' ? JSON.stringify(v) : String(v)]];
@@ -234,6 +247,12 @@ export function batteriesDue(rows: { ieee: string; days: number }[], state: Pick
 		const d = state.devices.get(r.ieee);
 		return d && d.removedAt === null && r.days <= within ? [{ name: d.friendlyName, days: Math.round(r.days) }] : [];
 	}).sort((a, b) => a.days - b.days);
+}
+
+/** The device an issue page may act on: present and not removed. */
+export function liveDevice<D extends { removedAt: number | null }>(devices: Map<string, D>, ieee: string | null): D | undefined {
+	const d = ieee ? devices.get(ieee) : undefined;
+	return d && d.removedAt === null ? d : undefined;
 }
 
 /** Which device chart best shows the evidence for a rule. */

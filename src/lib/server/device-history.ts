@@ -15,7 +15,7 @@ export type ChartProps = {
 };
 
 /** Charts for one device over `range` ending at `now`. battery/voltage are null for mains devices. */
-export function deviceCharts(db: Db, ieee: string, range: Range, settings: Settings, now: number): {
+export function deviceCharts(db: Db, ieee: string, range: Range, settings: Settings, now: number, batteryPowered?: boolean): {
 	lqi: ChartProps; battery: ChartProps | null; voltage: ChartProps | null; msgs: ChartProps; msgsHour: ChartProps;
 } {
 	const t1 = now;
@@ -48,7 +48,7 @@ export function deviceCharts(db: Db, ieee: string, range: Range, settings: Setti
 		refs: { y: number; label: string }[] = []): ChartProps =>
 		({ ...g, maxGapMs, title, unit, points, y0, y1, refs, latest: latest(points, f), summary: summarise(title, unit, points) });
 	const [v0, v1] = autoRange(voltage.map((p) => p.v));
-	const batteryPowered = d?.powerSource === 'Battery' || (last?.battery ?? null) !== null || (last?.voltage ?? null) !== null;
+	batteryPowered ??= d?.powerSource === 'Battery' || (last?.battery ?? null) !== null || (last?.voltage ?? null) !== null;
 	const perHour = msgsAt((n) => n);
 	const perMin = msgsAt((n) => n / 60);
 	const top = (ps: Point[]) => Math.max(1, ...ps.map((p) => p.v ?? 0));

@@ -21,10 +21,10 @@ export const load: PageServerLoad = ({ params, url }) => {
 	const t1 = Date.now();
 	const settings = getSettings(db);
 
-	const c = deviceCharts(db, d.ieee, range, settings, t1);
 	const baseline = (metric: 'battery_days_left') =>
 		db.select().from(baselines).where(and(eq(baselines.ieee, d.ieee), eq(baselines.metric, metric))).get()?.value ?? null;
 	const batteryPowered = d.powerSource === 'Battery' || d.battery !== null || d.voltage !== null;
+	const c = deviceCharts(db, d.ieee, range, settings, t1, batteryPowered);
 
 	return {
 		range,

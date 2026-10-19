@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
+import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -190,5 +190,22 @@ describe('chartFor', () => {
 		expect(chartFor('device.storm')).toBe('msgs');
 		expect(chartFor('device.dominant')).toBe('msgs');
 		expect(chartFor('bridge.offline')).toBeNull();
+	});
+});
+
+describe('evidence links and liveDevice', () => {
+	it('links device lists and falls back to text when a name is unknown', () => {
+		const m = new Map([['a', '0x1'], ['b', '0x2']]);
+		expect(evidenceRows({ names: ['a', 'b'], top: [{ name: 'a', perMin: 12 }] }, 'UTC', m)).toEqual([
+			['Devices', [{ text: 'a', href: '/devices/0x1' }, { text: 'b', href: '/devices/0x2' }]],
+			['Top senders', [{ text: 'a (12/min)', href: '/devices/0x1' }]]
+		]);
+		expect(evidenceRows({ names: ['a', 'zz'] }, 'UTC', m)).toEqual([['Devices', '["a","zz"]']]);
+	});
+	it('treats a removed device as no device', () => {
+		const m = new Map([['0x1', { removedAt: null }], ['0x2', { removedAt: 5 }]]);
+		expect(liveDevice(m, '0x1')).toBeDefined();
+		expect(liveDevice(m, '0x2')).toBeUndefined();
+		expect(liveDevice(m, null)).toBeUndefined();
 	});
 });

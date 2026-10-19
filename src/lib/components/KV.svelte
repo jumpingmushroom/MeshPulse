@@ -3,7 +3,7 @@
 </script>
 
 <dl class="kv">
-	{#each rows as [k, v] (k)}
+	{#each rows as [k, v], n (n)}
 		<dt>{k}</dt>
 		<dd>{#if typeof v === 'string'}{v}{:else}{#each v as l, i (l.href)}{#if i}, {/if}<a href={l.href}>{l.text}</a>{/each}{/if}</dd>
 	{/each}

@@ -10,7 +10,7 @@
 	let { data, form }: PageProps = $props();
 	const i = $derived(data.issue);
 	const muted = $derived(data.device?.mutedUntil && data.device.mutedUntil > data.now ? data.device.mutedUntil : null);
-	const evidence = $derived(evidenceRows(data.issue.evidence ?? {}, data.tz));
+	const evidence = $derived(evidenceRows(data.issue.evidence ?? {}, data.tz, new Map(Object.entries(data.byName))));
 	const STATE = { open: 'Open', acknowledged: 'Acknowledged', resolved: 'Resolved' } as const;
 </script>
 
