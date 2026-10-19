@@ -25,5 +25,6 @@ vite.config.ts.timestamp-*
 # MeshPulse
 .superpowers/
 /data
+secret.key
 *.db*
 captures/

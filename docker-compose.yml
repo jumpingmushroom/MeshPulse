@@ -1,6 +1,7 @@
 services:
   meshpulse:
-    build: .
+    image: ghcr.io/jumpingmushroom/meshpulse:latest
+    # build: .   # uncomment (and comment out image) to build from source
     restart: unless-stopped
     env_file: .env
     volumes:

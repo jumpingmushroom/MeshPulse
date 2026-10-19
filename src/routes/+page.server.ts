@@ -7,7 +7,7 @@ import { networkScore } from '../lib/score';
 import { getSettings } from '../lib/server/settings';
 import { loadWifiSnapshot } from '../lib/server/wifi/snapshot';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
-import { batteriesDue, banner, counters, learning, peakQuiet, formatDuration, sortIssues, wifiApName } from '../lib/views';
+import { batteriesDue, banner, counters, setupNotice, learning, peakQuiet, formatDuration, sortIssues, wifiApName } from '../lib/views';
 import type { PageServerLoad } from './$types';
 
 const H = 3_600_000;
@@ -35,6 +35,8 @@ export const load: PageServerLoad = () => {
 	return {
 		wifi: wifiSnap && { state: wifiState!, zigbeeChannel: wifiSnap.zigbeeChannel, overlap: wifiSnap.aps.filter((a) => a.overlaps).length },
 		...networkScore(open),
+		setup: setupNotice({ connected: state.monitor.connected, connectedAt: state.monitor.connectedAt, lastError: state.monitor.lastError,
+			bridgeSeen: bridge.state !== null || bridge.info !== null, mqttUrl: config.mqttUrl, baseTopic: config.baseTopic, now, startedAt: state.monitor.startedAt }),
 		banner: banner(list),
 		learning: learning(first, now),
 		peakQuiet: peakQuiet(msgs, config.tz),

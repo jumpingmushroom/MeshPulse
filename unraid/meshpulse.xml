@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>MeshPulse</Name>
-  <Repository>meshpulse:latest</Repository>
-  <Registry/>
+  <Repository>ghcr.io/jumpingmushroom/meshpulse:latest</Repository>
+  <Registry>https://github.com/jumpingmushroom/MeshPulse/pkgs/container/meshpulse</Registry>
   <Network>bridge</Network>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
@@ -20,9 +20,9 @@
   <Config Name="MQTT username" Target="MQTT_USERNAME" Default="" Mode="" Description="Read-only broker user (subscribe on zigbee2mqtt/#)" Type="Variable" Display="always" Required="false" Mask="false"/>
   <Config Name="MQTT password" Target="MQTT_PASSWORD" Default="" Mode="" Description="" Type="Variable" Display="always" Required="false" Mask="true"/>
   <Config Name="Z2M base topic" Target="Z2M_BASE_TOPIC" Default="zigbee2mqtt" Mode="" Description="" Type="Variable" Display="advanced" Required="false" Mask="false">zigbee2mqtt</Config>
-  <Config Name="Admin email" Target="ADMIN_EMAIL" Default="" Mode="" Description="Login created on first start" Type="Variable" Display="always" Required="true" Mask="false"/>
-  <Config Name="Admin password" Target="ADMIN_PASSWORD" Default="" Mode="" Description="Used only on first start; at least 8 characters" Type="Variable" Display="always" Required="true" Mask="true"/>
-  <Config Name="Secret key" Target="SECRET_KEY" Default="" Mode="" Description="At least 32 random characters (openssl rand -base64 32). Changing it logs everyone out and breaks the stored Discord webhook." Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Admin email" Target="ADMIN_EMAIL" Default="" Mode="" Description="Optional. Leave empty to create the admin account on the first visit to the web page." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Admin password" Target="ADMIN_PASSWORD" Default="" Mode="" Description="Optional. Leave empty to create the admin account on the first visit to the web page. At least 12 characters." Type="Variable" Display="always" Required="false" Mask="true"/>
+  <Config Name="Secret key" Target="SECRET_KEY" Default="" Mode="" Description="Optional. Leave empty to generate a key into the App Data folder (secret.key). If set, use at least 32 random characters. If this is already set, keep it: clearing or changing the key generates a new one, logs everyone out, and the stored Discord, Apprise and UniFi secrets can no longer be decrypted." Type="Variable" Display="advanced" Required="false" Mask="true"/>
   <Config Name="Time zone" Target="TZ" Default="Europe/Oslo" Mode="" Description="" Type="Variable" Display="advanced" Required="false" Mask="false">Europe/Oslo</Config>
   <Config Name="Public URL" Target="PUBLIC_URL" Default="" Mode="" Description="Optional. URL used in Discord links. If https, open MeshPulse only via that URL." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="Heartbeat URL" Target="HEARTBEAT_URL" Default="" Mode="" Description="Optional dead-man's switch (Uptime Kuma push URL). Can also be set in Settings." Type="Variable" Display="advanced" Required="false" Mask="true"/>

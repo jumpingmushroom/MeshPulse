@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, splitBatteries, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows } from './views';
+import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, splitBatteries, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows, setupNotice } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -269,5 +269,25 @@ describe('evidenceRows wifi', () => {
 		const wifi = [{ ap: 'bas-wap-upro-01', channel: 1, overlaps: true, cuTotal: 72, cuMaxHour: 80, changedAt: null }];
 		expect(evidenceRows({ wifi: [...wifi, { ...wifi[0], ap: 'b' }] }, 'UTC')).toEqual([['Wi-Fi at the time', 'bas-wap-upro-01 · channel 1 · overlaps Zigbee · 72 % now, 80 % max last hour\nb · channel 1 · overlaps Zigbee · 72 % now, 80 % max last hour']]);
 		expect(evidenceRows({ wifi: 'unavailable' }, 'UTC')).toEqual([['Wi-Fi at the time', 'Unavailable']]);
+	});
+});
+
+describe('setupNotice', () => {
+	const base = { connected: true, connectedAt: 0, lastError: null, bridgeSeen: false, mqttUrl: 'mqtt://user:pass@10.0.0.2:1883', baseTopic: 'zigbee2mqtt', now: 0, startedAt: 0 };
+	it('explains an unreachable broker without credentials', () => {
+		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000, lastError: 'connect ECONNREFUSED 10.0.0.2:1883' })).toEqual({ kind: 'mqtt', text: "MeshPulse can't reach the MQTT broker at mqtt://10.0.0.2:1883: connect ECONNREFUSED 10.0.0.2:1883. Check the URL, username and password." });
+		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000 })!.text).toMatch(/at mqtt:\/\/10\.0\.0\.2:1883\. Check the URL, username and password\.$/);
+		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000, mqttUrl: 'nope' })!.text).toContain('at the configured URL');
+	});
+	it('waits 15 s, and only for a broker never reached', () => {
+		const down = { ...base, connected: false, connectedAt: null };
+		expect(setupNotice({ ...down, now: 14_000 })).toBeNull();
+		expect(setupNotice({ ...down, now: 15_000 })!.kind).toBe('mqtt');
+		expect(setupNotice({ ...base, connected: false, connectedAt: 1000, now: 60_000 })).toBeNull();
+	});
+	it('waits 120 s before saying nothing arrived from Zigbee2MQTT', () => {
+		expect(setupNotice({ ...base, now: 119_000 })).toBeNull();
+		expect(setupNotice({ ...base, now: 120_000 })).toEqual({ kind: 'z2m', text: 'Connected, but nothing from Zigbee2MQTT on zigbee2mqtt/bridge/…. Check Z2M_BASE_TOPIC (now zigbee2mqtt) and that the MQTT user may subscribe to zigbee2mqtt/#.' });
+		expect(setupNotice({ ...base, now: 600_000, bridgeSeen: true })).toBeNull();
 	});
 });

@@ -24,6 +24,8 @@ describe('auth', () => {
 		expect(await ensureAdmin(auth, undefined, 'x')).toBe('skipped');
 		expect(await ensureAdmin(auth, 'admin@example.com', 'correct-horse-battery')).toBe('created');
 		expect(await ensureAdmin(auth, 'admin@example.com', 'correct-horse-battery')).toBe('exists');
+		expect(await ensureAdmin(auth, 'other@x.io', 'twelve-chars-o')).toBe('exists');
+		expect(await (await auth.$context).internalAdapter.listUsers()).toHaveLength(1);
 	});
 
 	it('sign-up endpoint is rejected', async () => {
