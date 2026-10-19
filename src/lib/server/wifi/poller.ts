@@ -30,7 +30,7 @@ export async function pollWifi(deps: PollDeps, now: number): Promise<{ ok: true;
 		const prev = tx.select().from(wifiSamples).where(eq(wifiSamples.mac, ap.mac)).orderBy(desc(wifiSamples.ts)).limit(1).get();
 		tx.insert(wifiSamples).values({ ts: now, mac: ap.mac, channel: r.channel, width: r.width, cuTotal: r.cuTotal, cuSelfRx: r.cuSelfRx, cuSelfTx: r.cuSelfTx, numSta: r.numSta, txPower: r.txPower }).run();
 		if (prev && (prev.channel !== r.channel || prev.width !== r.width))
-			tx.insert(events).values({ ts: now, ieee: null, kind: 'wifi_channel', detail: { ap: ap.name, mac: ap.mac, from: prev.channel, to: r.channel, widthFrom: prev.width, widthTo: r.width } }).run();
+			tx.insert(events).values({ ts: now, ieee: null, kind: 'wifi_channel', detail: { ap: ap.name, mac: ap.mac, from: prev.channel, to: r.channel, fromWidth: prev.width, toWidth: r.width } }).run();
 	}
 	});
 	state.wifi = { lastOkAt: now, failures: 0, lastError: null };

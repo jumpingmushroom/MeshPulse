@@ -16,10 +16,11 @@
 	const errOf = (key: string) => errs.find((e) => e.field === key)?.message;
 	// after a failed save keep what the user typed
 	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
-	const wf = $derived(msg('wifi')?.values); // after a failed save/test keep what was typed (never the password)
+	const wf = $derived(msg('wifi')?.wifiValues); // after a failed save/test keep what was typed (never the password)
 	// editable copy of the saved areas; rows have a stable id so a rename keeps its APs. "Suggest" adds unsaved rows
 	// Initialised once: saving keeps what was typed (use:enhance does not reset), so other sections never wipe it
-	const init = initAreaRows(data.areas.areas, data.areas.aps); // svelte-ignore state_referenced_locally
+	// svelte-ignore state_referenced_locally
+	const init = initAreaRows(data.areas.areas, data.areas.aps);
 	let rows = $state(init.rows);
 	let apSel = $state(init.apSel); // mac -> row id
 	let seq = 0;
@@ -214,7 +215,7 @@
 			</section>
 			<section id="wifi" class="stack">
 				<h2>Wi-Fi (UniFi)</h2>
-				<p class="muted">Read-only: logs in to your UniFi controller every 5 minutes to read the 2.4 GHz channel and airtime of each access point. Use a local account without MFA. Off by default. The busy thresholds are under Thresholds.</p>
+				<p class="muted">Read-only: logs in to your UniFi controller every 5 minutes to read the 2.4 GHz channel and airtime of each access point. Use a local account without MFA. Off by default. The busy thresholds are under Thresholds. <a href="/wifi">Open the Wi-Fi page →</a></p>
 				<form method="post" action="?/saveWifi" class="stack" use:enhance={keep}>
 					<label class="toggle"><input name="wifiEnabled" type="checkbox" checked={wf ? !!wf.wifiEnabled : data.wifi.enabled} /><span class="track"></span>Enabled</label>
 					<div class="field-grid">

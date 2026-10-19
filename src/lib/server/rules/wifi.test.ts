@@ -26,7 +26,10 @@ describe('wifi rules', () => {
 		expect(wifiChannelOverlap(withWifi([]))).toEqual([]); // AP absent from the latest poll: resolves
 	});
 	it('holds on stale values and resolves once the channel moves', () => {
-		expect(wifiChannelOverlap(withWifi([{}], { fresh: false }))).toHaveLength(1);
+		const stale = withWifi([{}], { fresh: false });
+		expect(wifiChannelOverlap(stale)).toEqual([]); // stale data never opens an issue
+		stale.open.add(issueKey('wifi.channel_overlap', 'wifi:aa'));
+		expect(wifiChannelOverlap(stale)).toHaveLength(1);
 		expect(wifiChannelOverlap(withWifi([{ channel: 6, overlaps: false }]))).toEqual([]);
 	});
 	it('busy air fires at 15 min and holds until 30 min clear', () => {

@@ -21,7 +21,7 @@ function fake(routes: Record<string, Res | Res[] | Error>) {
     return {
       status: r.status,
       headers: r.headers ?? {},
-      body: JSON.stringify(r.body ?? {}),
+      body: typeof r.body === "string" ? r.body : JSON.stringify(r.body ?? {}),
     };
   };
   return { t, calls };
@@ -109,9 +109,9 @@ describe("createUnifi", () => {
     const u = mk(t);
     expect(await u.devices()).toEqual([]);
     expect(u.kind()).toBe("unifi-os");
-    expect(calls[0].body).toContain('"username":"u"');
-    expect(calls[1].headers["x-csrf-token"]).toBe("csrf1");
-    expect(calls[1].headers.cookie).toBe("TOKEN=abc");
+    expect(calls[1].body).toContain('"username":"u"');
+    expect(calls[2].headers["x-csrf-token"]).toBe("csrf1");
+    expect(calls[2].headers.cookie).toBe("TOKEN=abc");
     await u.devices();
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
   });
@@ -131,27 +131,32 @@ describe("createUnifi", () => {
     expect(u.kind()).toBe("network-app");
     expect(u.version()).toBeNull();
     expect(calls.map((c) => new URL(c.url).pathname)).toEqual([
+      "/",
       "/api/auth/login",
       "/api/login",
       "/api/s/abc123/stat/device",
     ]);
-    expect(calls[2].headers.cookie).toBe("unifises=s1");
+    expect(calls[3].headers.cookie).toBe("unifises=s1");
   });
   it("re-logins once on 401 then succeeds", async () => {
     const { t, calls } = fake({
       "POST /api/auth/login": login,
-      "GET /proxy/network/api/s/default/stat/device": [{ status: 401 }, ok],
+      "GET /proxy/network/api/s/default/stat/device": [ok, { status: 401 }, ok],
     });
-    await mk(t).devices();
+    const u = mk(t);
+    await u.devices();
+    await u.devices(); // expired session: one new login
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(2);
   });
   it("throws after a second 401", async () => {
     const { t, calls } = fake({
       "POST /api/auth/login": login,
-      "GET /proxy/network/api/s/default/stat/device": { status: 401 },
+      "GET /proxy/network/api/s/default/stat/device": [ok, { status: 401 }],
     });
-    await expect(mk(t).devices()).rejects.toThrow("Wrong user or password");
-    expect(calls).toHaveLength(4);
+    const u = mk(t);
+    await u.devices();
+    await expect(u.devices()).rejects.toThrow("Wrong user or password");
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(2);
   });
   it("wrong password", async () => {
     for (const status of [400, 401]) {
@@ -304,6 +309,87 @@ describe("createUnifi", () => {
     });
     await expect(mk(t).devices()).rejects.toThrow(
       "Unexpected stat/device response",
+    );
+  });
+  it("detects UniFi OS from the root page and never tries the classic login", async () => {
+    const { t, calls } = fake({
+      "GET /": { status: 200, body: "<html><title>UniFi OS</title></html>" },
+      "POST /api/auth/login": login,
+      "GET /proxy/network/api/s/default/stat/device": ok,
+    });
+    await mk(t).devices();
+    expect(calls.map((c) => `${c.method} ${new URL(c.url).pathname}`)).toEqual([
+      "GET /",
+      "POST /api/auth/login",
+      "GET /proxy/network/api/s/default/stat/device",
+    ]);
+    expect(calls[0].headers.cookie).toBeUndefined();
+  });
+  it("detects a Network Application by redirect, even when /api/auth/login answers 401", async () => {
+    for (const root of [
+      { status: 302, headers: { location: "/manage" } },
+      { status: 200, body: "<html>UniFi Network</html>" },
+    ]) {
+      const { t, calls } = fake({
+        "GET /": root,
+        "POST /api/auth/login": {
+          status: 401,
+          body: { meta: { msg: "api.err.LoginRequired" } },
+        },
+        "POST /api/login": {
+          status: 200,
+          headers: { "set-cookie": "unifises=s1; Path=/" },
+        },
+        "GET /api/s/default/stat/device": ok,
+      });
+      const u = mk(t);
+      await u.devices();
+      expect(u.kind()).toBe("network-app");
+      expect(calls.map((c) => new URL(c.url).pathname)).toEqual([
+        "/",
+        "/api/login",
+        "/api/s/default/stat/device",
+      ]);
+    }
+  });
+  it("still falls back when the root page misleads or is unknown", async () => {
+    // root says UniFi OS but only the classic login exists
+    const a = fake({
+      "GET /": { status: 200, body: "UniFi OS" },
+      "POST /api/login": { status: 200, headers: { "set-cookie": "s=1" } },
+      "GET /api/s/default/stat/device": ok,
+    });
+    const u = mk(a.t);
+    await u.devices();
+    expect(u.kind()).toBe("network-app");
+    // undetected controller answering 401 + LoginRequired at the UniFi OS path
+    const b = fake({
+      "POST /api/auth/login": { status: 401, body: { meta: { msg: "api.err.LoginRequired" } } },
+      "POST /api/login": { status: 200, headers: { "set-cookie": "s=1" } },
+      "GET /api/s/default/stat/device": ok,
+    });
+    const v = mk(b.t);
+    await v.devices();
+    expect(v.kind()).toBe("network-app");
+  });
+  it("one poll never logs in twice", async () => {
+    const { t, calls } = fake({
+      "POST /api/auth/login": login,
+      "GET /proxy/network/api/s/default/stat/device": { status: 401 },
+    });
+    await expect(mk(t).devices()).rejects.toThrow("Wrong user or password");
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
+  });
+  it("caps the response body at 5 MB", async () => {
+    const { t } = fake({
+      "POST /api/auth/login": login,
+      "GET /proxy/network/api/s/default/stat/device": {
+        status: 200,
+        body: "x".repeat(5 * 1024 * 1024 + 1),
+      },
+    });
+    await expect(mk(t).devices()).rejects.toThrow(
+      "Controller not reachable: response too large",
     );
   });
   it("logout posts to the right path and swallows errors", async () => {

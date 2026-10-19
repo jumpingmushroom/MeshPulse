@@ -47,14 +47,14 @@
 				<h2 id="wifi-band" class="muted" style="font-size:12px;font-weight:500">Band 2400–2484 MHz</h2>
 				<svg class="band" viewBox="0 0 {data.bandW} {height}" role="img"
 					aria-label={`2.4 GHz band. ${zc === null ? 'Zigbee channel unknown.' : `Zigbee channel ${zc}.`} ${data.band.bars.map((b) => `${b.name}${b.overlaps ? ' overlaps' : ''}`).join(', ')}.`}>
-					{#each data.band.bars as b (b.name + b.x + b.row)}
-						<rect class="bar" class:is-overlap={b.overlaps} stroke-dasharray={b.overlaps ? '4 2' : undefined} x={b.x} y={TOP + b.row * ROW} width={b.width} height={ROW - 4} rx="3" />
-						<text class="bar-label" x={b.x + 4} y={TOP + b.row * ROW + 12}><title>{b.name}{b.overlaps ? ' (overlaps Zigbee)' : ''}</title>{clip(b.name + (b.overlaps ? ' ⚠' : ''), b.width)}</text>
-					{/each}
 					{#if data.band.zigbee}
 						<line class="zb" x1={data.band.zigbee.x} x2={data.band.zigbee.x} y1="14" y2={height - AXIS} />
 						<text class="zb-label" x={data.band.zigbee.x} y="10" text-anchor="middle">Zigbee {zc}</text>
 					{/if}
+					{#each data.band.bars as b (b.name + b.x + b.row)}
+						<rect class="bar" class:is-overlap={b.overlaps} stroke-dasharray={b.overlaps ? '4 2' : undefined} x={b.x} y={TOP + b.row * ROW} width={b.width} height={ROW - 4} rx="3" />
+						<text class="bar-label" x={b.x + 4} y={TOP + b.row * ROW + 12}><title>{b.name}{b.overlaps ? ' (overlaps Zigbee)' : ''}</title>{clip(b.name + (b.overlaps ? ' ⚠' : ''), b.width)}</text>
+					{/each}
 					<line class="axis" x1="0" x2={data.bandW} y1={height - AXIS} y2={height - AXIS} />
 					{#each [1, 6, 11] as c (c)}<text class="tick" x={px(wifiMHz(c))} y={height - 4} text-anchor="middle">Wi-Fi {c}</text>{/each}
 				</svg>

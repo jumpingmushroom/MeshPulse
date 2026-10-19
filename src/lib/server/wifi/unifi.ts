@@ -30,6 +30,7 @@ export type Transport = (req: {
   body: string;
 }>;
 
+const MAX_BODY = 5 * 1024 * 1024;
 const BAD = "Unexpected stat/device response";
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj =>
@@ -85,7 +86,12 @@ function defaultTransport(): Transport {
         { method: req.method, headers: req.headers, rejectUnauthorized: false },
         (res) => {
           const chunks: Buffer[] = [];
-          res.on("data", (c: Buffer) => chunks.push(c));
+          let size = 0;
+          res.on("data", (c: Buffer) => {
+            size += c.length;
+            if (size > MAX_BODY) r.destroy(new Error("response too large"));
+            else chunks.push(c);
+          });
           res.on("error", reject);
           res.on("end", () =>
             resolve({
@@ -129,8 +135,9 @@ export function createUnifi(opts: {
     if (body !== undefined) headers["content-type"] = "application/json";
     if (cookie) headers.cookie = cookie;
     if (csrf) headers["x-csrf-token"] = csrf;
+    let res;
     try {
-      return await transport({
+      res = await transport({
         method,
         url: base + path,
         headers,
@@ -143,6 +150,9 @@ export function createUnifi(opts: {
         `Controller not reachable: ${opts.password ? reason.split(opts.password).join("***") : reason}`,
       );
     }
+    if (res.body.length > MAX_BODY)
+      throw new Error("Controller not reachable: response too large");
+    return res;
   }
 
   const header = (h: Record<string, string | string[]>, name: string) => {
@@ -151,18 +161,40 @@ export function createUnifi(opts: {
     return Array.isArray(v) ? v : v === undefined ? [] : [v];
   };
 
+  // Allowed requests (read-only): this unauthenticated GET of the root page (redirects not followed),
+  // login, stat/device and logout. Nothing else.
+  async function detect(): Promise<ControllerKind | null> {
+    try {
+      const res = await call("GET", "/");
+      if (res.status >= 300 && res.status < 400) return "network-app";
+      if (res.status === 200)
+        return /unifi\s*os/i.test(res.body) ? "unifi-os" : "network-app";
+    } catch {
+      /* unreachable: the login reports it */
+    }
+    return null;
+  }
+
   async function login() {
     cookie = "";
     csrf = "";
+    kind ??= await detect(); // only a guess: a 404 at its login path falls back to the other kind
     const creds = { username: opts.user, password: opts.password };
     const paths: [ControllerKind, string][] = [
       ["unifi-os", "/api/auth/login"],
       ["network-app", "/api/login"],
     ];
+    if (kind === "network-app") paths.reverse();
     for (const [k, path] of paths) {
-      if (kind && kind !== k) continue;
       const res = await call("POST", path, creds);
       if (res.status === 404) continue;
+      // a classic controller answers unknown /api/auth paths with a redirect or LoginRequired
+      if (
+        k === "unifi-os" &&
+        ((res.status >= 300 && res.status < 400) ||
+          /api\.err\.LoginRequired/.test(res.body))
+      )
+        continue;
       if (
         res.status >= 400 &&
         (res.status === 499 || /2fa|mfa/i.test(res.body))
@@ -194,8 +226,10 @@ export function createUnifi(opts: {
 
   return {
     async devices(): Promise<WifiAp[]> {
-      if (!kind || !cookie) await login();
+      const fresh = !kind || !cookie;
+      if (fresh) await login();
       let res = await fetchDevices();
+      if (res.status === 401 && fresh) throw new Error("Wrong user or password"); // just logged in: no second login
       if (res.status === 401) {
         await login();
         res = await fetchDevices();

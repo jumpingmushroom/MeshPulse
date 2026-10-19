@@ -16,8 +16,10 @@ describe('wifi config', () => {
 	it('an empty password keeps the stored one', () => {
 		const db = openDb(':memory:');
 		saveWifiConfig(db, 'k', input);
-		saveWifiConfig(db, 'k', { ...input, site: 'home', password: '' });
-		expect(getWifiConfig(db, 'k')).toEqual({ ...input, site: 'home' });
+		saveWifiConfig(db, 'k', { ...input, user: 'other', password: '' });
+		expect(getWifiConfig(db, 'k')).toEqual({ ...input, user: 'other' });
+		saveWifiConfig(db, 'k', { ...input, url: 'http://new', password: '' }); // another controller: never reused
+		expect(getWifiForm(db).passwordSet).toBe(false);
 	});
 	it('the page form never carries the password', () => {
 		const db = openDb(':memory:');

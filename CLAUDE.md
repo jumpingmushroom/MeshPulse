@@ -14,7 +14,7 @@ Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issu
 
 ## Architecture
 
-One Node process (SvelteKit, adapter-node). `src/hooks.server.ts` starts once: the collector (mqtt.js on `${Z2M_BASE_TOPIC}/#`, keeps state in memory, writes SQLite, never publishes itself; it owns the publish function used only by `mqtt/request.ts`), the active loop (opt-in coordinator check and network scan via `mqtt/request.ts`), the rules loop (60 s: rules, then lifecycle; hourly trend job: rollups, baselines, battery forecasts), the outbox worker (2 s), and the heartbeat (60 s).
+One Node process (SvelteKit, adapter-node). `src/hooks.server.ts` starts once: the collector (mqtt.js on `${Z2M_BASE_TOPIC}/#`, keeps state in memory, writes SQLite, never publishes itself; it owns the publish function used only by `mqtt/request.ts`), the active loop (opt-in coordinator check and network scan via `mqtt/request.ts`), the rules loop (60 s: rules, then lifecycle; hourly trend job: rollups, baselines, battery forecasts), the Wi-Fi poller (5 min, off by default, read-only UniFi), the outbox worker (2 s), and the heartbeat (60 s).
 
 ```
 src/hooks.server.ts                  init -> startRuntime(); handle -> auth + login guard
@@ -29,12 +29,16 @@ src/lib/server/mqtt/parse.ts         parseJson, parseAvailability, parseLastSeen
 src/lib/server/mqtt/logparse.ts     parseRouteError: parses bridge/logging lines (route.ts emits route_error events)
 src/lib/server/mqtt/request.ts       createRequester: the only publisher; `networkmap` and `coordinator_check` only
 src/lib/server/active/               schedule.ts, run.ts, loop.ts, parse.ts, parents.ts (opt-in active features)
+src/lib/server/wifi/                 unifi.ts (read-only client), poller.ts, config.ts, overlap.ts, areas.ts, snapshot.ts, correlate.ts; tables wifi_aps, wifi_samples, wifi_areas
+src/lib/wifi-freq.ts                 Wi-Fi/Zigbee channel to MHz
+src/lib/wifi-band.ts                 band diagram layout
 src/lib/server/mqtt/collector.ts     startCollector(deps) - mqtt.js + effect persistence
 src/lib/server/prereqs.ts            checkPrereqs(config) -> Prereq[]
 src/lib/server/rules/*.ts            one file per rule + index.ts (RULES, RULE_DEFAULTS)
 src/lib/server/rules/{lqi,route,forecast}.ts  lqi.weak/degrading, route.failures, network.route_errors, battery.forecast
 src/lib/server/trends/               minutes.ts (in-memory per-minute counters), rollup.ts (hourly samples + baselines), forecast.ts, history.ts (per-run snapshot the rules read)
 src/lib/server/rules/{churn,storm,mass-offline,bridge-backlog}.ts  rejoin/network churn, leave, interview; device/network storm, dominant; mass offline; mqtt backlog
+src/lib/server/rules/wifi.ts          wifi.channel_overlap, wifi.busy_air, wifi.unreachable
 src/lib/server/rules/types.ts        RuleId, RuleContext, Finding, issueKey, inGrace
 src/lib/server/issues/lifecycle.ts   evaluate(input) -> LifecycleResult
 src/lib/server/issues/quiet.ts       isQuietHours(now, settings, tz)
@@ -57,7 +61,7 @@ src/lib/settings-groups.ts           GROUPS: settings labels, units, help
 src/lib/views.ts                     pure view helpers for pages: navSummary, banner, learning, peakQuiet, evidenceRows, RULE_LABELS, groupedSummary, chartFor, row helpers, formatTime/formatAgo, FOREVER
 src/app.css                          ported mockup stylesheet (the only source of classes); font static/fonts/inter-latin.woff2; mockup in docs/superpowers/design/
 src/lib/server/runtime.ts            startRuntime(), runtime singleton (state, db, config)
-src/routes/...                       pages (devices/[ieee], batteries, events, map), api/health
+src/routes/...                       pages (devices/[ieee], batteries, events, map, wifi), api/health
 src/routes/map                       network map page
 src/lib/map.ts                       map layout helpers
 scripts/replay.ts                    replay(lines) -> report; formatReport
@@ -82,7 +86,8 @@ Rules and lifecycle are pure; test them with fixtures, not mocks.
 - No dependency beyond the stack (SvelteKit 3, Svelte 5, TS, Vite, Drizzle, better-sqlite3, mqtt, better-auth, vitest, adapter-node) without asking.
 - Pages are `<div class="page">` inside the layout's `<main>`; no `<main>` in pages. Use only classes from `src/app.css`.
 - Severity values: `'info' | 'warning' | 'critical'`.
-- Design docs are the authority: `docs/superpowers/specs/2026-10-16-meshpulse-mvp-design.md`, `2026-10-18-meshpulse-phase2-design.md`, `2026-10-18-meshpulse-phase3-design.md`, `2026-10-19-meshpulse-ui-redesign-design.md`, `2026-10-19-meshpulse-phase4-design.md` (same folder; the later phase wins); plan in `docs/superpowers/plans/`.
+- The UniFi client is read-only: login, `stat/device`, logout. Nothing else is ever sent to UniFi.
+- Design docs are the authority: `docs/superpowers/specs/2026-10-16-meshpulse-mvp-design.md`, `2026-10-18-meshpulse-phase2-design.md`, `2026-10-18-meshpulse-phase3-design.md`, `2026-10-19-meshpulse-ui-redesign-design.md`, `2026-10-19-meshpulse-phase4-design.md`, `2026-10-19-meshpulse-wifi-design.md` (same folder; the later phase wins); plan in `docs/superpowers/plans/`.
 
 ## Workflow
 

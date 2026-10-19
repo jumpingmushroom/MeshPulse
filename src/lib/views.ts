@@ -166,7 +166,7 @@ export function formatDetail(kind: string, detail: Record<string, unknown> | nul
 	const { from, to } = detail;
 	const plain: Record<string, string> = { device_announce: 'Device announced', device_joined: 'Joined the network', device_leave: 'Left the network' };
 	if (kind in plain) return plain[kind]; // detail is only the friendly name, already in the Device column
-	if (kind === 'wifi_channel' && typeof detail.ap === 'string') return `${detail.ap}: channel ${detail.from ?? '—'} → ${detail.to ?? '—'}${detail.widthFrom !== detail.widthTo ? `, width ${detail.widthFrom ?? '—'} → ${detail.widthTo ?? '—'} MHz` : ''}`;
+	if (kind === 'wifi_channel' && typeof detail.ap === 'string') return `${detail.ap}: channel ${detail.from ?? '—'} → ${detail.to ?? '—'}${detail.fromWidth !== detail.toWidth ? `, width ${detail.fromWidth ?? '—'} → ${detail.toWidth ?? '—'} MHz` : ''}`;
 	if (kind === 'device_interview') return typeof detail.status === 'string' ? `Interview ${detail.status}` : 'Interview';
 	if (kind === 'route_error' && typeof detail.kind === 'string') return `${humanise(detail.kind.replace(/_/g, " "))}${detail.code != null ? `, code ${detail.code}` : ''}`;
 	if (typeof detail.delta === 'number' && Object.keys(detail).length === 1) return `+${detail.delta}`;
