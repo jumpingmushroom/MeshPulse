@@ -1,7 +1,7 @@
 import { asc, desc, eq, gte, ne } from 'drizzle-orm';
 import type { Config } from './config';
 import type { Db } from './db/index';
-import { events, healthSamples, issues } from './db/schema';
+import { events, healthSamples, issues, wifiAreas } from './db/schema';
 import { latestParents } from './active/parents';
 import { loadActive } from './active/run';
 import { evaluate, newIssue, type Counters, type IssueRow, type Notify } from './issues/lifecycle';
@@ -12,6 +12,8 @@ import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
 import { deviceSilentFor } from './rules/bridge-offline';
 import { loadWifiSnapshot } from './wifi/snapshot';
+import { areaOf } from './wifi/areas';
+import { withWifi } from './wifi/correlate';
 import { loadHistory } from './trends/history';
 import { hourStart, computeBaselines, recordScore, rollupHours } from './trends/rollup';
 import { getSettings } from './settings';
@@ -50,7 +52,8 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		history: loadHistory(db, now),
 		wifi: { ...loadWifiSnapshot(db, state, now), enabled: settings.wifiEnabled, failures: state.wifi.failures, lastError: state.wifi.lastError }, active: { ...loadActive(db), baseTopic: config.baseTopic },
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };
-	const findings = evaluateRules(ctx);
+	const areas = ctx.wifi.enabled ? db.select().from(wifiAreas).all() : [];
+	const findings = withWifi(evaluateRules(ctx), ctx.open, ctx.wifi, (ieee) => areaOf(state.devices.get(ieee)?.friendlyName ?? '', areas), settings.wifiBusyPct, config.tz, now);
 	let parents: ReturnType<typeof latestParents> | undefined; // loaded only when grouping asks
 	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee), realParent: (ieee) => (parents ??= latestParents(db, (i) => state.devices.get(i)?.type, now, false))?.parents.get(ieee)?.parent ?? null,
 		// ignored devices are silent like muted ones, so ignoring does not send "Resolved" for each issue

@@ -123,7 +123,7 @@ export const EVIDENCE_LABELS: Record<string, string> = {
 	battery: 'Battery', voltage: 'Voltage', daysLeft: 'Days left', basedOnDays: 'Based on days', count: 'Count',
 	perMin: 'Messages per minute', factor: 'Factor', windowH: 'Window (h)', windowMin: 'Window (min)', changes: 'Changes',
 	announces: 'Announces', leftAt: 'Left at', failedAt: 'Failed at', names: 'Devices', devices: 'Device count', top: 'Top senders', downSince: 'Down since',
-	routersOffline: 'Routers offline', routersTotal: 'Routers total', lastReportAt: 'Last report', typicalGapH: 'Typical gap (h)'
+	wifi: 'Wi-Fi at the time', routersOffline: 'Routers offline', routersTotal: 'Routers total', lastReportAt: 'Last report', typicalGapH: 'Typical gap (h)'
 };
 
 /** Issue evidence as readable [key, value] pairs: *At/*Since are times, *Ms are durations, nulls hidden. */
@@ -143,6 +143,13 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 		if (v === null || v === undefined) return [];
 		if (k === 'level') return []; // internal rule variant, e.g. battery.low
 		const l = EVIDENCE_LABELS[k] ?? humanise(k);
+		if (k === 'wifi') {
+			if (!Array.isArray(v)) return [[l, 'Unavailable']];
+			return v.map((a: { ap: string; channel: number | null; overlaps: boolean; cuTotal: number | null; cuMaxHour: number | null; changedAt: number | null }): [string, string] => [l, [a.ap,
+				a.channel === null ? 'no 2.4 GHz radio' : `channel ${a.channel}`, ...(a.overlaps ? ['overlaps Zigbee'] : []),
+				...(a.cuTotal === null ? [] : [`${a.cuTotal} % now${a.cuMaxHour === null ? '' : `, ${a.cuMaxHour} % max last hour`}`]),
+				...(a.changedAt === null ? [] : [`changed channel ${formatTime(a.changedAt, tz)}`])].join(' · ')]);
+		}
 		const ls = links(v);
 		if (ls) return [[l, ls]];
 		if (typeof v === 'number' && /(At|Since)$/.test(k)) return [[l, formatTime(v, tz)]];

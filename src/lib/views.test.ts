@@ -257,3 +257,11 @@ describe('splitBatteries', () => {
 it('formats a Wi-Fi channel change', () => {
 	expect(formatDetail('wifi_channel', { ap: 'Kitchen AP', from: 1, to: 6, widthFrom: 20, widthTo: 20 })).toBe('Kitchen AP: channel 1 → 6');
 });
+
+describe('evidenceRows wifi', () => {
+	it('renders one row per AP, or Unavailable', () => {
+		const wifi = [{ ap: 'bas-wap-upro-01', channel: 1, overlaps: true, cuTotal: 72, cuMaxHour: 80, changedAt: null }];
+		expect(evidenceRows({ wifi }, 'UTC')).toEqual([['Wi-Fi at the time', 'bas-wap-upro-01 · channel 1 · overlaps Zigbee · 72 % now, 80 % max last hour']]);
+		expect(evidenceRows({ wifi: 'unavailable' }, 'UTC')).toEqual([['Wi-Fi at the time', 'Unavailable']]);
+	});
+});
