@@ -80,7 +80,7 @@ On Sunday at 18:00 in `TZ`, MeshPulse sends a summary to each channel that has *
 
 ## Active features (opt-in)
 
-Two features make MeshPulse publish a request to Zigbee2MQTT. Both are off by default. Switch them on in **Settings → Active features**. Switching one on schedules its first run for the next night.
+Two features make MeshPulse publish a request to Zigbee2MQTT. Both are off by default. Switch them on in **Settings → Active features**. Switching one on schedules its first run for the next scheduled run (03:30 or 04:00), never today.
 
 - **Coordinator check** runs daily at 03:30. It asks Zigbee2MQTT which routers the coordinator has forgotten.
 - **Network scan** runs nightly at 04:00. It asks for the network map and stores it.
@@ -91,8 +91,8 @@ The MQTT user needs **publish** access to `zigbee2mqtt/bridge/request/#`. These 
 
 What you see:
 
-- **Missing from coordinator** (Warning): a router the coordinator no longer knows. Re-pair the router.
-- **Network scan keeps failing** (Info): repeated scan failures.
+- **Missing from coordinator** (Warning): a router the coordinator no longer knows. Re-pair the router. Switching the coordinator check off resolves its Missing from coordinator issues.
+- **Network scan keeps failing** (Info): 3 failed nightly scans in a row.
 - **Parent badge** on a device page: the router the device is attached to, from the latest scan.
 - **Network map** (`/map`): the mesh from the latest scan, with its links.
 

@@ -51,9 +51,9 @@ advanced:
 
 ## Architecture
 
-&#91;embedded content: architecture · one container, read-only on MQTT\]
+&#91;embedded content: architecture · one container, read-only on MQTT unless an opt-in active feature is on\]
 
-MQTT is read-only: the collector writes compact state to SQLite, the rules engine turns it into issues, and the outbox delivers them. The UI only reads.
+MQTT is read-only unless an opt-in active feature is on: the collector writes compact state to SQLite, the rules engine turns it into issues, and the outbox delivers them. The UI only reads.
 
 Stack: SvelteKit (adapter-node), Drizzle ORM with better-sqlite3, mqtt.js, Better Auth, Docker Compose, deployed with Dokploy. Collector, rules scheduler and outbox run in the same Node process.
 
@@ -245,7 +245,7 @@ One container, one SQLite volume. Connection settings come from the environment;
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `MQTT_URL` | `mqtt://mosquitto:1883` | Broker |
-| `MQTT_USERNAME` / `MQTT_PASSWORD` | empty | Read-only broker user |
+| `MQTT_USERNAME` / `MQTT_PASSWORD` | empty | Read-only broker user (publish only if an active feature is on) |
 | `Z2M_BASE_TOPIC` | `zigbee2mqtt` | Base topic |
 | `DATABASE_PATH` | `/data/monitor.db` | SQLite file |
 | `PUBLIC_URL` | empty | Used for links in notifications |

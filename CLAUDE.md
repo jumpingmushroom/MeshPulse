@@ -14,7 +14,7 @@ Passive, read-only Zigbee2MQTT health monitor: watches MQTT traffic, raises issu
 
 ## Architecture
 
-One Node process (SvelteKit, adapter-node). `src/hooks.server.ts` starts once: the collector (mqtt.js on `${Z2M_BASE_TOPIC}/#`, keeps state in memory, writes SQLite, never publishes), the active loop (opt-in coordinator check and network scan via `mqtt/request.ts`), the rules loop (60 s: rules, then lifecycle; hourly trend job: rollups, baselines, battery forecasts), the outbox worker (2 s), and the heartbeat (60 s).
+One Node process (SvelteKit, adapter-node). `src/hooks.server.ts` starts once: the collector (mqtt.js on `${Z2M_BASE_TOPIC}/#`, keeps state in memory, writes SQLite, never publishes itself; it owns the publish function used only by `mqtt/request.ts`), the active loop (opt-in coordinator check and network scan via `mqtt/request.ts`), the rules loop (60 s: rules, then lifecycle; hourly trend job: rollups, baselines, battery forecasts), the outbox worker (2 s), and the heartbeat (60 s).
 
 ```
 src/hooks.server.ts                  init -> startRuntime(); handle -> auth + login guard
@@ -27,7 +27,7 @@ src/lib/server/types.ts              AppState, DeviceState, Finding, IssueRow, M
 src/lib/server/mqtt/route.ts         route(state, msg, baseTopic) -> Effect[]
 src/lib/server/mqtt/parse.ts         parseJson, parseAvailability, parseLastSeen, normaliseVoltage
 src/lib/server/mqtt/logparse.ts     parseRouteError: parses bridge/logging lines (route.ts emits route_error events)
-src/lib/server/mqtt/request.ts       requestZ2m: the only publisher; `networkmap` and `coordinator_check` only
+src/lib/server/mqtt/request.ts       createRequester: the only publisher; `networkmap` and `coordinator_check` only
 src/lib/server/active/               schedule.ts, run.ts, loop.ts, parse.ts, parents.ts (opt-in active features)
 src/lib/server/mqtt/collector.ts     startCollector(deps) - mqtt.js + effect persistence
 src/lib/server/prereqs.ts            checkPrereqs(config) -> Prereq[]
