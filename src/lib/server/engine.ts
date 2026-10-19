@@ -53,7 +53,7 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		wifi: { ...loadWifiSnapshot(db, state, now), enabled: settings.wifiEnabled, failures: state.wifi.failures, lastError: state.wifi.lastError }, active: { ...loadActive(db), baseTopic: config.baseTopic },
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };
 	const areas = ctx.wifi.enabled ? db.select().from(wifiAreas).all() : [];
-	const findings = withWifi(evaluateRules(ctx), ctx.open, ctx.wifi, (ieee) => areaOf(state.devices.get(ieee)?.friendlyName ?? '', areas), settings.wifiBusyPct, config.tz, now);
+	const findings = withWifi(evaluateRules(ctx), ctx.open, ctx.wifi, (ieee) => areaOf(state.devices.get(ieee)?.friendlyName ?? '', areas), settings.wifiBusyPct, config.tz, now, state.wifi.lastOkAt);
 	let parents: ReturnType<typeof latestParents> | undefined; // loaded only when grouping asks
 	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee), realParent: (ieee) => (parents ??= latestParents(db, (i) => state.devices.get(i)?.type, now, false))?.parents.get(ieee)?.parent ?? null,
 		// ignored devices are silent like muted ones, so ignoring does not send "Resolved" for each issue

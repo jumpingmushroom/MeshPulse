@@ -193,6 +193,15 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		if (p.f) p.patch.summary = label(p.f, names.length);
 	}
 
+	// Wi-Fi context is added once, when the issue opens; later plain findings must not drop it
+	for (const p of plans) {
+		const ev = p.patch.evidence;
+		if (!p.f || !ev) continue;
+		for (const k of ['wifi', 'wifiNote']) if (!(k in ev) && k in p.i.evidence) p.patch.evidence = { ...p.patch.evidence, [k]: p.i.evidence[k] };
+		const note = p.patch.evidence!.wifiNote;
+		if (typeof note === 'string' && p.patch.summary !== undefined && !p.patch.summary.endsWith(note)) p.patch.summary = `${p.patch.summary} ${note}`;
+	}
+
 	const parentsFirst = (f: Finding) => (tops.some((t) => t.key === issueKey(f.rule, f.ieee)) ? 0 : 1);
 	for (const f of [...opening].sort((a, b) => parentsFirst(a) - parentsFirst(b))) {
 		const key = issueKey(f.rule, f.ieee);

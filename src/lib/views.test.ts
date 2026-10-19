@@ -261,7 +261,7 @@ it('formats a Wi-Fi channel change', () => {
 describe('evidenceRows wifi', () => {
 	it('renders one row per AP, or Unavailable', () => {
 		const wifi = [{ ap: 'bas-wap-upro-01', channel: 1, overlaps: true, cuTotal: 72, cuMaxHour: 80, changedAt: null }];
-		expect(evidenceRows({ wifi }, 'UTC')).toEqual([['Wi-Fi at the time', 'bas-wap-upro-01 · channel 1 · overlaps Zigbee · 72 % now, 80 % max last hour']]);
+		expect(evidenceRows({ wifi: [...wifi, { ...wifi[0], ap: 'b' }] }, 'UTC')).toEqual([['Wi-Fi at the time', 'bas-wap-upro-01 · channel 1 · overlaps Zigbee · 72 % now, 80 % max last hour\nb · channel 1 · overlaps Zigbee · 72 % now, 80 % max last hour']]);
 		expect(evidenceRows({ wifi: 'unavailable' }, 'UTC')).toEqual([['Wi-Fi at the time', 'Unavailable']]);
 	});
 });

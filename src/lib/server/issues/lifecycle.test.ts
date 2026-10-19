@@ -24,6 +24,24 @@ function run(findings: Finding[], issues: IssueRow[], c: Counters, now: number, 
 }
 
 describe('lifecycle', () => {
+	it('keeps the Wi-Fi context across runs without duplicating the note', () => {
+		const note = 'Wi-Fi may be involved: ap on channel 1 (overlaps Zigbee 11) was 72 % busy';
+		const wifi = [{ ap: 'ap' }];
+		const c = counters();
+		const withNote = { ...f(), summary: `base ${note}`, evidence: { severity: 'warning', wifi, wifiNote: note } };
+		run([withNote], [], c, T);
+		const r1 = run([withNote], [], c, T + MIN);
+		expect(r1.opens[0].summary).toBe(`base ${note}`);
+		const row = issue({ summary: `base ${note}`, evidence: withNote.evidence });
+		const r2 = run([{ ...f(), summary: 'base' }], [row], c, T + 2 * MIN);
+		expect(r2.updates[0].patch).toMatchObject({ summary: `base ${note}`, evidence: { severity: 'warning', wifi, wifiNote: note } });
+		const r3 = run([withNote], [row], c, T + 3 * MIN);
+		expect(r3.updates[0].patch.summary).toBe(`base ${note}`);
+		const late = run([{ ...f(), summary: 'base' }], [issue({ lastNotifiedAt: null, summary: `base ${note}`, evidence: withNote.evidence })], c, T + 4 * MIN);
+		expect(late.notify[0].kind).toBe('open');
+		expect(late.updates[0].patch.summary).toBe(`base ${note}`);
+	});
+
 	it('opens after 2 runs', () => {
 		const c = counters();
 		const r1 = run([f()], [], c, T);

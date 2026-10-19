@@ -145,10 +145,10 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 		const l = EVIDENCE_LABELS[k] ?? humanise(k);
 		if (k === 'wifi') {
 			if (!Array.isArray(v)) return [[l, 'Unavailable']];
-			return v.map((a: { ap: string; channel: number | null; overlaps: boolean; cuTotal: number | null; cuMaxHour: number | null; changedAt: number | null }): [string, string] => [l, [a.ap,
+			return [[l, v.map((a: { ap: string; channel: number | null; overlaps: boolean; cuTotal: number | null; cuMaxHour: number | null; changedAt: number | null }) => [a.ap,
 				a.channel === null ? 'no 2.4 GHz radio' : `channel ${a.channel}`, ...(a.overlaps ? ['overlaps Zigbee'] : []),
 				...(a.cuTotal === null ? [] : [`${a.cuTotal} % now${a.cuMaxHour === null ? '' : `, ${a.cuMaxHour} % max last hour`}`]),
-				...(a.changedAt === null ? [] : [`changed channel ${formatTime(a.changedAt, tz)}`])].join(' · ')]);
+				...(a.changedAt === null ? [] : [`changed channel ${formatTime(a.changedAt, tz)}`])].join(' · ')).join('\n')]];
 		}
 		const ls = links(v);
 		if (ls) return [[l, ls]];
