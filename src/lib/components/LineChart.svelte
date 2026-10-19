@@ -2,14 +2,16 @@
 	import { buildSeries, niceTicks, xy, type Point } from '../chart';
 	import { formatDuration } from '../views';
 
-	let { title, unit, points, t0, t1, y0, y1, maxGapMs, refs = [], summary, latest, integer = false }: {
+	let { title, unit, points, t0, t1, y0, y1, maxGapMs, refs = [], summary, latest, integer = false, w = 600 }: {
 		title: string; unit: string; points: Point[]; t0: number; t1: number; y0: number; y1: number;
 		maxGapMs: number; refs?: { y: number; label: string }[]; summary: string;
 		latest?: string; integer?: boolean; // integer: whole-number ticks (counts)
+		w?: number; // plot width in viewBox units; use ~300 for half-width charts so text keeps its size
 	} = $props();
 
-	// plot area inside a fixed viewBox; the SVG scales to the container width
-	const [W, H, L, T] = [600, 140, 40, 8];
+	// plot area inside a viewBox; the SVG scales to the container width
+	const [H, L, T] = [140, 40, 8];
+	const W = $derived(w);
 	const box = $derived({ w: W, h: H, t0, t1, y0, y1 });
 	const s = $derived(buildSeries(points, box, maxGapMs));
 	const ticks = $derived(niceTicks(y0, y1, 4, integer ? 1 : 0));
@@ -21,7 +23,7 @@
 <figure class="chart">
 	<div class="chart-head">
 		<span class="chart-title">{title}{unit ? ` (${unit})` : ''}</span>
-		{#if latest}<span class="chart-now">latest <b>{latest}</b></span>{/if}
+		{#if latest}<span class="chart-now">latest <b>{latest}{unit ? ` ${unit}` : ''}</b></span>{/if}
 	</div>
 	{#if s.empty}
 		<div class="chart-empty"><strong>No data yet</strong></div>

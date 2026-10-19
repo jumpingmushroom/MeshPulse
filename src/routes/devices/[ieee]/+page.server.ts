@@ -1,5 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, count, desc, eq, ne } from 'drizzle-orm';
+import { EVENT_KINDS } from '../../../lib/server/events-page';
+import { deviceScore } from '../../../lib/score';
 import { deviceCharts, type Range } from '../../../lib/server/device-history';
 import { baselines, devices, events, issues } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
@@ -26,20 +28,25 @@ export const load: PageServerLoad = ({ params, url }) => {
 	const batteryPowered = d.powerSource === 'Battery' || d.battery !== null || d.voltage !== null;
 	const c = deviceCharts(db, d.ieee, range, settings, t1, batteryPowered);
 
+	const openIssues = db.select().from(issues).where(and(eq(issues.ieee, d.ieee), ne(issues.state, 'resolved'))).all()
+		.map((i) => ({ ...i, deviceName: d.friendlyName }));
+
 	return {
 		range,
 		device: {
 			ieee: d.ieee, name: d.friendlyName, type: d.type, model: d.model, vendor: d.vendor, powerSource: d.powerSource,
-			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), chatty: d.tags.includes('chatty'), batteryPowered
+			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), chatty: d.tags.includes('chatty'), batteryPowered, battery: d.battery, voltage: d.voltage
 		},
 		charts: [c.lqi, ...(batteryPowered && c.battery && c.voltage ? [c.battery, c.voltage] : []), c.msgsHour],
 		daysLeft: baseline('battery_days_left'),
 		targetPct: settings.forecastTargetPct,
 		lastSwapAt: db.select({ ts: events.ts }).from(events).where(and(eq(events.ieee, d.ieee), eq(events.kind, 'battery_swap')))
 			.orderBy(desc(events.ts)).limit(1).get()?.ts ?? null,
-		issues: db.select({ id: issues.id, severity: issues.severity, summary: issues.summary }).from(issues)
-			.where(and(eq(issues.ieee, d.ieee), ne(issues.state, 'resolved'))).all(),
-		events: db.select().from(events).where(eq(events.ieee, d.ieee)).orderBy(desc(events.ts), desc(events.id)).limit(50).all()
+		issues: openIssues,
+		score: deviceScore(openIssues),
+		eventCount: db.select({ n: count() }).from(events).where(eq(events.ieee, d.ieee)).get()?.n ?? 0,
+		events: db.select().from(events).where(eq(events.ieee, d.ieee)).orderBy(desc(events.ts), desc(events.id)).limit(10).all()
+			.map((e) => ({ ...e, label: EVENT_KINDS[e.kind as keyof typeof EVENT_KINDS] ?? e.kind.replaceAll('_', ' ') }))
 	};
 };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows } from './views';
+import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
@@ -37,6 +37,11 @@ describe('views', () => {
 		const s = state([dev({ ieee: 'c', type: 'Coordinator' }), dev({ ieee: 'a', friendlyName: 'Lamp', lqi: 80 }), dev({ ieee: 'g', removedAt: 1 })]);
 		const rows = deviceRows(s, [{ ieee: 'a', severity: 'warning' }, { ieee: 'a', severity: 'critical' }, { ieee: null, severity: 'critical' }]);
 		expect(rows).toEqual([expect.objectContaining({ ieee: 'a', name: 'Lamp', lqi: 80, openIssues: 2, score: 67 })]);
+	});
+
+	it('leaves stats null without samples', () => {
+		const [r] = deviceRows(state([dev({ ieee: 'a' })]), []);
+		expect([r.lqi24, r.lqiBase, r.msgH]).toEqual([null, null, null]);
 	});
 
 	it('formats ago', () => {
@@ -215,5 +220,22 @@ describe('evidence humanising', () => {
 		expect(humanise('coinCell')).toBe('Coin cell');
 		expect(humanise('')).toBe('');
 		expect(evidenceRows({ level: 'battery.low', batteryLow: true, coinCell: false }, 'UTC')).toEqual([['Battery low', 'Yes'], ['Coin cell', 'No']]);
+	});
+});
+
+describe('filterRows', () => {
+	const rows = deviceRows(state([
+		dev({ ieee: 'a', friendlyName: 'Attic plug', type: 'Router' }),
+		dev({ ieee: 'b', friendlyName: 'Hall plug', type: 'Router' }),
+		dev({ ieee: 'c', friendlyName: 'Door', battery: 50 })
+	]), [{ ieee: 'b', severity: 'warning' }, { ieee: 'c', severity: 'info' }]);
+	const none = { q: '', routers: false, battery: false, offline: false, issues: false };
+
+	it('matches the name case-insensitively', () => {
+		expect(filterRows(rows, { ...none, q: 'attic' }).map((r) => r.name)).toEqual(['Attic plug']);
+	});
+
+	it('ANDs the chips', () => {
+		expect(filterRows(rows, { ...none, routers: true, issues: true }).map((r) => r.name)).toEqual(['Hall plug']);
 	});
 });
