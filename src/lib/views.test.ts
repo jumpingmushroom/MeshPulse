@@ -224,8 +224,8 @@ describe('evidence links and liveDevice', () => {
 	it('links device lists and falls back to text when a name is unknown', () => {
 		const m = new Map([['a', '0x1'], ['b', '0x2']]);
 		expect(evidenceRows({ names: ['a', 'b'], top: [{ name: 'a', perMin: 12 }] }, 'UTC', m)).toEqual([
-			['Devices', [{ text: 'a', href: '/devices/0x1' }, { text: 'b', href: '/devices/0x2' }]],
-			['Top senders', [{ text: 'a (12/min)', href: '/devices/0x1' }]]
+			['Devices', [{ text: 'a', ieee: '0x1' }, { text: 'b', ieee: '0x2' }]],
+			['Top senders', [{ text: 'a (12/min)', ieee: '0x1' }]]
 		]);
 		expect(evidenceRows({ names: ['a', 'zz'] }, 'UTC', m)).toEqual([['Devices', '["a","zz"]']]);
 	});

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { formatDetail, formatTime } from '../../lib/views';
 	import type { PageProps } from './$types';
 
@@ -14,7 +15,7 @@
 		if (data.kind) p.set('kind', data.kind);
 		if (data.device) p.set('device', data.device);
 		if (page > 1) p.set('page', String(page));
-		return `/events?${p}`;
+		return `${resolve('/events')}?${p}`;
 	};
 </script>
 
@@ -45,7 +46,7 @@
 	</form>
 
 	{#if data.unknown}
-		<p class="muted">Unknown filter. <a href="/events">Clear filters</a></p>
+		<p class="muted">Unknown filter. <a href={resolve('/events')}>Clear filters</a></p>
 	{:else if data.rows.length}
 		<div class="dt-wrap"><div class="dt-scroll">
 			<table class="dt compact">
@@ -55,7 +56,7 @@
 						<tr>
 							<td>{formatTime(e.ts, data.tz)}</td>
 							<td><span class="kind"><svg class="i" aria-hidden="true"><use href={ICON[e.kind] ?? '#i-info'} /></svg>{label[e.kind] ?? e.kind}</span></td>
-							<td class="name">{#if e.ieee}<a href="/devices/{e.ieee}">{data.names[e.ieee] ?? e.ieee}</a>{:else}<span class="dash">—</span>{/if}</td>
+							<td class="name">{#if e.ieee}<a href={resolve('/devices/[ieee]', { ieee: e.ieee })}>{data.names[e.ieee] ?? e.ieee}</a>{:else}<span class="dash">—</span>{/if}</td>
 							<td>{formatDetail(e.kind, e.detail) || '—'}</td>
 						</tr>
 					{/each}

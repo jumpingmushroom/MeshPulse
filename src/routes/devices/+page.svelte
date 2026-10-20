@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { formatAgo, formatTime, formatVoltage, type SortKey } from '../../lib/views';
 	import type { PageProps } from './$types';
 
@@ -40,7 +41,7 @@
 			<a href={params({ density: null })} aria-current={data.comfortable ? undefined : 'true'}>Compact</a>
 			<a href={params({ density: 'comfortable' })} aria-current={data.comfortable ? 'true' : undefined}>Comfortable</a>
 		</div>
-		<a class="btn btn-sm" href="/map"><svg class="i"><use href="#i-map" /></svg>Network map</a>
+		<a class="btn btn-sm" href={resolve('/map')}><svg class="i"><use href="#i-map" /></svg>Network map</a>
 		</div>
 	</div>
 
@@ -81,7 +82,7 @@
 						{#each data.rows as r (r.ieee)}
 							{@const [ac, ai, al] = avail(r.availability)}
 							<tr class:muted={r.ignored} class={r.worst ? `is-flagged ${SEV[r.worst]}` : ''}>
-								<td class="name"><a href="/devices/{r.ieee}">{r.name}</a>{#if r.ignored}<span class="sub">ignored</span>{:else if r.mutedUntil && r.mutedUntil > data.now}<span class="sub">muted</span>{/if}</td>
+								<td class="name"><a href={resolve('/devices/[ieee]', { ieee: r.ieee })}>{r.name}</a>{#if r.ignored}<span class="sub">ignored</span>{:else if r.mutedUntil && r.mutedUntil > data.now}<span class="sub">muted</span>{/if}</td>
 								<td><span class="avail"><svg class="i"><use href={TYPE_ICON[r.type]} /></svg>{TYPE[r.type]}</span></td>
 								<td><span class="avail {ac}"><svg class="i"><use href={ai} /></svg>{al}</span></td>
 								<td title={formatTime(r.lastSeenAt, data.tz)}>{formatAgo(r.lastSeenAt, data.now)}</td>
@@ -107,7 +108,7 @@
 				{@const [ac, ai, al] = avail(r.availability)}
 				<article class="dcard {r.worst ? `is-flagged ${SEV[r.worst]}` : ''}" class:muted={r.ignored} role="listitem">
 					<div>
-						<a class="dcard-name" href="/devices/{r.ieee}">{r.name}</a>
+						<a class="dcard-name" href={resolve('/devices/[ieee]', { ieee: r.ieee })}>{r.name}</a>
 						<div class="dcard-type">{TYPE[r.type]} · seen {formatAgo(r.lastSeenAt, data.now)}</div>
 					</div>
 					<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">

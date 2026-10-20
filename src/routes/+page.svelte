@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import IssueRow from '../lib/components/IssueRow.svelte';
 	import ScoreRing from '../lib/components/ScoreRing.svelte';
@@ -64,7 +65,7 @@
 		<section aria-labelledby="open-h">
 			<div class="section-head">
 				<h2 id="open-h">Open issues <span class="count">{data.topLevel}</span></h2>
-				<a href="/issues" class="crumb">All issues →</a>
+				<a href={resolve('/issues')} class="crumb">All issues →</a>
 			</div>
 			<div class="issues">
 				{#each data.issues as i (i.id)}
@@ -87,7 +88,7 @@
 		</Tile>
 		{#if data.wifi}
 			{@const wf = data.wifi}
-			<Tile href="/wifi" label="Wi-Fi 2.4 GHz" value={wf.state === 'ok' ? String(wf.overlap) : '—'} tone={wf.state === 'ok' && wf.overlap ? 'warn' : undefined}
+			<Tile href={resolve('/wifi')} label="Wi-Fi 2.4 GHz" value={wf.state === 'ok' ? String(wf.overlap) : '—'} tone={wf.state === 'ok' && wf.overlap ? 'warn' : undefined}
 				sub={wf.state === 'ok' ? (wf.overlap ? `${wf.overlap === 1 ? '1 AP overlaps' : `${wf.overlap} APs overlap`} Zigbee channel ${wf.zigbeeChannel}` : 'No overlap')
 					: { none: 'No data yet', failed: 'Last poll failed', stale: 'No recent data', unknown: 'Zigbee channel unknown' }[wf.state]} />
 		{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
 	import { clampBox, focusBox, neighbours, placeLabels, zoomAt, type ViewBox } from '../../lib/map';
@@ -158,7 +159,7 @@
 					{/each}
 					{#each scan.nodes as n (n.ieee)}
 						{@const r = R[type(n.type)] + (n.failed ? 2 : 0)}
-						<a href="/devices/{n.ieee}" draggable="false" class:dim={selected !== null && n.ieee !== selected && !near.has(n.ieee)} class:sel={n.ieee === selected} onclick={(e) => clickNode(e, n.ieee)} aria-label="{n.name}, {n.type}{n.failed ? ', did not answer' : ''}{n.lqi === null ? '' : `, LQI ${n.lqi}`}">
+						<a href={resolve('/devices/[ieee]', { ieee: n.ieee })} draggable="false" class:dim={selected !== null && n.ieee !== selected && !near.has(n.ieee)} class:sel={n.ieee === selected} onclick={(e) => clickNode(e, n.ieee)} aria-label="{n.name}, {n.type}{n.failed ? ', did not answer' : ''}{n.lqi === null ? '' : `, LQI ${n.lqi}`}">
 							<circle class={n.failed ? 'n n-off' : CLS[type(n.type)]} cx={n.x} cy={n.y} r={r}></circle>
 							{#if n.failed}<path class="x" d="M{n.x - r * 0.6} {n.y - r * 0.6} L{n.x + r * 0.6} {n.y + r * 0.6} M{n.x + r * 0.6} {n.y - r * 0.6} L{n.x - r * 0.6} {n.y + r * 0.6}"></path>{/if}
 							<title>{n.name}{n.lqi === null ? '' : ` · LQI ${n.lqi}`}</title>
@@ -173,9 +174,9 @@
 					<section class="panel panel-pad stack">
 						<h2 style="font-size:13px">{sel.name}</h2>
 						<p class="muted" style="font-size:13px">{TYPE[type(sel.type)]}{sel.failed ? ' · Did not answer' : ''}</p>
-						{#if selParent}<p style="font-size:13px">Link to parent: LQI {selParent.lqi}<br />Parent: <a href="/devices/{selParent.to}">{selParent.parent}</a></p>{/if}
+						{#if selParent}<p style="font-size:13px">Link to parent: LQI {selParent.lqi}<br />Parent: <a href={resolve('/devices/[ieee]', { ieee: selParent.to })}>{selParent.parent}</a></p>{/if}
 						{#if sel.type === 'Router'}<p style="font-size:13px">{selKids} {selKids === 1 ? 'device routes' : 'devices route'} through this router</p>{/if}
-						<a href="/devices/{sel.ieee}" style="font-size:13px">Open device page →</a>
+						<a href={resolve('/devices/[ieee]', { ieee: sel.ieee })} style="font-size:13px">Open device page →</a>
 						<button type="button" class="btn btn-sm" onclick={() => select(null)}>Back to legend</button>
 					</section>
 				{:else}
@@ -193,7 +194,7 @@
 				{/if}
 				<section class="panel panel-pad stack">
 					<h2 style="font-size:13px">Offline at last scan <span class="count faint">{scan.offline.length}</span></h2>
-					{#each scan.offline as o (o.ieee)}<a href="/devices/{o.ieee}" style="font-size:13px">{o.name}</a>{:else}<p class="muted" style="font-size:13px">None. Every router answered the scan.</p>{/each}
+					{#each scan.offline as o (o.ieee)}<a href={resolve('/devices/[ieee]', { ieee: o.ieee })} style="font-size:13px">{o.name}</a>{:else}<p class="muted" style="font-size:13px">None. Every router answered the scan.</p>{/each}
 				</section>
 			</aside>
 		</div>
@@ -201,7 +202,7 @@
 		<div class="panel panel-pad stack">
 			<strong>The network scan is off</strong>
 			<p class="muted">Once a night MeshPulse asks Zigbee2MQTT for the network map and draws who routes through whom. The scan sends traffic to the mesh for 2–4 minutes, which is the heaviest request a coordinator gets.</p>
-			<p><a href="/settings">Turn it on in Settings</a></p>
+			<p><a href={resolve('/settings')}>Turn it on in Settings</a></p>
 		</div>
 	{:else if !data.failure}
 		<div class="panel panel-pad"><strong>No scan yet</strong><p class="muted">The first scan runs tonight at {data.scanAt}, or press Scan now.</p></div>

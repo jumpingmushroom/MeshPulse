@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Sparkline from '../../lib/components/Sparkline.svelte';
 	import { formatDaysLeft, formatTime, formatVoltage, type BatteryRow } from '../../lib/views';
 	import type { PageProps } from './$types';
@@ -18,7 +19,7 @@
 			<tbody>
 				{#each rows as r (r.ieee)}
 					<tr class={r.daysLeft !== null && r.daysLeft <= 7 ? 'is-flagged is-warn' : ''}>
-						<td class="name"><a href="/devices/{r.ieee}">{r.name}</a></td>
+						<td class="name"><a href={resolve('/devices/[ieee]', { ieee: r.ieee })}>{r.name}</a></td>
 						<td>{r.batteryType ? `${r.batteryType.type} ×${r.batteryType.cells}` : '—'}</td>
 						<td>{r.daysLeft === null ? '—' : formatDaysLeft(r.daysLeft)}</td>
 						<td>{r.daysLeft === null ? '—' : emptyAround(r.daysLeft)}</td>
@@ -49,9 +50,9 @@
 				<p class="muted">Nothing to buy in the next 30 days.</p>
 			{:else}
 				<dl class="kv">
-					{#if s.buy.length}<dt>Buy</dt><dd class="stack" style="gap:4px">{#each s.buy as g (g.type)}<span><strong>{g.type} ×{g.count}</strong> <span class="muted">· {#each g.devices as d, i (d.ieee)}{i ? ', ' : ''}<a href="/devices/{d.ieee}">{d.name}</a>{/each}</span></span>{/each}</dd>{/if}
-					{#if s.recharge.length}<dt>Recharge</dt><dd>{#each s.recharge as d, i (d.ieee)}{i ? ', ' : ''}<a href="/devices/{d.ieee}">{d.name}</a>{/each}</dd>{/if}
-					{#if s.unknown.length}<dt>Type unknown</dt><dd>{#each s.unknown as d, i (d.ieee)}{i ? ', ' : ''}<a href="/devices/{d.ieee}">{d.name}</a>{/each} <span class="muted">· set the type on the device page</span></dd>{/if}
+					{#if s.buy.length}<dt>Buy</dt><dd class="stack" style="gap:4px">{#each s.buy as g (g.type)}<span><strong>{g.type} ×{g.count}</strong> <span class="muted">· {#each g.devices as d, i (d.ieee)}{i ? ', ' : ''}<a href={resolve('/devices/[ieee]', { ieee: d.ieee })}>{d.name}</a>{/each}</span></span>{/each}</dd>{/if}
+					{#if s.recharge.length}<dt>Recharge</dt><dd>{#each s.recharge as d, i (d.ieee)}{i ? ', ' : ''}<a href={resolve('/devices/[ieee]', { ieee: d.ieee })}>{d.name}</a>{/each}</dd>{/if}
+					{#if s.unknown.length}<dt>Type unknown</dt><dd>{#each s.unknown as d, i (d.ieee)}{i ? ', ' : ''}<a href={resolve('/devices/[ieee]', { ieee: d.ieee })}>{d.name}</a>{/each} <span class="muted">· set the type on the device page</span></dd>{/if}
 				</dl>
 			{/if}
 		</section>

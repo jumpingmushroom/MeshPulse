@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import LineChart from '../../../lib/components/LineChart.svelte';
 	import KV from '../../../lib/components/KV.svelte';
@@ -17,7 +18,7 @@
 </script>
 
 <div class="page {SEV[i.severity]}">
-	<a class="crumb" href="/issues"><svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-left" /></svg>Issues</a>
+	<a class="crumb" href={resolve('/issues')}><svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-left" /></svg>Issues</a>
 	<header class="stack" style="gap:11px">
 		<div class="row">
 			<SevBadge severity={i.severity} large />
@@ -50,11 +51,11 @@
 
 			{#if data.chart}<LineChart {...data.chart} />{/if}
 
-			{#if data.parent}<p>Part of <a href="/issues/{data.parent.id}">{data.parent.summary}</a></p>{/if}
+			{#if data.parent}<p>Part of <a href={resolve('/issues/[id]', { id: String(data.parent.id) })}>{data.parent.summary}</a></p>{/if}
 			{#if data.children.length}
 				<section aria-labelledby="ch-h">
 					<div class="section-head"><h2 id="ch-h">Grouped issues <span class="count">{data.children.length}</span></h2></div>
-					<ul class="stack">{#each data.children as ch (ch.id)}<li><a href="/issues/{ch.id}">{ch.summary}</a>{#if ch.state === 'resolved'} <span class="muted">resolved</span>{/if}</li>{/each}</ul>
+					<ul class="stack">{#each data.children as ch (ch.id)}<li><a href={resolve('/issues/[id]', { id: String(ch.id) })}>{ch.summary}</a>{#if ch.state === 'resolved'} <span class="muted">resolved</span>{/if}</li>{/each}</ul>
 				</section>
 			{/if}
 
@@ -80,7 +81,7 @@
 					</form>
 				{/if}
 				{#if isWifiKey(i.ieee)}
-					<a href="/wifi" class="crumb">Open Wi-Fi page<svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-right" /></svg></a>
+					<a href={resolve('/wifi')} class="crumb">Open Wi-Fi page<svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-right" /></svg></a>
 				{/if}
 				{#if data.device}
 					{#if i.state === 'open'}<hr class="rule" />{/if}
@@ -104,7 +105,7 @@
 						</form>
 					{/if}
 					<hr class="rule" />
-					<a href="/devices/{data.device.ieee}" class="crumb">Open device page<svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-right" /></svg></a>
+					<a href={resolve('/devices/[ieee]', { ieee: data.device.ieee })} class="crumb">Open device page<svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-right" /></svg></a>
 				{/if}
 			</section>
 		</aside>

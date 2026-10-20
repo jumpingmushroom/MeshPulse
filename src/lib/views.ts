@@ -128,7 +128,7 @@ export const EVIDENCE_LABELS: Record<string, string> = {
 };
 
 /** Issue evidence as readable [key, value] pairs: *At/*Since are times, *Ms are durations, nulls hidden. */
-export function evidenceRows(evidence: Record<string, unknown>, tz: string, byName: Map<string, string> = new Map()): [string, string | { text: string; href: string }[]][] {
+export function evidenceRows(evidence: Record<string, unknown>, tz: string, byName: Map<string, string> = new Map()): [string, string | { text: string; ieee: string }[]][] {
 	// device lists ("names": string[], "top": {name, perMin}[]) become links when every name resolves to an ieee
 	const links = (v: unknown) => {
 		if (!Array.isArray(v) || !v.length) return null;
@@ -136,11 +136,11 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 			const name = typeof x === 'string' ? x : x && typeof x === 'object' && typeof (x as { name?: unknown }).name === 'string' ? (x as { name: string }).name : null;
 			const ieee = name === null ? undefined : byName.get(name);
 			const rate = x && typeof x === 'object' ? (x as { perMin?: unknown }).perMin : undefined;
-			return ieee === undefined ? null : { text: rate === undefined ? name! : `${name} (${rate}/min)`, href: `/devices/${ieee}` };
+			return ieee === undefined ? null : { text: rate === undefined ? name! : `${name} (${rate}/min)`, ieee };
 		});
 		return out.every((x) => x !== null) ? out : null;
 	};
-	return Object.entries(evidence).flatMap(([k, v]): [string, string | { text: string; href: string }[]][] => {
+	return Object.entries(evidence).flatMap(([k, v]): [string, string | { text: string; ieee: string }[]][] => {
 		if (v === null || v === undefined) return [];
 		if (k === 'level') return []; // internal rule variant, e.g. battery.low
 		const l = EVIDENCE_LABELS[k] ?? humanise(k);

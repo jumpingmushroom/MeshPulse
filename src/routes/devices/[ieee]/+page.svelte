@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import IssueRow from '../../../lib/components/IssueRow.svelte';
 	import LineChart from '../../../lib/components/LineChart.svelte';
@@ -23,7 +24,7 @@
 </script>
 
 <div class="page">
-	<a class="crumb" href="/devices"><svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-left" /></svg>Devices</a>
+	<a class="crumb" href={resolve('/devices')}><svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-left" /></svg>Devices</a>
 	<header class="stack" style="gap:11px">
 		<div class="row" style="gap:16px">
 			<h1 style="max-width:760px;text-wrap:pretty">{d.name}</h1>
@@ -33,10 +34,10 @@
 			<span class="tag tag-outline">{TYPE[d.type as keyof typeof TYPE] ?? d.type}</span>
 			{#if d.model || d.vendor}<span class="muted">{[d.model, d.vendor].filter(Boolean).join(' · ')}</span>{/if}
 			{#if d.powerSource}<span class="muted">{d.powerSource}</span>{/if}
-			{#if data.parent}<span class="tag tag-outline">Parent {#if data.parent.name}<a href="/devices/{data.parent.ieee}">{data.parent.name}</a>{:else}{data.parent.ieee}{/if} · LQI {data.parent.lqi}{data.parent.changed ? ' · changed since previous scan' : ''}</span>{/if}
+			{#if data.parent}<span class="tag tag-outline">Parent {#if data.parent.name}<a href={resolve('/devices/[ieee]', { ieee: data.parent.ieee })}>{data.parent.name}</a>{:else}{data.parent.ieee}{/if} · LQI {data.parent.lqi}{data.parent.changed ? ' · changed since previous scan' : ''}</span>{/if}
 			{#if data.nearbyAll && data.nearbyWifi.length > 1}
-				<span class="tag tag-outline">Nearby Wi-Fi: <a href="/wifi">all {data.nearbyWifi.length} APs</a>{data.nearbyWifi.some((w) => w.overlaps) ? ` · ${data.nearbyWifi.filter((w) => w.overlaps).length} overlap` : ''}{data.wifiRecent ? '' : ' · no recent data'}</span>
-			{:else}{#each data.nearbyWifi as w (w.mac)}<span class="tag tag-outline">Nearby Wi-Fi: <a href="/wifi">{w.name}</a> · channel {w.channel}{w.overlaps ? ' (overlaps)' : ''}{w.busy === null ? ' · no recent data' : ` · ${w.busy} % busy`}</span>{/each}{/if}
+				<span class="tag tag-outline">Nearby Wi-Fi: <a href={resolve('/wifi')}>all {data.nearbyWifi.length} APs</a>{data.nearbyWifi.some((w) => w.overlaps) ? ` · ${data.nearbyWifi.filter((w) => w.overlaps).length} overlap` : ''}{data.wifiRecent ? '' : ' · no recent data'}</span>
+			{:else}{#each data.nearbyWifi as w (w.mac)}<span class="tag tag-outline">Nearby Wi-Fi: <a href={resolve('/wifi')}>{w.name}</a> · channel {w.channel}{w.overlaps ? ' (overlaps)' : ''}{w.busy === null ? ' · no recent data' : ` · ${w.busy} % busy`}</span>{/each}{/if}
 			{#if data.routed}<span class="tag tag-outline">{data.routed} {data.routed === 1 ? 'device routes' : 'devices route'} through this router</span>{/if}
 			<span class="tag tag-outline">Health {data.score}</span>
 			{#if d.ignored}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>ignored</span>{/if}
@@ -74,7 +75,7 @@
 							<li><time>{formatTime(e.ts, data.tz)}</time><span class="dot"></span><div class="what">{e.label} <span class="faint">{formatDetail(e.kind, e.detail)}</span></div></li>
 						{/each}
 					</ol>{:else}<p class="muted">No events yet.</p>{/if}
-					{#if data.eventCount}<a class="btn btn-sm" style="margin-top:8px" href="/events?device={d.ieee}">Show all {data.eventCount} events</a>{/if}
+					{#if data.eventCount}<a class="btn btn-sm" style="margin-top:8px" href="{resolve('/events')}?device={d.ieee}">Show all {data.eventCount} events</a>{/if}
 				</section>
 		</div>
 
