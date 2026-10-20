@@ -111,7 +111,7 @@ function onDevices(state: AppState, msg: MqttMsg, base: string, payload: unknown
 				ieee, friendlyName: '', type: 'EndDevice', powerSource: null, model: null, vendor: null, firmware: null,
 				networkAddress: null, availability: null, lastSeenAt: null, removedAt: null, mutedUntil: null, tags: [],
 				ignoreRules: [], typicalGapMs: null, maxVoltage: null, lqi: null, battery: null, voltage: null,
-				batteryLow: null, batteryType: null, batteryCells: null, recentSeen: [], lastSampleAt: null, offlineSince: null
+				batteryLow: null, sampledBattery: null, batteryType: null, batteryCells: null, recentSeen: [], lastSampleAt: null, offlineSince: null
 			};
 			// register as "new" so a dirty is emitted even if nothing else differs
 			touch(d);
@@ -240,7 +240,8 @@ function onDevice(
 	if (lqi !== null) d.lqi = lqi;
 	const battery = num(p.battery);
 	if (battery !== null) {
-		if (d.battery !== null && battery - d.battery > SWAP_JUMP) event('battery_swap', d.ieee, { from: d.battery, to: battery });
+		const base = d.sampledBattery ?? d.battery;
+		if (base !== null && battery - base > SWAP_JUMP) event('battery_swap', d.ieee, { from: base, to: battery });
 		d.battery = battery;
 	}
 	// mains plugs with metering report line volts (230), which would read as a 0.23 V coin cell
@@ -270,6 +271,7 @@ function onDevice(
 	}
 	if (d.lastSampleAt === null || msg.ts - d.lastSampleAt >= SAMPLE_EVERY_MS) {
 		d.lastSampleAt = msg.ts;
+		if (d.battery !== null) d.sampledBattery = d.battery;
 		fx.push({ kind: 'sample', ieee: d.ieee, ts: msg.ts, lqi: d.lqi, battery: d.battery, voltage: d.voltage });
 	}
 }

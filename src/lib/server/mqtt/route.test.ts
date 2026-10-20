@@ -265,6 +265,21 @@ describe('route', () => {
 		expect(events(route(t, msg(T + 1000, 'temp_sensor', { battery: 40 }), B))).toEqual([]);
 	});
 
+	it('a one-message dip after a rejoin is not a swap (compares with the last stored reading)', () => {
+		const t = withDevices();
+		route(t, msg(T, 'temp_sensor', { battery: 78 }), B); // stored as a sample
+		route(t, msg(T + 60_000, 'temp_sensor', { battery: 9 }), B); // glitch, inside the 5-minute sample gap
+		expect(events(route(t, msg(T + 63_000, 'temp_sensor', { battery: 83 }), B))).toEqual([]);
+		expect(t.devices.get(TEMP)!.battery).toBe(83);
+	});
+
+	it('a low reading that was stored, then a full one, is still a swap', () => {
+		const t = withDevices();
+		route(t, msg(T, 'temp_sensor', { battery: 9 }), B);
+		route(t, msg(T + 6 * 60_000, 'temp_sensor', { battery: 9 }), B);
+		expect(events(route(t, msg(T + 7 * 60_000, 'temp_sensor', { battery: 100 }), B))).toMatchObject([{ kind: 'battery_swap', detail: { from: 9, to: 100 } }]);
+	});
+
 	it('bridge/event kinds become events', () => {
 		const s = withDevices();
 		const ev = (type: string, status?: string) =>

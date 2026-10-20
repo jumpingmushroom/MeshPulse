@@ -23,6 +23,8 @@ export interface DeviceState {
 	battery: number | null;
 	voltage: number | null;
 	batteryLow: boolean | null;
+	/** battery in the last stored sample: swaps are judged against it, so a one-message dip (e.g. after a rejoin) is not a swap */
+	sampledBattery: number | null;
 	/** user override; null = use the built-in table */
 	batteryType: string | null;
 	batteryCells: number | null;
