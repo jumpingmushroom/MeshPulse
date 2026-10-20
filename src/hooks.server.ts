@@ -1,9 +1,10 @@
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
 import { building } from '$app/env';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { applyAddonEnv } from './lib/server/addon';
 import { getAuth } from './lib/server/auth';
+import { appRedirect, addonHandle } from './lib/server/ingress';
 import { getDb } from './lib/server/db/index';
 import { startRuntime } from './lib/server/runtime';
 import { needsSetup, setupRedirect } from './lib/server/setup';
@@ -27,14 +28,14 @@ const PUBLIC = (path: string) => path === '/login' || path === '/setup' || path 
 
 const setupHandle: Handle = ({ event, resolve }) => {
 	const r = setupRedirect(event.url.pathname, !!event.locals.user, needsSetup(getDb()));
-	if (r === '/setup') redirect(303, '/setup');
+	if (r === '/setup') appRedirect(event, 303, '/setup');
 	if (r === '404') error(404);
 	return resolve(event);
 };
 
 const guard: Handle = ({ event, resolve }) => {
-	if (!event.locals.user && !PUBLIC(event.url.pathname)) redirect(303, '/login');
+	if (!event.locals.user && !PUBLIC(event.url.pathname)) appRedirect(event, 303, '/login');
 	return resolve(event);
 };
 
-export const handle = sequence(betterAuthHandle, setupHandle, guard);
+export const handle = sequence(addonHandle, betterAuthHandle, setupHandle, guard);

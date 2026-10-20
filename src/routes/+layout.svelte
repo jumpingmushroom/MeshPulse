@@ -55,7 +55,7 @@
 					<span class="updated-dot"></span>
 					{#if data.nav.neverConnected}Not connected{:else if data.nav.stale}Stale · last update {hm(data.lastMessageAt ?? data.nav.staleSince)}{:else if sec === null}Updated {hms(data.now)}{:else}Updated {sec} s ago{/if}
 				</span>
-				<form method="post" action="/login?/logout"><button class="btn btn-sm" type="submit"><svg class="i"><use href="#i-signout" /></svg><span class="signout-label">Sign out</span></button></form>
+				{#if !data.addon}<form method="post" action="/login?/logout"><button class="btn btn-sm" type="submit"><svg class="i"><use href="#i-signout" /></svg><span class="signout-label">Sign out</span></button></form>{/if}
 			</div>
 		</header>
 		{#if data.nav.stale && !(data.nav.neverConnected && page.data.setup)}
