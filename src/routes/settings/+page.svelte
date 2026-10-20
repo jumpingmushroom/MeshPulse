@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { initAreaRows } from '../../lib/area-rows';
 	import { formatTime } from '../../lib/views';
-	import { changed, groupKeys, THRESHOLDS, thresholdFields, type Row } from '../../lib/settings-groups';
+	import { changed, groupKeys, THRESHOLDS, thresholdFields, type Field, type Row } from '../../lib/settings-groups';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -21,6 +21,13 @@
 	// svelte-ignore state_referenced_locally
 	let tv = $state<Record<string, string | number>>(Object.fromEntries(thresholdFields().map((x) => [x.key, val(x.key) as number])));
 	const changedIn = (keys: string[]) => changed(keys, tv, data.defaults);
+	/** [text before a field, the field] pairs; trailing text gets a null field */
+	const pairs = (r: Row) => r.parts.reduce<[string, Field | null][]>((acc, p) => {
+		if (typeof p === 'string') acc.push([p, null]);
+		else if (acc.length && acc[acc.length - 1][1] === null) acc[acc.length - 1][1] = p;
+		else acc.push(['', p]);
+		return acc;
+	}, []);
 	const wf = $derived(msg('wifi')?.wifiValues); // after a failed save/test keep what was typed (never the password)
 	// editable copy of the saved areas; rows have a stable id so a rename keeps its APs. "Suggest" adds unsaved rows
 	// Initialised once: saving keeps what was typed (use:enhance does not reset), so other sections never wipe it
@@ -60,22 +67,25 @@
 						<div class="stack" style="gap:4px">
 							<div style="font-weight:500">{r.label}</div>
 							<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px">
-								{#each r.parts as p, i (i)}
-									{#if typeof p === 'string'}<span class="muted">{p}</span>
-									{:else}
-										{@const dirty = changedIn([p.key]).length > 0}
-										<span class="stack" style="gap:2px">
-											<span class="input-unit">
-												<label class="sr-only" for={p.key}>{p.name}</label>
-												<input class="input" id={p.key} name={p.key} type="number" step="any" min="0" required bind:value={tv[p.key]}
-													style="width:84px{dirty ? ';box-shadow:inset 0 0 0 1px var(--accent)' : ''}"
-													aria-invalid={errOf(p.key) ? 'true' : undefined} aria-describedby="{p.key}-help" />
-												{#if p.unit}<span>{p.unit}</span>{/if}
+								{#each pairs(r) as [text, p], i (i)}
+									<!-- a phrase and its field wrap together: "critical at [10 %]" never splits -->
+									<span style="display:inline-flex;align-items:flex-start;gap:8px">
+										{#if text}<span class="muted" style="line-height:36px">{text}</span>{/if}
+										{#if p}
+											{@const dirty = changedIn([p.key]).length > 0}
+											<span class="stack" style="gap:2px">
+												<span class="input-unit">
+													<label class="sr-only" for={p.key}>{p.name}</label>
+													<input class="input" id={p.key} name={p.key} type="number" step="any" min="0" required bind:value={tv[p.key]}
+														style="width:84px{dirty ? ';box-shadow:inset 0 0 0 1px var(--accent)' : ''}"
+														aria-invalid={errOf(p.key) ? 'true' : undefined} aria-describedby="{p.key}-help" />
+													{#if p.unit}<span>{p.unit}</span>{/if}
+												</span>
+												{#if dirty}<button type="button" class="btn btn-ghost btn-sm" style="align-self:flex-start;padding:0 4px;min-height:0"
+													onclick={() => (tv[p.key] = data.defaults[p.key] as number)}>reset to {data.defaults[p.key]}</button>{/if}
 											</span>
-											{#if dirty}<button type="button" class="btn btn-ghost btn-sm" style="align-self:flex-start;padding:0 4px;min-height:0"
-												onclick={() => (tv[p.key] = data.defaults[p.key] as number)}>reset to {data.defaults[p.key]}</button>{/if}
-										</span>
-									{/if}
+										{/if}
+									</span>
 								{/each}
 							</div>
 							<span class="field-help" id="{r.parts.filter((p) => typeof p !== 'string').map((p) => (p as { key: string }).key)[0]}-help">{r.help}</span>
