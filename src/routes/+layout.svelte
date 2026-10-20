@@ -2,12 +2,15 @@
 	import '../app.css';
 	import favicon from '#lib/assets/favicon.svg';
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Icons from '../lib/components/Icons.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { children, data }: LayoutProps = $props();
-	const links = $derived([['/', 'Overview'], ['/devices', 'Devices'], ['/batteries', 'Batteries'], ['/issues', 'Issues'], ['/events', 'Events'], ...(data.wifi ? [['/wifi', 'Wi-Fi']] : []), ['/settings', 'Settings']]);
+	const links = $derived<[ '/' | '/devices' | '/batteries' | '/issues' | '/events' | '/wifi' | '/settings', string][]>([['/', 'Overview'], ['/devices', 'Devices'], ['/batteries', 'Batteries'], ['/issues', 'Issues'], ['/events', 'Events'], ...(data.wifi ? [['/wifi', 'Wi-Fi'] as ['/wifi', string]] : []), ['/settings', 'Settings']]);
+	// route ids, not URLs: correct under any base path (Home Assistant ingress)
+	const current = (href: string) => (href === '/' ? page.route.id === '/' : page.route.id?.startsWith(href) ?? false);
 
 	const hm = (ms: number | null) => (ms === null ? '—' : new Date(ms).toLocaleTimeString('en-GB', { timeZone: data.tz, hour: '2-digit', minute: '2-digit' }));
 	const hms = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { timeZone: data.tz });
@@ -40,12 +43,12 @@
 	<Icons />
 	{#if data.user}
 		<header class="topnav {sevClass}">
-			<a class="brand" href="/"><svg class="i brand-mark"><use href="#i-pulse" /></svg>MeshPulse</a>
+			<a class="brand" href={resolve('/')}><svg class="i brand-mark"><use href="#i-pulse" /></svg>MeshPulse</a>
 			<nav aria-label="Main">
 				<ul class="navlinks">
 					{#each links as [href, label] (href)}
 						<li>
-							<a {href} aria-current={(href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href)) ? 'page' : undefined}>{label}{#if href === '/issues' && data.nav.count > 0}<span class="nav-count {sevClass}" aria-label="{data.nav.count} unresolved">{data.nav.count}</span>{/if}</a>
+							<a href={resolve(href)} aria-current={current(href) ? 'page' : undefined}>{label}{#if href === '/issues' && data.nav.count > 0}<span class="nav-count {sevClass}" aria-label="{data.nav.count} unresolved">{data.nav.count}</span>{/if}</a>
 						</li>
 					{/each}
 				</ul>
