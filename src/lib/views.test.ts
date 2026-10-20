@@ -292,6 +292,10 @@ describe('evidenceRows wifi', () => {
 
 describe('setupNotice', () => {
 	const base = { connected: true, connectedAt: 0, lastError: null, bridgeSeen: false, mqttUrl: 'mqtt://user:pass@10.0.0.2:1883', baseTopic: 'zigbee2mqtt', now: 0, startedAt: 0 };
+	it('has an add-on variant when no broker is configured', () => {
+		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000, addon: true, mqttUrlMissing: true })).toEqual({ kind: 'mqtt', text: 'No MQTT broker found. Install the Mosquitto broker add-on, or set mqtt_url in the MeshPulse add-on configuration.' });
+		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000, addon: true, mqttUrlMissing: false })!.text).toContain("can't reach");
+	});
 	it('explains an unreachable broker without credentials', () => {
 		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000, lastError: 'connect ECONNREFUSED 10.0.0.2:1883' })).toEqual({ kind: 'mqtt', text: "MeshPulse can't reach the MQTT broker at mqtt://10.0.0.2:1883: connect ECONNREFUSED 10.0.0.2:1883. Check the URL, username and password." });
 		expect(setupNotice({ ...base, connected: false, connectedAt: null, now: 15_000 })!.text).toMatch(/at mqtt:\/\/10\.0\.0\.2:1883\. Check the URL, username and password\.$/);

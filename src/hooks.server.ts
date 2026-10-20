@@ -2,13 +2,17 @@ import { error, redirect } from '@sveltejs/kit';
 import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
 import { building } from '$app/env';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
+import { applyAddonEnv } from './lib/server/addon';
 import { getAuth } from './lib/server/auth';
 import { getDb } from './lib/server/db/index';
 import { startRuntime } from './lib/server/runtime';
 import { needsSetup, setupRedirect } from './lib/server/setup';
 
 export const init: ServerInit = async () => {
-	if (!building) startRuntime();
+	if (building) return;
+	const src = await applyAddonEnv();
+	if (src) console.log(`add-on mode: mqtt from ${src}`);
+	startRuntime();
 };
 
 const betterAuthHandle: Handle = async ({ event, resolve }) => {
