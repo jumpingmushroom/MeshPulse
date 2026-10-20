@@ -1,7 +1,7 @@
 {
 	"name": "meshpulse",
 	"private": true,
-	"version": "0.4.0-rc.3",
+	"version": "0.4.0",
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
