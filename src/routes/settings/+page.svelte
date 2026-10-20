@@ -87,10 +87,10 @@
 						{@const nChanged = changedIn(keys).length}
 						{@const nErr = count(keys)}
 						<details class="panel panel-pad" open={nChanged > 0 || nErr > 0}>
-							<summary style="cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500">
+							<summary style="cursor:pointer;font-weight:500">
 								{g.title}
-								{#if nChanged}<span class="tag tag-accent">{nChanged} changed</span>{/if}
-								{#if nErr}<span class="tag" style="color:var(--crit)">{nErr} to fix</span>{/if}
+								{#if nChanged}<span class="tag tag-accent" style="margin-left:8px">{nChanged} changed</span>{/if}
+								{#if nErr}<span class="tag" style="margin-left:8px;color:var(--crit-fg)">{nErr} to fix</span>{/if}
 							</summary>
 							<div class="stack" style="gap:var(--space-6);margin-top:var(--space-6)">
 								{#each g.rows as r (r.label)}{@render rowView(r)}{/each}
