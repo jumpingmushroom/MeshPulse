@@ -1,4 +1,5 @@
 // Pure view helpers shared by the pages (server loads and components).
+import { batteryOf } from './battery-types';
 import { deviceScore } from './score';
 import type { RuleId } from './server/rules/types';
 import type { AppState, DeviceState, Severity } from './server/types';
@@ -188,6 +189,8 @@ export interface BatteryRow {
 	low: boolean;
 	/** Sparkline path of the last 30 days; empty when < 2 points. */
 	trend: string;
+	batteryType: { type: string; cells: number } | null;
+	rechargeable: boolean;
 }
 
 /** Shopping list order: low now (lowest charge first), then by forecast days left, then the rest (lowest charge first). */
@@ -198,8 +201,30 @@ export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number
 		ieee: d.ieee, name: d.friendlyName, battery: d.battery, voltage: d.voltage,
 		daysLeft: daysLeft.get(d.ieee) ?? null, lastSwapAt: lastSwap.get(d.ieee) ?? null,
 		trend: trends.get(d.ieee) ?? '',
-		low: d.batteryLow === true || (d.battery !== null && d.battery <= lowPct(d))
+		low: d.batteryLow === true || (d.battery !== null && d.battery <= lowPct(d)),
+		batteryType: batteryOf(d),
+		rechargeable: d.tags.includes('rechargeable')
 	})).sort((a, b) => group(a) - group(b) || (group(a) === 1 ? a.daysLeft! - b.daysLeft! : 0) || pct(a) - pct(b));
+}
+
+type Named = { ieee: string; name: string };
+
+/** Due (low now or forecast within `days`) batteries: what to buy grouped by type, what to recharge, and what has no known type. */
+export function shoppingList(rows: BatteryRow[], days = 30): { buy: { type: string; count: number; devices: Named[] }[]; recharge: Named[]; unknown: Named[] } {
+	const due = rows.filter((r) => r.low || (r.daysLeft !== null && r.daysLeft <= days));
+	const groups = new Map<string, { type: string; count: number; devices: Named[] }>();
+	for (const r of due) {
+		if (r.rechargeable || !r.batteryType) continue;
+		const g = groups.get(r.batteryType.type) ?? groups.set(r.batteryType.type, { type: r.batteryType.type, count: 0, devices: [] }).get(r.batteryType.type)!;
+		g.count += r.batteryType.cells;
+		g.devices.push({ ieee: r.ieee, name: r.name });
+	}
+	const named = (r: BatteryRow) => ({ ieee: r.ieee, name: r.name });
+	return {
+		buy: [...groups.values()].sort((a, b) => b.count - a.count || a.type.localeCompare(b.type)),
+		recharge: due.filter((r) => r.rechargeable).map(named),
+		unknown: due.filter((r) => !r.rechargeable && !r.batteryType).map(named)
+	};
 }
 
 export function splitBatteries(rows: BatteryRow[], days = 30) {

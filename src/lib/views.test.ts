@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { shoppingList, type BatteryRow } from './views';
 import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, splitBatteries, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows, setupNotice } from './views';
 import type { DeviceState, Severity } from './server/types';
 
 const dev = (o: Partial<DeviceState>): DeviceState => ({
 	ieee: '0x1', friendlyName: 'd', type: 'EndDevice', powerSource: null, model: null, vendor: null, firmware: null,
 	networkAddress: null, availability: 'online', lastSeenAt: null, removedAt: null, mutedUntil: null, tags: [],
-	ignoreRules: [], typicalGapMs: null, maxVoltage: null, lqi: null, battery: null, voltage: null, batteryLow: null,
+	ignoreRules: [], typicalGapMs: null, maxVoltage: null, lqi: null, battery: null, voltage: null, batteryLow: null, batteryType: null, batteryCells: null,
 	recentSeen: [], lastSampleAt: null, offlineSince: null, ...o
 });
 const state = (ds: DeviceState[]) => ({ devices: new Map(ds.map((d) => [d.ieee, d])) });
@@ -261,7 +262,7 @@ describe('filterRows', () => {
 });
 
 describe('splitBatteries', () => {
-	const r = (name: string, daysLeft: number | null) => ({ ieee: name, name, battery: 50, voltage: null, daysLeft, lastSwapAt: null, low: false, trend: '' });
+	const r = (name: string, daysLeft: number | null) => ({ ieee: name, name, battery: 50, voltage: null, daysLeft, lastSwapAt: null, low: false, trend: '', batteryType: null, rechargeable: false });
 	it('splits by days left and orders each group', () => {
 		const out = splitBatteries([r('z', null), r('late', 55), r('soon', 6), r('a', null)]);
 		expect(out.soon.map((x) => x.name)).toEqual(['soon']);
@@ -299,5 +300,40 @@ describe('setupNotice', () => {
 		expect(setupNotice({ ...base, now: 119_000 })).toBeNull();
 		expect(setupNotice({ ...base, now: 120_000 })).toEqual({ kind: 'z2m', text: 'Connected, but nothing from Zigbee2MQTT on zigbee2mqtt/bridge/…. Check Z2M_BASE_TOPIC (now zigbee2mqtt) and that the MQTT user may subscribe to zigbee2mqtt/#.' });
 		expect(setupNotice({ ...base, now: 600_000, bridgeSeen: true })).toBeNull();
+	});
+});
+
+describe('shoppingList', () => {
+	const row = (ieee: string, o: Partial<BatteryRow> = {}): BatteryRow => ({ ieee, name: ieee, battery: 50, voltage: null, daysLeft: null, lastSwapAt: null,
+		low: true, trend: '', batteryType: { type: 'CR2032', cells: 1 }, rechargeable: false, ...o });
+	const aaa = { type: 'AAA', cells: 2 };
+
+	it('sums cells per type, most first', () => {
+		const s = shoppingList([row('a'), row('b'), row('c', { batteryType: aaa }), row('d', { batteryType: aaa })]);
+		expect(s.buy.map((g) => [g.type, g.count, g.devices.map((d) => d.ieee)])).toEqual([['AAA', 4, ['c', 'd']], ['CR2032', 2, ['a', 'b']]]);
+	});
+
+	it('takes due rows only: low now or within 30 days', () => {
+		const s = shoppingList([row('far', { low: false, daysLeft: 45 }), row('edge', { low: false, daysLeft: 30 }), row('none', { low: false })]);
+		expect(s.buy.flatMap((g) => g.devices.map((d) => d.ieee))).toEqual(['edge']);
+	});
+
+	it('rechargeables go to recharge only, even with an unknown type', () => {
+		const s = shoppingList([row('r1', { rechargeable: true }), row('r2', { rechargeable: true, batteryType: null })]);
+		expect(s).toEqual({ buy: [], recharge: [{ ieee: 'r1', name: 'r1' }, { ieee: 'r2', name: 'r2' }], unknown: [] });
+	});
+
+	it('unknown types go to unknown', () => {
+		expect(shoppingList([row('u', { batteryType: null })]).unknown).toEqual([{ ieee: 'u', name: 'u' }]);
+	});
+
+	it('battery_low with no percentage is due and keeps its type', () => {
+		const d = dev({ ieee: 'x', powerSource: 'Battery', battery: null, batteryLow: true, vendor: 'Aqara', model: 'WSDCGQ11LM' });
+		const s = shoppingList(batteryRows([d], new Map(), new Map()));
+		expect(s.buy).toEqual([{ type: 'CR2032', count: 1, devices: [{ ieee: 'x', name: 'd' }] }]);
+	});
+
+	it('is empty when nothing is due', () => {
+		expect(shoppingList([row('a', { low: false })])).toEqual({ buy: [], recharge: [], unknown: [] });
 	});
 });

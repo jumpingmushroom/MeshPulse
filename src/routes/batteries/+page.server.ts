@@ -4,7 +4,7 @@ import { baselines, events, samplesHourly } from '../../lib/server/db/schema';
 import { getRuntime } from '../../lib/server/runtime';
 import { lowPctFor } from '../../lib/server/rules/battery';
 import { getSettings } from '../../lib/server/settings';
-import { batteryRows, splitBatteries } from '../../lib/views';
+import { batteryRows, shoppingList, splitBatteries } from '../../lib/views';
 import type { PageServerLoad } from './$types';
 
 const H = 3_600_000;
@@ -32,5 +32,5 @@ export const load: PageServerLoad = () => {
 		labels[ieee] = `30-day battery trend, ${Math.round(vs[0])} % to ${Math.round(vs[vs.length - 1])} %`;
 	}
 	const rows = batteryRows([...state.devices.values()], daysLeft, swaps, lowPctFor(getSettings(db)), trends);
-	return { ...splitBatteries(rows), total: rows.length, spark: SPARK, labels, anyForecast: daysLeft.size > 0 };
+	return { ...splitBatteries(rows), shopping: shoppingList(rows), total: rows.length, spark: SPARK, labels, anyForecast: daysLeft.size > 0 };
 };
