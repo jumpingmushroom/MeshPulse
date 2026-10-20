@@ -1,6 +1,6 @@
 name: MeshPulse
 slug: meshpulse
-version: 0.4.2
+version: 0.4.3
 description: Passive, read-only Zigbee2MQTT health monitor
 url: https://github.com/jumpingmushroom/MeshPulse
 arch: [amd64, aarch64]

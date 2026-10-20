@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.3
+
+- MeshPulse's own icon in the browser tab.
+- Batteries: devices that are low right now are highlighted; a battery type typed as "cr2032" counts as CR2032.
+- Settings thresholds read better on a phone.
+
 ## 0.4.2
 
 - Settings → Thresholds: one line per alert, collapsible groups showing how many values you changed, and a reset link on each changed value. Rarely used values sit under "More settings".
