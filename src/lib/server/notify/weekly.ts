@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, sql } from 'drizzle-orm';
 import type { Db } from '../db/index';
 import { baselines, channels, events, healthScores, issues, outbox, samplesHourly, settings } from '../db/schema';
-import { lowPctFor } from '../rules/battery';
+import { isBatteryLow } from '../rules/battery';
 import { countRejoins, onePerRejoin } from '../rules/churn';
 import type { EventRow } from '../rules/types';
 import type { AppState, EventKind } from '../types';
@@ -42,7 +42,8 @@ export function weeklyDigest(db: Db, state: AppState, now: number): Message {
 	if (openCount) fields.push({ name: 'Open issues', value: (['critical', 'warning', 'info'] as const).flatMap((s) => open.filter((o) => o.severity === s).map((o) => `${o.n} ${s}`)).join(', ') });
 
 	const daysLeft = new Map(db.select().from(baselines).where(eq(baselines.metric, 'battery_days_left')).all().map((b) => [b.ieee, b.value]));
-	const shop = shoppingList(batteryRows([...state.devices.values()], daysLeft, new Map(), lowPctFor(getSettings(db))));
+	const settings = getSettings(db);
+	const shop = shoppingList(batteryRows([...state.devices.values()], daysLeft, new Map(), (d) => isBatteryLow(d, settings)));
 	const buy = [...shop.buy.map((g) => `${g.type} ×${g.count} (${g.devices.length} ${g.devices.length === 1 ? 'device' : 'devices'})`),
 		...(shop.recharge.length ? [`Recharge: ${shop.recharge.map((d) => d.name).join(', ')}`] : []),
 		...(shop.unknown.length ? [`Type unknown: ${shop.unknown.map((d) => d.name).join(', ')}`] : [])];

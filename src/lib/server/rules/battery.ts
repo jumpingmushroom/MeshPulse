@@ -74,7 +74,12 @@ export function batteryLevels(d: DeviceState, s: Settings) {
 		: { low: s.batteryLowPct, critical: s.batteryCriticalPct, clear: s.batteryClearPct, causing: s.causingBatteryPct };
 }
 
-export const lowPctFor = (s: Settings) => (d: DeviceState) => batteryLevels(d, s).low;
+/** battery.low's opening condition: the device's flag, the percentage, or a coin cell's voltage. The shopping list uses it too. */
+export function isBatteryLow(d: DeviceState, s: Settings): boolean {
+	const coin = d.powerSource === 'Battery' && d.maxVoltage !== null && d.maxVoltage <= s.coinCellMaxV;
+	const v = coin ? d.voltage : null;
+	return d.batteryLow === true || (d.battery !== null && d.battery <= batteryLevels(d, s).low) || (v !== null && v <= s.voltageLow);
+}
 
 export function batteryLow(ctx: RuleContext): Finding[] {
 	const s = ctx.settings;
@@ -91,7 +96,7 @@ export function batteryLow(ctx: RuleContext): Finding[] {
 			? d.batteryLow === true || (pct !== null && pct <= lv.clear) || (v !== null && v <= s.voltageClear) ||
 				// nothing known yet (e.g. a row from before battery_low was stored): hold until the device reports
 				(d.powerSource === 'Battery' && d.batteryLow === null && pct === null && d.voltage === null)
-			: d.batteryLow === true || (pct !== null && pct <= lv.low) || (v !== null && v <= s.voltageLow));
+			: isBatteryLow(d, s));
 		if (!bad) continue;
 		const critical = causing.length > 0 || (pct !== null && pct <= lv.critical) || (v !== null && v <= s.voltageCritical);
 		const readings = [pct !== null && `${pct}%`, d.voltage !== null && `${d.voltage} V`].filter(Boolean).join(' / ');

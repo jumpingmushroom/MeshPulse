@@ -131,14 +131,14 @@ describe('batteryRows', () => {
 
 	it('puts low-now rows first by charge, nulls last in their group', () => {
 		const rows = batteryRows([b('f', { battery: 60 }), b('x', { battery: null }), b('l2', { battery: 25 }), b('l1', { battery: 0 }), b('fl', { battery: 90, batteryLow: true }), b('n', { battery: 70 })],
-			new Map([['f', 3], ['l1', 1]]), new Map(), () => 25);
+			new Map([['f', 3], ['l1', 1]]), new Map(), (d) => d.batteryLow === true || (d.battery !== null && d.battery <= 25));
 		expect(rows.map((r) => r.ieee)).toEqual(['l1', 'l2', 'fl', 'f', 'n', 'x']);
 		expect(rows.map((r) => r.low)).toEqual([true, true, true, false, false, false]);
 	});
 
 	it('a rechargeable device is low at its own threshold', () => {
 		const rows = batteryRows([b('r', { battery: 36, tags: ['rechargeable'] }), b('a', { battery: 24 })], new Map(), new Map(),
-			(d) => (d.tags.includes('rechargeable') ? 10 : 25));
+			(d) => d.battery !== null && d.battery <= (d.tags.includes('rechargeable') ? 10 : 25));
 		expect(rows.map((r) => [r.ieee, r.low])).toEqual([['a', true], ['r', false]]);
 	});
 

@@ -183,6 +183,8 @@ If a device is expected to send many messages, such as an mmWave presence sensor
 
 Rechargeable NiMH batteries (such as IKEA LADDA) run at 1.2 V, so most devices report them at 30-60 % even when fully charged, then drop quickly near empty. Turn on **Rechargeable battery** on the device page: the device then uses the rechargeable thresholds (low at 10 %, critical at 5 %, OK again above 20 %), warns when the level drops 15 points since the battery went in, and gets no forecast.
 
+MeshPulse knows the battery type of common devices (CR2032, AAA and so on) from a built-in list in `src/lib/battery-types.ts`; set or correct it on the device page. The **Batteries** page starts with a shopping list: batteries to buy in the next 30 days grouped by type, rechargeables to recharge, and due devices whose type is unknown. The weekly digest includes the same list. Corrections to the built-in list are welcome as pull requests, with a source for each model.
+
 ### Whole-network outages
 
 If no device sends a message for **Bridge silence** (5 minutes by default) while Zigbee2MQTT is running, MeshPulse raises "Zigbee network silent". This usually means a stuck coordinator radio. Mass offline and the silent network each raise one Critical issue per outage. While the network is dark, after a real silence, and after a Zigbee2MQTT restart, MeshPulse holds the per-device warnings that the outage would otherwise cause.

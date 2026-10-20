@@ -194,14 +194,14 @@ export interface BatteryRow {
 }
 
 /** Shopping list order: low now (lowest charge first), then by forecast days left, then the rest (lowest charge first). */
-export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, lowPct: (d: DeviceState) => number = () => 25, trends: Map<string, string> = new Map()): BatteryRow[] {
+export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, isLow: (d: DeviceState) => boolean = (d) => d.batteryLow === true || (d.battery !== null && d.battery <= 25), trends: Map<string, string> = new Map()): BatteryRow[] {
 	const pct = (r: BatteryRow) => r.battery ?? 101;
 	const group = (r: BatteryRow) => (r.low ? 0 : r.daysLeft !== null ? 1 : 2);
 	return devices.filter((d) => d.powerSource === 'Battery' && d.removedAt === null).map((d) => ({
 		ieee: d.ieee, name: d.friendlyName, battery: d.battery, voltage: d.voltage,
 		daysLeft: daysLeft.get(d.ieee) ?? null, lastSwapAt: lastSwap.get(d.ieee) ?? null,
 		trend: trends.get(d.ieee) ?? '',
-		low: d.batteryLow === true || (d.battery !== null && d.battery <= lowPct(d)),
+		low: isLow(d),
 		batteryType: batteryOf(d),
 		rechargeable: d.tags.includes('rechargeable')
 	})).sort((a, b) => group(a) - group(b) || (group(a) === 1 ? a.daysLeft! - b.daysLeft! : 0) || pct(a) - pct(b));

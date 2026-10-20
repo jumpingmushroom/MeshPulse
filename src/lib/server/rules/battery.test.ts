@@ -5,7 +5,8 @@ import type { HourlyRow } from '../trends/history';
 import { hourStart } from '../trends/rollup';
 import type { DeviceState, EventKind } from '../types';
 import { issueKey, type RuleContext } from './index';
-import { batteryDropping, batteryLow, batteryStale } from './battery';
+import { batteryDropping, batteryLow, batteryStale, isBatteryLow } from './battery';
+import { DEFAULT_SETTINGS } from '../settings';
 
 const run = (ieee: string, patch: Partial<DeviceState>, open = false) => {
 	const c = ctx();
@@ -309,5 +310,16 @@ describe('rechargeable batteries', () => {
 		expect(drop(8, NIMH, true)).toHaveLength(1);
 		expect(drop(7, NIMH, true)).toEqual([]);
 		expect(drop(30, { ...NIMH, battery: 10 })).toEqual([]);
+	});
+});
+
+describe('isBatteryLow (the shopping list uses the rule condition)', () => {
+	const d = (o: Partial<DeviceState>) => ({ powerSource: 'Battery', maxVoltage: 3.0, voltage: 3.0, battery: 80, batteryLow: null, tags: [], ...o }) as DeviceState;
+	it('a coin cell at 2.8 V is low even at 80 %', () => expect(isBatteryLow(d({ voltage: 2.8 }), DEFAULT_SETTINGS)).toBe(true));
+	it('a healthy coin cell is not low', () => expect(isBatteryLow(d({}), DEFAULT_SETTINGS)).toBe(false));
+	it('percentage and the device flag count, rechargeables use their own threshold', () => {
+		expect(isBatteryLow(d({ maxVoltage: null, voltage: null, battery: 25 }), DEFAULT_SETTINGS)).toBe(true);
+		expect(isBatteryLow(d({ maxVoltage: null, voltage: null, batteryLow: true }), DEFAULT_SETTINGS)).toBe(true);
+		expect(isBatteryLow(d({ maxVoltage: null, voltage: null, battery: 30, tags: ['rechargeable'] }), DEFAULT_SETTINGS)).toBe(false);
 	});
 });
