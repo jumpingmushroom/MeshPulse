@@ -51,6 +51,7 @@ export const load: PageServerLoad = () => {
 	const ch = discordChannel();
 	return {
 		settings: getSettings(db),
+		defaults: DEFAULT_SETTINGS,
 		heartbeat: { configured: !!(getSettings(db).heartbeatUrl || getRuntime().config.heartbeatUrl), last: lastPing() },
 		// the webhook URL holds a token: never send it to the browser
 		channel: ch ? { configured: !!ch.config?.webhookUrl, mentionCritical: ch.config?.mentionCritical === true, weeklyDigest: ch.config?.weeklyDigest !== false,

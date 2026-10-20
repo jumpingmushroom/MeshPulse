@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { Db } from './db/index';
 import { settings } from './db/schema';
-import { GROUPS } from '../settings-groups';
+import { thresholdFields } from '../settings-groups';
 
 export const DEFAULT_SETTINGS = {
 	bridgeSilenceMin: 5,
@@ -118,7 +118,7 @@ const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', '
 	'backlogHigh', 'backlogClear', 'wifiBusyPct', 'wifiClearPct', 'causingWindowH', 'staleBatteryDays', 'rechargeableDropPct'];
 
 const LABEL: Record<string, string> = { quietStart: 'Quiet hours start', quietEnd: 'Quiet hours end', heartbeatUrl: 'Heartbeat URL',
-	...Object.fromEntries(GROUPS.flatMap(([, fs]) => fs.map(([k, label]) => [k, label]))) };
+	...Object.fromEntries(thresholdFields().map((x) => [x.key, x.name])) };
 
 export type SettingsError = { field: keyof Settings; message: string };
 
