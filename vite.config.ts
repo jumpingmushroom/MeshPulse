@@ -11,7 +11,9 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			adapter: adapter()
+			adapter: adapter(),
+			// relative asset paths so the add-on works under the ingress prefix
+			paths: { relative: true }
 		})
 	],
 	test: {

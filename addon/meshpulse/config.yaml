@@ -1,0 +1,25 @@
+name: MeshPulse
+slug: meshpulse
+version: 0.4.0
+description: Passive, read-only Zigbee2MQTT health monitor
+url: https://github.com/jumpingmushroom/MeshPulse
+arch: [amd64, aarch64]
+image: ghcr.io/jumpingmushroom/meshpulse
+init: false
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:zigbee
+panel_title: MeshPulse
+services: ["mqtt:want"]
+watchdog: tcp://[HOST]:[PORT:3000]
+backup: cold
+options:
+  z2m_base_topic: zigbee2mqtt
+  mqtt_url: ""
+  mqtt_username: ""
+  mqtt_password: ""
+schema:
+  z2m_base_topic: str
+  mqtt_url: "str?"
+  mqtt_username: "str?"
+  mqtt_password: "password?"

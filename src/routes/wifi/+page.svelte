@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Sparkline from '../../lib/components/Sparkline.svelte';
 	import { formatAgo, formatTime } from '../../lib/views';
 	import { wifiMHz, zigbeeMHz } from '../../lib/wifi-freq';
@@ -31,7 +32,7 @@
 		<div class="empty">
 			<strong>Wi-Fi correlation is off</strong>
 			<p>MeshPulse can read your UniFi access points (read-only) to show which Wi-Fi channels overlap your Zigbee channel and how busy they are. It never changes anything in UniFi.</p>
-			<a class="btn" href="/settings#wifi">Set up in Settings</a>
+			<a class="btn" href="{resolve('/settings')}#wifi">Set up in Settings</a>
 		</div>
 	{:else}
 		{#if data.lastError && data.failures > 0}
@@ -79,7 +80,7 @@
 								<td class="num">{pct(a.own)}</td>
 								<td class="num">{a.clients ?? '—'}</td>
 								<td>{a.changedAt ? formatTime(a.changedAt, data.tz) : '—'}</td>
-								<td>{#if a.match}<a href="/devices?q={encodeURIComponent(a.match)}">{a.zigbeeDevices} {a.zigbeeDevices === 1 ? 'device' : 'devices'}</a>{:else}—{/if}</td>
+								<td>{#if a.match}<a href="{resolve('/devices')}?q={encodeURIComponent(a.match)}">{a.zigbeeDevices} {a.zigbeeDevices === 1 ? 'device' : 'devices'}</a>{:else}—{/if}</td>
 							</tr>
 						{/each}
 					</tbody>

@@ -1,3 +1,4 @@
+import { isAddon } from './addon';
 import { ensureAdmin, getAuth } from './auth';
 import { loadConfig, type Config } from './config';
 import { getDb, type Db } from './db';
@@ -15,6 +16,17 @@ import { createState, type AppState } from './types';
 export type Runtime = { config: Config; db: Db; state: AppState; requester: Requester };
 type G = { __meshpulse?: Runtime };
 
+// Add-on mode has no accounts (ingress authenticates), so Better Auth is never touched there.
+export function seedAdmin(config: Pick<Config, 'adminEmail' | 'adminPassword'>, addon = isAddon(), auth: () => ReturnType<typeof getAuth> = getAuth): void {
+	if (addon) return;
+	ensureAdmin(auth(), config.adminEmail, config.adminPassword)
+		.then((r) => {
+			if (r === 'skipped') console.warn('auth: no ADMIN_EMAIL/ADMIN_PASSWORD; open MeshPulse in a browser to create the admin account');
+			else console.log(`auth: admin account ${r}`);
+		})
+		.catch((e) => console.error('auth: admin seeding failed', e));
+}
+
 export function startRuntime(): Runtime {
 	const g = globalThis as G; // survives Vite HMR module reloads
 	if (g.__meshpulse) return g.__meshpulse;
@@ -23,12 +35,7 @@ export function startRuntime(): Runtime {
 	const db = getDb();
 	const state = createState(Date.now());
 	loadDevices(db, state);
-	ensureAdmin(getAuth(), config.adminEmail, config.adminPassword)
-		.then((r) => {
-			if (r === 'skipped') console.warn('auth: no ADMIN_EMAIL/ADMIN_PASSWORD; open MeshPulse in a browser to create the admin account');
-			else console.log(`auth: admin account ${r}`);
-		})
-		.catch((e) => console.error('auth: admin seeding failed', e));
+	seedAdmin(config);
 	const dirty = new Set<string>();
 	const counters: Counters = { seen: new Map(), missing: new Map() };
 	const collector = startCollector({ config, state, onEffects: (effects) => applyEffects(db, effects, dirty) });

@@ -128,7 +128,7 @@ export const EVIDENCE_LABELS: Record<string, string> = {
 };
 
 /** Issue evidence as readable [key, value] pairs: *At/*Since are times, *Ms are durations, nulls hidden. */
-export function evidenceRows(evidence: Record<string, unknown>, tz: string, byName: Map<string, string> = new Map()): [string, string | { text: string; href: string }[]][] {
+export function evidenceRows(evidence: Record<string, unknown>, tz: string, byName: Map<string, string> = new Map()): [string, string | { text: string; ieee: string }[]][] {
 	// device lists ("names": string[], "top": {name, perMin}[]) become links when every name resolves to an ieee
 	const links = (v: unknown) => {
 		if (!Array.isArray(v) || !v.length) return null;
@@ -136,11 +136,11 @@ export function evidenceRows(evidence: Record<string, unknown>, tz: string, byNa
 			const name = typeof x === 'string' ? x : x && typeof x === 'object' && typeof (x as { name?: unknown }).name === 'string' ? (x as { name: string }).name : null;
 			const ieee = name === null ? undefined : byName.get(name);
 			const rate = x && typeof x === 'object' ? (x as { perMin?: unknown }).perMin : undefined;
-			return ieee === undefined ? null : { text: rate === undefined ? name! : `${name} (${rate}/min)`, href: `/devices/${ieee}` };
+			return ieee === undefined ? null : { text: rate === undefined ? name! : `${name} (${rate}/min)`, ieee };
 		});
 		return out.every((x) => x !== null) ? out : null;
 	};
-	return Object.entries(evidence).flatMap(([k, v]): [string, string | { text: string; href: string }[]][] => {
+	return Object.entries(evidence).flatMap(([k, v]): [string, string | { text: string; ieee: string }[]][] => {
 		if (v === null || v === undefined) return [];
 		if (k === 'level') return []; // internal rule variant, e.g. battery.low
 		const l = EVIDENCE_LABELS[k] ?? humanise(k);
@@ -352,10 +352,11 @@ export function chartFor(rule: string): 'battery' | 'lqi' | 'msgs' | null {
 	return rule === 'device.storm' || rule === 'device.dominant' ? 'msgs' : null;
 }
 
-export function setupNotice(i: { connected: boolean; connectedAt: number | null; lastError: string | null; bridgeSeen: boolean; mqttUrl: string; baseTopic: string; now: number; startedAt: number }): { kind: 'mqtt' | 'z2m'; text: string } | null {
+export function setupNotice(i: { connected: boolean; connectedAt: number | null; lastError: string | null; bridgeSeen: boolean; mqttUrl: string; baseTopic: string; now: number; startedAt: number; addon?: boolean; mqttUrlMissing?: boolean }): { kind: 'mqtt' | 'z2m'; text: string } | null {
 	// A lost connection after a good one is the layout's stale alert, not a setup problem.
 	if (!i.connected) {
 		if (i.connectedAt !== null || i.now - i.startedAt < 15_000) return null;
+		if (i.addon && i.mqttUrlMissing) return { kind: 'mqtt', text: 'No MQTT broker found. Install the Mosquitto broker add-on, or set mqtt_url in the MeshPulse add-on configuration.' };
 		let url = 'the configured URL';
 		try { const u = new URL(i.mqttUrl); u.username = ''; u.password = ''; url = u.href.replace(/\/$/, ''); } catch { /* keep placeholder */ }
 		return { kind: 'mqtt', text: `MeshPulse can't reach the MQTT broker at ${url}${i.lastError ? `: ${i.lastError}` : ''}. Check the URL, username and password.` };

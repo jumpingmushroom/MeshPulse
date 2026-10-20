@@ -1,14 +1,16 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { getAuth } from '../../lib/server/auth';
+import { appRedirect } from '../../lib/server/ingress';
 import { loginLimiter } from '../../lib/server/login-limit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = ({ locals }) => {
-	if (locals.user) redirect(303, '/');
+export const load: PageServerLoad = (event) => {
+	if (event.locals.user) appRedirect(event, 303, '/');
 };
 
 export const actions: Actions = {
-	login: async ({ request, getClientAddress }) => {
+	login: async (event) => {
+		const { request, getClientAddress } = event;
 		const form = await request.formData();
 		const email = String(form.get('email') ?? '');
 		const ip = getClientAddress();
@@ -21,10 +23,10 @@ export const actions: Actions = {
 			return fail(400, { email, error: 'Wrong email or password.' });
 		}
 		loginLimiter.reset(ip);
-		redirect(303, '/');
+		appRedirect(event, 303, '/');
 	},
-	logout: async ({ request }) => {
-		await getAuth().api.signOut({ headers: request.headers });
-		redirect(303, '/login');
+	logout: async (event) => {
+		await getAuth().api.signOut({ headers: event.request.headers });
+		appRedirect(event, 303, '/login');
 	}
 };
