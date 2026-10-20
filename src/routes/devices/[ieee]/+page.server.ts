@@ -9,7 +9,9 @@ import { getRuntime } from '../../../lib/server/runtime';
 import { getSettings } from '../../../lib/server/settings';
 import { apsNear, areaOf } from '../../../lib/server/wifi/areas';
 import { loadWifiSnapshot } from '../../../lib/server/wifi/snapshot';
-import { muteUntil, setTag } from '../../../lib/server/store';
+import { muteUntil, setBatteryType, setTag } from '../../../lib/server/store';
+import { batteryOf } from '../../../lib/battery-types';
+import { parseBatteryForm } from '../../../lib/battery-form';
 import type { Actions, PageServerLoad } from './$types';
 
 function getDevice(ieee: string) {
@@ -55,7 +57,8 @@ export const load: PageServerLoad = ({ params, url }) => {
 		parent, routed,
 		device: {
 			ieee: d.ieee, name: d.friendlyName, type: d.type, model: d.model, vendor: d.vendor, powerSource: d.powerSource,
-			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), chatty: d.tags.includes('chatty'), rechargeable: d.tags.includes('rechargeable'), batteryPowered, battery: d.battery, voltage: d.voltage
+			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), chatty: d.tags.includes('chatty'), rechargeable: d.tags.includes('rechargeable'), batteryPowered, battery: d.battery, voltage: d.voltage,
+			batteryType: batteryOf(d)
 		},
 		charts: [c.lqi, ...(batteryPowered && c.battery && c.voltage ? [c.battery, c.voltage] : []), c.msgsHour],
 		daysLeft: baseline('battery_days_left'),
@@ -93,5 +96,12 @@ export const actions: Actions = {
 		const { db, state } = getRuntime();
 		const on = (await request.formData()).get('on') === '1';
 		setTag(db, state, getDevice(params.ieee).ieee, 'rechargeable', on);
+	},
+	batteryType: async ({ params, request }) => {
+		const { db, state } = getRuntime();
+		const d = getDevice(params.ieee);
+		const r = parseBatteryForm(await request.formData());
+		if ('field' in r) return fail(400, { batteryError: r });
+		setBatteryType(db, state, d.ieee, r.type, r.cells);
 	}
 };

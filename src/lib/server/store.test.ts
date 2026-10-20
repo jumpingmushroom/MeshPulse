@@ -4,7 +4,7 @@ import { openDb } from './db';
 import { devices, events, healthSamples, samples } from './db/schema';
 import { route } from './mqtt/route';
 import { eq } from 'drizzle-orm';
-import { applyEffects, flushDevices, loadDevices, muteUntil, setTag } from './store';
+import { applyEffects, flushDevices, loadDevices, muteUntil, setBatteryType, setTag } from './store';
 import { FOREVER } from '../views';
 import { createState } from './types';
 
@@ -58,6 +58,24 @@ describe('muteUntil', () => {
 		expect(muteUntil('unmute', 5)).toBeNull();
 		for (const bad of ['toString', 'constructor', '__proto__', 'hasOwnProperty', '2h', ''])
 			expect(muteUntil(bad, 5)).toBeUndefined();
+	});
+});
+
+describe('setBatteryType', () => {
+	it('writes memory and DB, reloads, and clears', () => {
+		const { db, state, dirty } = run();
+		flushDevices(db, state, dirty);
+		const ieee = state.byName.get('temp_sensor')!;
+		expect(setBatteryType(db, state, ieee, 'AA', 2)).toBe(true);
+		expect(state.devices.get(ieee)).toMatchObject({ batteryType: 'AA', batteryCells: 2 });
+		const s2 = createState(0);
+		loadDevices(db, s2);
+		expect(s2.devices.get(ieee)).toMatchObject({ batteryType: 'AA', batteryCells: 2 });
+		setBatteryType(db, state, ieee, null, null);
+		const s3 = createState(0);
+		loadDevices(db, s3);
+		expect(s3.devices.get(ieee)).toMatchObject({ batteryType: null, batteryCells: null });
+		expect(setBatteryType(db, state, 'nope', 'AA', 1)).toBe(false);
 	});
 });
 

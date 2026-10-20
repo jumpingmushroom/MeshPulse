@@ -111,7 +111,7 @@ function onDevices(state: AppState, msg: MqttMsg, base: string, payload: unknown
 				ieee, friendlyName: '', type: 'EndDevice', powerSource: null, model: null, vendor: null, firmware: null,
 				networkAddress: null, availability: null, lastSeenAt: null, removedAt: null, mutedUntil: null, tags: [],
 				ignoreRules: [], typicalGapMs: null, maxVoltage: null, lqi: null, battery: null, voltage: null,
-				batteryLow: null, recentSeen: [], lastSampleAt: null, offlineSince: null
+				batteryLow: null, batteryType: null, batteryCells: null, recentSeen: [], lastSampleAt: null, offlineSince: null
 			};
 			// register as "new" so a dirty is emitted even if nothing else differs
 			touch(d);

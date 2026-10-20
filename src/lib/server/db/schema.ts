@@ -25,7 +25,10 @@ export const devices = sqliteTable('devices', {
 	ignoreRules: text('ignore_rules', { mode: 'json' }).$type<string[]>(),
 	typicalGapMs: integer('typical_gap_ms'),
 	maxVoltage: real('max_voltage'),
-	batteryLow: integer('battery_low', { mode: 'boolean' })
+	batteryLow: integer('battery_low', { mode: 'boolean' }),
+	// user override of the built-in battery table (src/lib/battery-types.ts)
+	batteryType: text('battery_type'),
+	batteryCells: integer('battery_cells')
 });
 
 export const samples = sqliteTable(
