@@ -100,8 +100,8 @@
 					{#if data.canTurnOff}
 						<hr class="rule" />
 						<form method="post" action="?/ignoreRule" use:enhance class="stack" style="gap:6px">
-							<button class="btn" style="width:100%">Turn off “{RULE_LABELS[i.rule as keyof typeof RULE_LABELS] ?? i.rule}” for {data.device.name}</button>
-							<p class="field-help">Stops this rule for this device only; turn it back on from the device page.</p>
+							<button class="btn" style="width:100%">Turn off this rule</button>
+							<p class="field-help">Stops “{RULE_LABELS[i.rule as keyof typeof RULE_LABELS] ?? i.rule}” for {data.device.name} only; turn it back on from the device page.</p>
 						</form>
 					{/if}
 					<hr class="rule" />
