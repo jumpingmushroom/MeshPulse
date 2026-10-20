@@ -2,15 +2,16 @@ import { error } from '@sveltejs/kit';
 import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
 import { building } from '$app/env';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { applyAddonEnv } from './lib/server/addon';
+import { applyAddonEnv, isAddon } from './lib/server/addon';
 import { getAuth } from './lib/server/auth';
-import { appRedirect, addonHandle } from './lib/server/ingress';
+import { appRedirect, addonHandle, assertAddonEnv } from './lib/server/ingress';
 import { getDb } from './lib/server/db/index';
 import { startRuntime } from './lib/server/runtime';
 import { needsSetup, setupRedirect } from './lib/server/setup';
 
 export const init: ServerInit = async () => {
 	if (building) return;
+	assertAddonEnv();
 	const src = await applyAddonEnv();
 	if (src) console.log(`add-on mode: mqtt from ${src}`);
 	startRuntime();
@@ -38,4 +39,7 @@ const guard: Handle = ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(addonHandle, betterAuthHandle, setupHandle, guard);
+const normal = sequence(betterAuthHandle, setupHandle, guard);
+
+// add-on mode answers itself: Better Auth, setup and login never run
+export const handle: Handle = (i) => (isAddon() ? addonHandle(i) : normal(i));

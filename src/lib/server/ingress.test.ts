@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { addonAccess, addonHandle, appRedirect } from './ingress';
+import { addonAccess, assertAddonEnv, addonHandle, appRedirect } from './ingress';
 
 const saved = process.env.SUPERVISOR_TOKEN;
 beforeEach(() => { process.env.SUPERVISOR_TOKEN = 't'; });
@@ -52,5 +52,13 @@ describe('addonHandle', () => {
 		const { event, p } = run('/', '10.0.0.5');
 		expect((await p).status).toBe(200);
 		expect(event.locals.user).toBeUndefined();
+	});
+});
+
+describe('assertAddonEnv', () => {
+	it('refuses ADDRESS_HEADER in add-on mode only', () => {
+		expect(() => assertAddonEnv({ SUPERVISOR_TOKEN: 't', ADDRESS_HEADER: 'X-Forwarded-For' })).toThrow('ADDRESS_HEADER');
+		expect(() => assertAddonEnv({ SUPERVISOR_TOKEN: 't' })).not.toThrow();
+		expect(() => assertAddonEnv({ ADDRESS_HEADER: 'X-Forwarded-For' })).not.toThrow();
 	});
 });

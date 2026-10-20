@@ -15,6 +15,11 @@ export function appRedirect(event: { request: Request }, status: 301 | 302 | 303
 	redirect(status, (/^\/api\/hassio_ingress\/[\w-]+$/.test(prefix) ? prefix : '') + path);
 }
 
+/** getClientAddress() would trust a header when ADDRESS_HEADER is set, so refuse to start. */
+export function assertAddonEnv(env: Record<string, string | undefined> = process.env): void {
+	if (isAddon(env) && env.ADDRESS_HEADER) throw new Error('ADDRESS_HEADER must not be set in add-on mode: it would let a forwarded header spoof the ingress proxy address');
+}
+
 /**
  * Add-on mode answers every request itself and never reaches Better Auth, setup or login.
  * The address comes from getClientAddress() only; the add-on never sets ADDRESS_HEADER/XFF_DEPTH,
