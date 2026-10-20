@@ -40,6 +40,7 @@
 			{#if data.routed}<span class="tag tag-outline">{data.routed} {data.routed === 1 ? 'device routes' : 'devices route'} through this router</span>{/if}
 			<span class="tag tag-outline">Health {data.score}</span>
 			{#if d.ignored}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>ignored</span>{/if}
+			{#if data.rules.some((r) => !r.on)}{@const off = data.rules.filter((r) => !r.on).length}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>{off} {off === 1 ? 'rule' : 'rules'} off</span>{/if}
 			{#if d.chatty}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>chatty</span>{/if}
 			{#if d.rechargeable}<span class="tag tag-accent"><svg class="i" style="width:12px;height:12px" aria-hidden="true"><use href="#i-tag" /></svg>rechargeable</span>{/if}
 		</div>
@@ -145,6 +146,19 @@
 					</form>
 				{/if}
 			</section>
+			{#if !d.ignored}
+				<section class="panel panel-pad stack" style="gap:10px" aria-labelledby="dev-rules">
+					<h2 id="dev-rules" class="muted" style="font-size:12px;font-weight:500">Rules for this device</h2>
+					<p class="field-help">Turn a rule off when this device is just like that. Its open issue closes on the next check.</p>
+					{#each data.rules as r (r.rule)}
+						<form method="post" action="?range={data.range}&/rule" use:enhance>
+							<input type="hidden" name="rule" value={r.rule} />
+							<label class="toggle"><input type="checkbox" role="switch" name="on" value="1" checked={r.on} onchange={submit} /><span class="track"></span>{r.label}</label>
+							<noscript><button class="btn btn-sm">Apply</button></noscript>
+						</form>
+					{/each}
+				</section>
+			{/if}
 		</aside>
 	</div>
 </div>

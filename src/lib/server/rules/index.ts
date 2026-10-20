@@ -1,4 +1,6 @@
 import type { Finding, Rule, RuleContext, RuleId } from './types';
+import type { DeviceState } from '../types';
+import { RULE_LABELS } from '../../views';
 import { batteryDropping, batteryLow, batteryStale } from './battery';
 import { bridgeBacklog } from './bridge-backlog';
 import { bridgeOffline } from './bridge-offline';
@@ -62,3 +64,15 @@ export function evaluateRules(ctx: RuleContext): Finding[] {
 		return !dev || (dev.removedAt === null && !dev.tags.includes('ignore') && !dev.ignoreRules.includes(f.rule));
 	});
 }
+
+/** Rules a user can switch off for one device on its page: device-level rules that can apply to it. */
+export function rulesFor(d: Pick<DeviceState, 'powerSource' | 'type' | 'tags' | 'ignoreRules'>): { rule: RuleId; label: string; on: boolean }[] {
+	const battery = d.powerSource === 'Battery';
+	return (Object.keys(RULE_DEFAULTS) as RuleId[])
+		.filter((r) => RULE_DEFAULTS[r].deviceLevel)
+		.filter((r) => (r.startsWith('battery.') ? battery : true) && (r === 'battery.dropping' ? d.tags.includes('rechargeable') : true)
+			&& (r === 'coordinator.missing_router' ? d.type === 'Router' : true))
+		.map((rule) => ({ rule, label: RULE_LABELS[rule], on: !d.ignoreRules.includes(rule) }));
+}
+
+export const canIgnore = (d: Parameters<typeof rulesFor>[0], rule: string) => rulesFor(d).some((r) => r.rule === rule);
