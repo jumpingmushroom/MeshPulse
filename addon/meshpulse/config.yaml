@@ -11,7 +11,8 @@ ingress_port: 3000
 panel_icon: mdi:zigbee
 panel_title: MeshPulse
 services: ["mqtt:want"]
-watchdog: http://[HOST]:[PORT:3000]/api/health
+watchdog: tcp://[HOST]:[PORT:3000]
+backup: cold
 options:
   z2m_base_topic: zigbee2mqtt
   mqtt_url: ""

@@ -7,7 +7,7 @@ MeshPulse watches the MQTT traffic of Zigbee2MQTT and tells you when your Zigbee
 1. In Home Assistant, go to **Settings > Add-ons > Add-on Store**.
 2. Open the menu (three dots, top right), choose **Repositories**, and add `https://github.com/jumpingmushroom/MeshPulse`.
 3. Find **MeshPulse** in the store, then install and start it.
-4. Open **MeshPulse** from the sidebar. The first time, create the admin account for MeshPulse's own settings.
+4. Open **MeshPulse** from the sidebar. Home Assistant's login protects it, and there is no separate MeshPulse login or account.
 
 ## MQTT
 
@@ -44,6 +44,8 @@ On Zigbee2MQTT 2.x the `log_output` line isn't needed, because it always publish
 ## Data and backups
 
 MeshPulse keeps its database in the add-on's own storage. Home Assistant backups include it, so a restore brings back your history and settings.
+
+MeshPulse stops briefly during Home Assistant backups, so the database is copied in a consistent state.
 
 ## Updating
 
