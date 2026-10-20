@@ -50,6 +50,22 @@ describe('send', () => {
 	it('a refused token says so', async () => {
 		await expect(homeassistant.send({ url: 'https://ha.example', token: 'bad', services: ['mobile_app_a'] }, msg(), fake(401))).rejects.toThrow('Home Assistant refused the token');
 	});
+	it('one dead service does not stop the others; the error names it', async () => {
+		const f = (async (url: string | URL | Request, init?: RequestInit) => {
+			calls.push({ url: String(url), init: init ?? {} });
+			return new Response('{}', { status: String(url).endsWith('/old_phone') ? 404 : 200 });
+		}) as typeof fetch;
+		await expect(homeassistant.send({ url: 'https://ha.example', token: 't', services: ['old_phone', 'mobile_app_new'] }, msg(), f)).rejects.toThrow('old_phone');
+		expect(calls.map((c) => c.url.split('/').pop())).toEqual(['old_phone', 'mobile_app_new']);
+	});
+	it('redirects are refused, never followed with the token', async () => {
+		await homeassistant.send({ url: 'https://ha.example', token: 't', services: ['a'] }, msg(), fake());
+		expect(calls[0].init.redirect).toBe('error');
+	});
+	it('add-on mode: a 401 means the add-on lacks API access', async () => {
+		process.env.SUPERVISOR_TOKEN = 'sup';
+		await expect(homeassistant.send({ services: ['a'] }, msg(), fake(401))).rejects.toThrow('no access to the Home Assistant API');
+	});
 	it('no services selected is an error, not a silent drop', async () => {
 		await expect(homeassistant.send({ url: 'https://ha.example', token: 't', services: [] }, msg(), fake())).rejects.toThrow('No notify service selected');
 	});
