@@ -32,11 +32,15 @@ export function toHaPayload(m: Message, link?: string) {
 async function call(t: HaTarget, path: string, fetchFn: typeof fetch, body?: unknown): Promise<Response> {
 	const res = await fetchFn(`${t.base}/api/${path}`, {
 		signal: AbortSignal.timeout(10_000),
+		redirect: 'error', // never follow a redirect with the token
 		method: body === undefined ? 'GET' : 'POST',
 		headers: { authorization: `Bearer ${t.token}`, 'content-type': 'application/json' },
 		...(body === undefined ? {} : { body: JSON.stringify(body) })
 	});
-	if (res.status === 401 || res.status === 403) throw new ChannelError(`Home Assistant refused the token (HTTP ${res.status})`);
+	if (res.status === 401 || res.status === 403)
+		throw new ChannelError(t.base === 'http://supervisor/core'
+			? `The add-on has no access to the Home Assistant API (HTTP ${res.status}); update the add-on`
+			: `Home Assistant refused the token (HTTP ${res.status})`);
 	if (!res.ok) throw new ChannelError(`Home Assistant: HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 200)}`.trim());
 	return res;
 }
@@ -68,8 +72,13 @@ export const homeassistant: Channel = {
 		const services = Array.isArray(config.services) ? config.services.map(String) : [];
 		if (!services.length) throw new ChannelError('No notify service selected');
 		const payload = toHaPayload(message, message.url ? undefined : await addonPanel(fetchFn));
-		// a retry re-sends to every service; the shared tag makes the phone replace, not duplicate
-		for (const s of services) await call(t, `services/notify/${encodeURIComponent(s)}`, fetchFn, payload);
+		// every service gets it even if one fails (an old phone); a retry re-sends to all, and the shared tag makes phones replace, not duplicate
+		const failed: string[] = [];
+		for (const s of services) {
+			try { await call(t, `services/notify/${encodeURIComponent(s)}`, fetchFn, payload); }
+			catch (e) { failed.push(`${s}: ${e instanceof Error ? e.message : String(e)}`); }
+		}
+		if (failed.length) throw new ChannelError(failed.join('; ').slice(0, 300));
 	}
 };
 
