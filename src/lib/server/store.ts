@@ -88,6 +88,15 @@ export function setTag(db: Db, state: AppState, ieee: string, tag: 'ignore' | 'c
 	return true;
 }
 
+/** Turns one rule off (on=true adds it to ignoreRules) or back on for a device, in memory and on the row. */
+export function setIgnoredRule(db: Db, state: AppState, ieee: string, rule: string, on: boolean): boolean {
+	const d = state.devices.get(ieee);
+	if (!d) return false;
+	d.ignoreRules = [...d.ignoreRules.filter((r) => r !== rule), ...(on ? [rule] : [])];
+	db.update(devices).set({ ignoreRules: d.ignoreRules }).where(eq(devices.ieee, ieee)).run();
+	return true;
+}
+
 /** Sets or clears the battery override in memory and on the device row (not part of flushDevices, like tags). */
 export function setBatteryType(db: Db, state: AppState, ieee: string, type: string | null, cells: number | null): boolean {
 	const d = state.devices.get(ieee);

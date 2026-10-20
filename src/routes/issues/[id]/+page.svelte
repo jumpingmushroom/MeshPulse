@@ -96,6 +96,13 @@
 						</div>
 						<div class="mute-status" class:is-muted={muted}>{muted === FOREVER ? 'Muted forever' : muted ? `Muted until ${formatTime(muted, data.tz)}` : 'Not muted'}</div>
 					</form>
+					{#if data.canTurnOff}
+						<hr class="rule" />
+						<form method="post" action="?/ignoreRule" use:enhance class="stack" style="gap:6px">
+							<button class="btn" style="width:100%">Turn off “{RULE_LABELS[i.rule as keyof typeof RULE_LABELS] ?? i.rule}” for {data.device.name}</button>
+							<p class="field-help">Stops this rule for this device only; turn it back on from the device page.</p>
+						</form>
+					{/if}
 					<hr class="rule" />
 					<a href="/devices/{data.device.ieee}" class="crumb">Open device page<svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-right" /></svg></a>
 				{/if}

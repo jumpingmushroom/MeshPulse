@@ -4,7 +4,7 @@ import { openDb } from './db';
 import { devices, events, healthSamples, samples } from './db/schema';
 import { route } from './mqtt/route';
 import { eq } from 'drizzle-orm';
-import { applyEffects, flushDevices, loadDevices, muteUntil, setBatteryType, setTag } from './store';
+import { applyEffects, flushDevices, loadDevices, muteUntil, setBatteryType, setIgnoredRule, setTag } from './store';
 import { FOREVER } from '../views';
 import { createState } from './types';
 
@@ -76,6 +76,22 @@ describe('setBatteryType', () => {
 		loadDevices(db, s3);
 		expect(s3.devices.get(ieee)).toMatchObject({ batteryType: null, batteryCells: null });
 		expect(setBatteryType(db, state, 'nope', 'AA', 1)).toBe(false);
+	});
+});
+
+describe('setIgnoredRule', () => {
+	it('adds and removes a rule in memory and DB, idempotent, survives a reload', () => {
+		const { db, state, dirty } = run();
+		flushDevices(db, state, dirty);
+		const ieee = state.byName.get('temp_sensor')!;
+		const reload = () => { const s = createState(0); loadDevices(db, s); return s.devices.get(ieee)!.ignoreRules; };
+		expect(setIgnoredRule(db, state, ieee, 'lqi.weak', true)).toBe(true);
+		setIgnoredRule(db, state, ieee, 'lqi.weak', true);
+		expect(state.devices.get(ieee)!.ignoreRules).toEqual(['lqi.weak']);
+		expect(reload()).toEqual(['lqi.weak']);
+		setIgnoredRule(db, state, ieee, 'lqi.weak', false);
+		expect(reload()).toEqual([]);
+		expect(setIgnoredRule(db, state, 'nope', 'lqi.weak', true)).toBe(false);
 	});
 });
 

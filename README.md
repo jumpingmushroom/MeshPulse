@@ -132,7 +132,7 @@ Behind a reverse proxy, also see the commented `PROTOCOL_HEADER`, `HOST_HEADER`,
 
 ## Device and Batteries pages
 
-Select a device on the **Devices** page to open its page (`/devices/<ieee>`). It shows link quality, battery, voltage, and messages-per-hour charts over 24 hours, 7 days, or 30 days, plus the battery forecast, recent events, and a mute control. **Ignore this device** stops all rules for that device.
+Select a device on the **Devices** page to open its page (`/devices/<ieee>`). It shows link quality, battery, voltage, and messages-per-hour charts over 24 hours, 7 days, or 30 days, plus the battery forecast, recent events, and a mute control. **Ignore this device** stops all rules for that device. To turn off single rules instead, use **Rules for this device** on the same page, or **Turn off for this device** on an issue; the rule's open issue closes on the next check.
 
 ![Router device page, 7 days](docs/screenshots/device-router-7d.png)
 

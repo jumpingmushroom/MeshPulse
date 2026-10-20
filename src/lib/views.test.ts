@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { shoppingList, type BatteryRow } from './views';
+import { canIgnore, rulesFor } from './server/rules/index';
 import { batteriesDue, banner, learning, peakQuiet, RULE_LABELS, scoreLabel, groupedSummary, batteryRows, splitBatteries, navSummary, formatDaysLeft, counters, deviceRows, chartFor, humanise, liveDevice, evidenceRows, formatAgo, formatDetail, formatVoltage, sortIssues, sortRows, filterRows, setupNotice } from './views';
 import type { DeviceState, Severity } from './server/types';
 
@@ -341,5 +342,34 @@ describe('shoppingList', () => {
 
 	it('is empty when nothing is due', () => {
 		expect(shoppingList([row('a', { low: false })])).toEqual({ buy: [], recharge: [], unknown: [] });
+	});
+});
+
+describe('rulesFor', () => {
+	const ids = (o: Partial<DeviceState>) => rulesFor(dev(o)).map((r) => r.rule);
+	it('battery rules only for battery devices', () => {
+		expect(ids({ powerSource: 'Mains (single phase)' })).not.toContain('battery.low');
+		expect(ids({ powerSource: 'Battery' })).toEqual(expect.arrayContaining(['battery.low', 'battery.forecast', 'battery.stale']));
+	});
+	it('rechargeable dropping only when tagged', () => {
+		expect(ids({ powerSource: 'Battery' })).not.toContain('battery.dropping');
+		expect(ids({ powerSource: 'Battery', tags: ['rechargeable'] })).toContain('battery.dropping');
+	});
+	it('router checks only for routers', () => {
+		expect(ids({ type: 'EndDevice' })).not.toContain('coordinator.missing_router');
+		expect(ids({ type: 'Router' })).toContain('coordinator.missing_router');
+	});
+	it('never lists network rules; labels and on/off come along', () => {
+		const rs = rulesFor(dev({ type: 'Router', powerSource: 'Battery', tags: ['rechargeable'], ignoreRules: ['lqi.weak'] }));
+		expect(rs.map((r) => r.rule)).not.toEqual(expect.arrayContaining(['bridge.offline']));
+		expect(rs.some((r) => r.rule.startsWith('network.') || r.rule.startsWith('wifi.') || r.rule.startsWith('bridge.'))).toBe(false);
+		expect(rs.find((r) => r.rule === 'lqi.weak')).toEqual({ rule: 'lqi.weak', label: 'Weak link', on: false });
+		expect(rs.find((r) => r.rule === 'device.offline')?.on).toBe(true);
+	});
+	it('canIgnore accepts only listed rules', () => {
+		expect(canIgnore(dev({}), 'device.offline')).toBe(true);
+		expect(canIgnore(dev({}), 'bridge.offline')).toBe(false);
+		expect(canIgnore(dev({}), 'battery.low')).toBe(false);
+		expect(canIgnore(dev({}), 'nope')).toBe(false);
 	});
 });

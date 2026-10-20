@@ -9,7 +9,8 @@ import { getRuntime } from '../../../lib/server/runtime';
 import { getSettings } from '../../../lib/server/settings';
 import { apsNear, areaOf } from '../../../lib/server/wifi/areas';
 import { loadWifiSnapshot } from '../../../lib/server/wifi/snapshot';
-import { muteUntil, setBatteryType, setTag } from '../../../lib/server/store';
+import { muteUntil, setBatteryType, setIgnoredRule, setTag } from '../../../lib/server/store';
+import { canIgnore, rulesFor } from '../../../lib/server/rules/index';
 import { batteryOf } from '../../../lib/battery-types';
 import { parseBatteryForm } from '../../../lib/battery-form';
 import type { Actions, PageServerLoad } from './$types';
@@ -60,6 +61,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 			availability: d.availability, lastSeenAt: d.lastSeenAt, mutedUntil: d.mutedUntil, ignored: d.tags.includes('ignore'), chatty: d.tags.includes('chatty'), rechargeable: d.tags.includes('rechargeable'), batteryPowered, battery: d.battery, voltage: d.voltage,
 			batteryType: batteryOf(d)
 		},
+		rules: rulesFor(d),
 		charts: [c.lqi, ...(batteryPowered && c.battery && c.voltage ? [c.battery, c.voltage] : []), c.msgsHour],
 		daysLeft: baseline('battery_days_left'),
 		targetPct: settings.forecastTargetPct,
@@ -103,5 +105,13 @@ export const actions: Actions = {
 		const r = parseBatteryForm(await request.formData());
 		if ('field' in r) return fail(400, { batteryError: r });
 		setBatteryType(db, state, d.ieee, r.type, r.cells);
+	},
+	rule: async ({ params, request }) => {
+		const { db, state } = getRuntime();
+		const d = getDevice(params.ieee);
+		const form = await request.formData();
+		const rule = String(form.get('rule') ?? '');
+		if (!canIgnore(d, rule)) return fail(400, { error: 'Unknown rule for this device.' });
+		setIgnoredRule(db, state, d.ieee, rule, form.get('on') !== '1'); // the switch shows "rule on"
 	}
 };

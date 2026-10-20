@@ -4,7 +4,8 @@ import { devices, events, issues } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
 import { deviceCharts } from '../../../lib/server/device-history';
 import { getSettings } from '../../../lib/server/settings';
-import { muteUntil } from '../../../lib/server/store';
+import { muteUntil, setIgnoredRule } from '../../../lib/server/store';
+import { canIgnore } from '../../../lib/server/rules/index';
 import { chartFor, liveDevice } from '../../../lib/views';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -28,6 +29,7 @@ export const load: PageServerLoad = ({ params }) => {
 			: db.select({ id: issues.id, summary: issues.summary }).from(issues).where(eq(issues.id, issue.parentIssueId)).get() ?? null,
 		children: db.select({ id: issues.id, summary: issues.summary, state: issues.state }).from(issues).where(eq(issues.parentIssueId, issue.id)).all(),
 		device: device ? { name: device.friendlyName, ieee: device.ieee, mutedUntil: device.mutedUntil } : null,
+		canTurnOff: !!device && canIgnore(device, issue.rule) && !device.ignoreRules.includes(issue.rule),
 		events: issue.ieee ? db.select().from(events).where(eq(events.ieee, issue.ieee)).orderBy(desc(events.ts), desc(events.id)).limit(50).all() : []
 	};
 };
@@ -47,5 +49,12 @@ export const actions: Actions = {
 		if (!device || mutedUntil === undefined) return fail(400, { error: 'Cannot mute: unknown device or duration.' });
 		db.update(devices).set({ mutedUntil }).where(eq(devices.ieee, device.ieee)).run();
 		device.mutedUntil = mutedUntil; // the lifecycle reads memory, not the DB
+	},
+	ignoreRule: ({ params }) => {
+		const { db, state } = getRuntime();
+		const issue = getIssue(params.id);
+		const device = issue.ieee ? state.devices.get(issue.ieee) : undefined;
+		if (!device || !canIgnore(device, issue.rule)) return fail(400, { error: 'This rule cannot be turned off for this device.' });
+		setIgnoredRule(db, state, device.ieee, issue.rule, true);
 	}
 };
