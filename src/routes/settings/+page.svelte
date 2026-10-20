@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { initAreaRows } from '../../lib/area-rows';
 	import { formatTime } from '../../lib/views';
-	import { GROUPS } from '../../lib/settings-groups';
+	import { changed, groupKeys, THRESHOLDS, thresholdFields, type Row } from '../../lib/settings-groups';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -11,12 +11,16 @@
 	const msg = (section: string) => (form?.section === section ? form : null);
 	const errs = $derived(msg('settings')?.errors ?? []);
 	const count = (keys: string[]) => errs.filter((e) => keys.includes(e.field)).length;
-	const nThresh = $derived(count(GROUPS.flatMap(([, fs]) => fs.map(([k]) => k))));
+	const nThresh = $derived(count(thresholdFields().map((x) => x.key)));
 	const nQuiet = $derived(count(['quietStart', 'quietEnd']));
 	const nHeart = $derived(count(['heartbeatUrl']));
 	const errOf = (key: string) => errs.find((e) => e.field === key)?.message;
 	// after a failed save keep what the user typed
 	const val = (key: keyof typeof data.settings) => msg('settings')?.values?.[key] ?? s[key];
+	// live threshold values, so "changed" badges and reset links follow what is typed; initialised once (saving keeps typed values)
+	// svelte-ignore state_referenced_locally
+	let tv = $state<Record<string, string | number>>(Object.fromEntries(thresholdFields().map((x) => [x.key, val(x.key) as number])));
+	const changedIn = (keys: string[]) => changed(keys, tv, data.defaults);
 	const wf = $derived(msg('wifi')?.wifiValues); // after a failed save/test keep what was typed (never the password)
 	// editable copy of the saved areas; rows have a stable id so a rename keeps its APs. "Suggest" adds unsaved rows
 	// Initialised once: saving keeps what was typed (use:enhance does not reset), so other sections never wipe it
@@ -52,23 +56,55 @@
 						<div class="form-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>
 							<div><strong>{nThresh} setting{nThresh === 1 ? '' : 's'} need{nThresh === 1 ? 's' : ''} fixing.</strong> Nothing was saved; your other changes are kept below.</div></div>
 					{/if}
-					{#each GROUPS as [title, fields] (title)}
-						<fieldset class="fieldset"><legend>{title}</legend>
-							<div class="field-grid">
-								{#each fields as [key, label, unit, help] (key)}
-									<div class="field">
-										<label for={key}>{label}</label>
-										<div class="input-unit">
-											<input class="input" id={key} name={key} type="number" step="any" min="0" value={val(key)} required
-												aria-invalid={errOf(key) ? 'true' : undefined} aria-describedby="{key}-help" />
-											{#if unit}<span>{unit}</span>{/if}
-										</div>
-										<span class="field-help" id="{key}-help">{help}</span>
-										{#if errOf(key)}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf(key)}</span>{/if}
-									</div>
+					{#snippet rowView(r: Row)}
+						<div class="stack" style="gap:4px">
+							<div style="font-weight:500">{r.label}</div>
+							<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px">
+								{#each r.parts as p, i (i)}
+									{#if typeof p === 'string'}<span class="muted">{p}</span>
+									{:else}
+										{@const dirty = changedIn([p.key]).length > 0}
+										<span class="stack" style="gap:2px">
+											<span class="input-unit">
+												<label class="sr-only" for={p.key}>{p.name}</label>
+												<input class="input" id={p.key} name={p.key} type="number" step="any" min="0" required bind:value={tv[p.key]}
+													style="width:84px{dirty ? ';box-shadow:inset 0 0 0 1px var(--accent)' : ''}"
+													aria-invalid={errOf(p.key) ? 'true' : undefined} aria-describedby="{p.key}-help" />
+												{#if p.unit}<span>{p.unit}</span>{/if}
+											</span>
+											{#if dirty}<button type="button" class="btn btn-ghost btn-sm" style="align-self:flex-start;padding:0 4px;min-height:0"
+												onclick={() => (tv[p.key] = data.defaults[p.key] as number)}>reset to {data.defaults[p.key]}</button>{/if}
+										</span>
+									{/if}
 								{/each}
 							</div>
-						</fieldset>
+							<span class="field-help" id="{r.parts.filter((p) => typeof p !== 'string').map((p) => (p as { key: string }).key)[0]}-help">{r.help}</span>
+							{#each r.parts as p, i (i)}{#if typeof p !== 'string' && errOf(p.key)}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf(p.key)}</span>{/if}{/each}
+						</div>
+					{/snippet}
+					{#each THRESHOLDS as g (g.title)}
+						{@const keys = groupKeys(g)}
+						{@const nChanged = changedIn(keys).length}
+						{@const nErr = count(keys)}
+						<details class="panel panel-pad" open={nChanged > 0 || nErr > 0}>
+							<summary style="cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500">
+								{g.title}
+								{#if nChanged}<span class="tag tag-accent">{nChanged} changed</span>{/if}
+								{#if nErr}<span class="tag" style="color:var(--crit)">{nErr} to fix</span>{/if}
+							</summary>
+							<div class="stack" style="gap:var(--space-6);margin-top:var(--space-6)">
+								{#each g.rows as r (r.label)}{@render rowView(r)}{/each}
+								{#if g.more.length}
+									{@const moreKeys = g.more.flatMap((r) => r.parts.filter((p) => typeof p !== 'string').map((p) => (p as { key: string }).key))}
+									<details open={changedIn(moreKeys).length > 0 || count(moreKeys) > 0}>
+										<summary class="muted" style="cursor:pointer">More settings</summary>
+										<div class="stack" style="gap:var(--space-6);margin-top:var(--space-4)">
+											{#each g.more as r (r.label)}{@render rowView(r)}{/each}
+										</div>
+									</details>
+								{/if}
+							</div>
+						</details>
 					{/each}
 				</section>
 
