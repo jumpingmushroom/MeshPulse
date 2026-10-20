@@ -6,6 +6,10 @@ MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traff
 
 ![Overview with open issues](docs/screenshots/overview-amber.png)
 
+## Install as a Home Assistant add-on
+
+In Home Assistant, open **Settings > Add-ons > Add-on Store**, add `https://github.com/jumpingmushroom/MeshPulse` as a repository, then install MeshPulse and open it from the sidebar. With the Mosquitto broker add-on the MQTT connection is automatic. See `addon/meshpulse/DOCS.md`.
+
 ## Install with Docker Compose
 
 Save the compose file as `docker-compose.yml`. It pulls the published image.

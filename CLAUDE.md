@@ -67,6 +67,7 @@ src/lib/server/runtime.ts            startRuntime(), runtime singleton (state, d
 src/routes/...                       pages (devices/[ieee], batteries, events, map, wifi), api/health
 src/routes/map                       network map page
 src/lib/map.ts                       map layout helpers
+repository.yaml, addon/meshpulse/    Home Assistant add-on definition (config.yaml, DOCS.md, CHANGELOG.md, icons); a release must bump `config.yaml` `version` with package.json (scripts/check-version.mjs gates the release workflow)
 scripts/replay.ts                    replay(lines) -> report; formatReport
 Tables added in Phase 2: samples_hourly, baselines
 Tables added in Phase 4: scans, scan_links
