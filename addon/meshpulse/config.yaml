@@ -11,6 +11,7 @@ ingress_port: 3000
 panel_icon: mdi:zigbee
 panel_title: MeshPulse
 services: ["mqtt:want"]
+homeassistant_api: true
 watchdog: tcp://[HOST]:[PORT:3000]
 backup: cold
 options:

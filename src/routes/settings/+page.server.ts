@@ -4,6 +4,9 @@ import { encrypt } from '../../lib/server/crypto';
 import { channels, outbox, scans, wifiAps, wifiAreas } from '../../lib/server/db/schema';
 import type { Message } from '../../lib/server/notify/channel';
 import { parseAppriseForm } from '../../lib/server/notify/apprise';
+import { haTarget, haTokenKept, listNotifyServices, parseHomeAssistantForm } from '../../lib/server/notify/homeassistant';
+import { isAddon } from '../../lib/server/addon';
+import { decrypt } from '../../lib/server/crypto';
 import { WEBHOOK_RE } from '../../lib/server/notify/discord';
 import { sendTest } from '../../lib/server/notify/outbox';
 import { due, lastDay, setActive } from '../../lib/server/active/schedule';
@@ -56,6 +59,11 @@ export const load: PageServerLoad = () => {
 		// the webhook URL holds a token: never send it to the browser
 		channel: ch ? { configured: !!ch.config?.webhookUrl, mentionCritical: ch.config?.mentionCritical === true, weeklyDigest: ch.config?.weeklyDigest !== false,
 			minSeverity: ch.minSeverity, enabled: ch.enabled } : null,
+		homeassistant: (() => {
+			const h = channelOf('homeassistant'); // the token never goes to the browser
+			return { addon: isAddon(), ...(h ? { url: String(h.config?.url ?? ''), tokenSet: !!h.config?.token, services: (h.config?.services as string[] | undefined) ?? [],
+				weeklyDigest: h.config?.weeklyDigest === true, minSeverity: h.minSeverity, enabled: h.enabled, saved: true } : { url: '', tokenSet: false, services: [], weeklyDigest: false, minSeverity: 'warning', enabled: true, saved: false }) };
+		})(),
 		apprise: (() => {
 			const a = channelOf('apprise'); // the stored urls hold tokens: send only whether they exist
 			return a ? { apiUrl: String(a.config?.apiUrl ?? ''), key: String(a.config?.key ?? ''), urlsConfigured: !!a.config?.urls, weeklyDigest: a.config?.weeklyDigest === true,
@@ -172,5 +180,45 @@ export const actions: Actions = {
 		if (!ch) return fail(400, { section: 'apprise', error: 'Save the Apprise channel first.' });
 		const r = await sendTest(db, ch.id, config.secretKey);
 		return r.ok ? { section: 'apprise', tested: true } : fail(400, { section: 'apprise', error: `Test failed: ${r.error}` });
+	},
+	saveHomeAssistant: async ({ request }) => {
+		const { db, config } = getRuntime();
+		const form = await request.formData();
+		const minSeverity = SEVERITIES.find((s) => s === form.get('minSeverity'));
+		if (!minSeverity) return fail(400, { section: 'homeassistant', error: 'Pick a minimum severity.' });
+		const ch = channelOf('homeassistant');
+		const r = parseHomeAssistantForm(form, haTokenKept(ch?.config, String(form.get('url') ?? '')), isAddon());
+		if ('error' in r) return fail(400, { section: 'homeassistant', error: r.error });
+		if (!r.services.length) return fail(400, { section: 'homeassistant', error: 'Load the notify services and pick at least one.' });
+		const token = r.token ? encrypt(r.token, config.secretKey) : r.url ? ch?.config?.token : undefined; // empty keeps the stored one (same URL only)
+		const values = { config: { weeklyDigest: form.get('weeklyDigest') === 'on', services: r.services, ...(r.url ? { url: r.url } : {}), ...(token ? { token } : {}) },
+			minSeverity, enabled: form.get('enabled') === 'on' };
+		if (ch) db.update(channels).set(values).where(eq(channels.id, ch.id)).run();
+		else db.insert(channels).values({ kind: 'homeassistant', name: 'Home Assistant', ...values }).run();
+		return { section: 'homeassistant', saved: true, services: r.services };
+	},
+	loadHaServices: async ({ request }) => {
+		const { config } = getRuntime();
+		const form = await request.formData();
+		const ch = channelOf('homeassistant');
+		const url = String(form.get('url') ?? '').trim().replace(/\/+$/, '');
+		const typed = String(form.get('token') ?? '').trim();
+		// the stored token is only ever sent to the URL it was saved for
+		const stored = haTokenKept(ch?.config, url) ? decrypt(String(ch!.config!.token), config.secretKey) : '';
+		const t = haTarget(url ? { url, token: typed || stored } : {});
+		if (!t) return fail(400, { section: 'homeassistant', error: isAddon() ? 'Home Assistant is not reachable from the add-on.' : 'Enter the Home Assistant URL and a token first.' });
+		try {
+			return { section: 'homeassistant', available: await listNotifyServices(t), services: form.getAll('services').map(String) };
+		} catch (e) {
+			return fail(400, { section: 'homeassistant', error: `Could not load notify services: ${e instanceof Error ? e.message : String(e)}` });
+		}
+	},
+	testHomeAssistant: async () => {
+		const { db, config } = getRuntime();
+		const ch = channelOf('homeassistant');
+		if (!ch) return fail(400, { section: 'homeassistant', error: 'Save the Home Assistant channel first.' });
+		const r = await sendTest(db, ch.id, config.secretKey);
+		return r.ok ? { section: 'homeassistant', tested: true } : fail(400, { section: 'homeassistant', error: `Test failed: ${r.error}` });
 	}
 };
+
