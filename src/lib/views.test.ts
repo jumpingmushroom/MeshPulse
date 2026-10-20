@@ -7,7 +7,7 @@ import type { DeviceState, Severity } from './server/types';
 const dev = (o: Partial<DeviceState>): DeviceState => ({
 	ieee: '0x1', friendlyName: 'd', type: 'EndDevice', powerSource: null, model: null, vendor: null, firmware: null,
 	networkAddress: null, availability: 'online', lastSeenAt: null, removedAt: null, mutedUntil: null, tags: [],
-	ignoreRules: [], typicalGapMs: null, maxVoltage: null, lqi: null, battery: null, voltage: null, batteryLow: null, batteryType: null, batteryCells: null,
+	ignoreRules: [], typicalGapMs: null, maxVoltage: null, lqi: null, battery: null, voltage: null, batteryLow: null, sampledBattery: null, batteryType: null, batteryCells: null,
 	recentSeen: [], lastSampleAt: null, offlineSince: null, ...o
 });
 const state = (ds: DeviceState[]) => ({ devices: new Map(ds.map((d) => [d.ieee, d])) });

@@ -33,6 +33,7 @@ export function loadDevices(db: Db, state: AppState): void {
 			battery: s?.battery ?? null,
 			voltage: s?.voltage ?? null,
 			batteryLow: r.batteryLow,
+			sampledBattery: s?.battery ?? null,
 			batteryType: r.batteryType,
 			batteryCells: r.batteryCells,
 			recentSeen: [],
