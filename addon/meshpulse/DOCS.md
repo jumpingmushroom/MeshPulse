@@ -50,3 +50,7 @@ MeshPulse stops briefly during Home Assistant backups, so the database is copied
 ## Updating
 
 Update from the add-on page when a new version shows. Your data stays.
+
+## Notifications on your phone
+
+In MeshPulse, open **Settings → Notifications → Home Assistant**, select **Load notify services**, pick your phone and save. No URL or token is needed in the add-on. Critical issues arrive at high priority, and a resolved issue replaces its notification.

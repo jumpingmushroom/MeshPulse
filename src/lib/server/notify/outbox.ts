@@ -5,10 +5,11 @@ import { channels, issues, outbox } from '../db/schema';
 import { RANK, type IssueRow, type Notify } from '../issues/lifecycle';
 import type { DeviceState, Severity } from '../types';
 import { SEVERITY_LABEL, toMessage, type Channel, type Message } from './channel';
+import { homeassistant } from './homeassistant';
 import { apprise } from './apprise';
 import { discord, MENTION_KINDS } from './discord';
 
-export const CHANNELS: Record<string, Channel> = { discord, apprise };
+export const CHANNELS: Record<string, Channel> = { discord, apprise, homeassistant };
 
 const SPACING_MS = 2000;
 const BACKOFF_MS = [60_000, 300_000, 1_800_000];
@@ -78,7 +79,7 @@ const sendVia = (ch: ChannelRow, message: Message, secretKey: string, fetchFn: t
 	if (!impl) throw new Error(`unknown channel kind ${ch.kind}`);
 	const cfg = ch.config ?? {};
 	const secret = (k: string) => (cfg[k] === undefined ? {} : { [k]: decrypt(String(cfg[k]), secretKey) });
-	return impl.send({ ...cfg, ...secret('webhookUrl'), ...secret('urls') }, message, fetchFn);
+	return impl.send({ ...cfg, ...secret('webhookUrl'), ...secret('urls'), ...secret('token') }, message, fetchFn);
 };
 
 export async function outboxTick({ db, secretKey, fetch: fetchFn = fetch }: { db: Db; secretKey: string; fetch?: typeof fetch }, now: number): Promise<void> {

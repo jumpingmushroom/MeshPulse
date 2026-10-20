@@ -10,6 +10,8 @@ export interface Message {
 	fields: { name: string; value: string }[];
 	url?: string;
 	kind: NotifyKind | 'digest';
+	/** groups an issue's notifications where the target supports it (Home Assistant: resolved replaces open) */
+	tag?: string;
 	/** overrides the per-kind @here rule (folded bursts) */
 	mention?: boolean;
 }
@@ -40,10 +42,10 @@ export function toMessage(issue: IssueRow, kind: NotifyKind, device: DeviceState
 	const url = publicUrl ? `${publicUrl.replace(/\/+$/, '')}/issues/${issue.id}` : undefined;
 	if (kind === 'resolved') {
 		const ms = issue.evidence.durationMs;
-		return { severity: 'resolved', kind, title: `Resolved: ${issue.summary}`, fields, url,
+		return { severity: 'resolved', kind, title: `Resolved: ${issue.summary}`, fields, url, tag: `meshpulse-issue-${issue.id}`,
 			summary: typeof ms === 'number' ? `${issue.summary}, resolved after ${formatDuration(ms)}` : issue.summary };
 	}
 	const note = kind === 'escalate' ? 'Escalated. ' : kind === 'reminder' ? 'Reminder: still open. ' : '';
 	return { severity: issue.severity, kind, title: `${SEVERITY_LABEL[issue.severity]}: ${issue.summary}`, summary: note + issue.summary,
-		action: issue.action || undefined, fields, url };
+		action: issue.action || undefined, fields, url, tag: `meshpulse-issue-${issue.id}` };
 }

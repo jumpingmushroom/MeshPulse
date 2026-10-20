@@ -1,6 +1,6 @@
 # MeshPulse
 
-MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traffic of your Zigbee mesh, raises issues such as offline or silent devices, flapping devices, low batteries, an offline or restarting bridge, a lost MQTT connection and an open network, and notifies you on Discord and through Apprise. It is read-only unless you switch on an active feature (see Active features). It never changes your network.
+MeshPulse is a passive health monitor for Zigbee2MQTT. It watches the MQTT traffic of your Zigbee mesh, raises issues such as offline or silent devices, flapping devices, low batteries, an offline or restarting bridge, a lost MQTT connection and an open network, and notifies you on Discord, through Apprise, or on your phone through Home Assistant. It is read-only unless you switch on an active feature (see Active features). It never changes your network.
 
 ![Overview with no open issues](docs/screenshots/overview-healthy.png)
 
@@ -62,7 +62,7 @@ Create the account before you expose MeshPulse beyond your home network.
 
 If you would rather create the account from the environment, set `ADMIN_EMAIL` and `ADMIN_PASSWORD`; the account is created at startup.
 
-MeshPulse needs no secret key setting. When `SECRET_KEY` is unset, it generates a key into `secret.key` next to the database (`/data/secret.key` in Docker, mode 600). A `SECRET_KEY` that you set always wins. Keep `secret.key` with the database: changing the key logs everyone out and breaks the stored Discord webhook, Apprise URLs and UniFi password. If your install already sets `SECRET_KEY`, keep it: clearing it generates a new key with the same effect.
+MeshPulse needs no secret key setting. When `SECRET_KEY` is unset, it generates a key into `secret.key` next to the database (`/data/secret.key` in Docker, mode 600). A `SECRET_KEY` that you set always wins. Keep `secret.key` with the database: changing the key logs everyone out and breaks the stored Discord webhook, Apprise URLs, Home Assistant token and UniFi password. If your install already sets `SECRET_KEY`, keep it: clearing it generates a new key with the same effect.
 
 If the broker can't be reached, or it's connected but nothing has come from `<base>/bridge/...` for 2 minutes, **Overview** shows a notice. Check `MQTT_URL`, the broker user, and that Zigbee2MQTT is running.
 
@@ -293,6 +293,17 @@ Apprise delivers to services such as ntfy, Telegram, Pushover, and email through
 3. Enter either a stored configuration key or one or more Apprise URLs. MeshPulse encrypts the URLs and doesn't show them again.
 4. Select the minimum severity to send.
 5. Select **Save channel**, then select **Send test**.
+
+## Home Assistant notifications
+
+MeshPulse can push to your phone through the Home Assistant app (any `notify` service works, phones are listed first).
+
+1. As a Home Assistant add-on, nothing to set up. Standalone: create a long-lived access token under your Home Assistant profile → **Security**.
+2. In MeshPulse, open **Settings** and go to **Home Assistant**. Standalone: enter the Home Assistant URL and the token (encrypted, shown again never, and only ever sent to the URL it was saved with).
+3. Select **Load notify services** and pick your phone(s).
+4. Select the minimum severity, then **Save channel** and **Send test**.
+
+Critical issues are sent at high priority (Android) and as time-sensitive (iOS). When an issue resolves, its notification on the phone is replaced. With `PUBLIC_URL` set, tapping a notification opens the issue; in add-on mode it opens MeshPulse in the Home Assistant sidebar.
 
 ## Heartbeat
 
