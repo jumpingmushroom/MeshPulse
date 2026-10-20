@@ -76,9 +76,9 @@
 
 	<section class="tiles" aria-label="Network counters">
 		<Tile label="Devices online" value={String(c.devicesOnline)} total={String(c.devicesTotal)}
-			tone={data.offline ? 'crit' : undefined} sub={data.offline ? `${data.offline} offline${data.unknown ? ` · ${data.unknown} unknown` : ''}` : data.unknown ? `${data.unknown} unknown` : 'All online'} />
+			tone={data.offline ? 'crit' : undefined} sub={data.offline ? `${data.offline} offline${data.unknown ? ` · ${data.unknown} unknown` : ''}` : data.unknown ? `${data.unknown} unknown` : c.devicesTotal ? 'All online' : 'No devices yet'} />
 		<Tile label="Routers online" value={String(c.routersOnline)} total={String(c.routersTotal)}
-			tone={c.routersOnline < c.routersTotal ? 'crit' : undefined} sub={c.routersOnline < c.routersTotal ? `${c.routersTotal - c.routersOnline} offline` : 'All routers up'} />
+			tone={c.routersOnline < c.routersTotal ? 'crit' : undefined} sub={c.routersOnline < c.routersTotal ? `${c.routersTotal - c.routersOnline} offline` : c.routersTotal ? 'All routers up' : 'No routers yet'} />
 		<Tile label="Batteries due in 30 days" value={String(due.count)} tone={due.count ? 'warn' : undefined}
 			sub={due.soonest ? `Soonest: ${due.soonest.name}, ${due.soonest.days} ${due.soonest.days === 1 ? 'day' : 'days'}` : 'None in 30 days'} />
 		<Tile label="Network messages per minute · 24 h" value={data.peakQuiet?.now == null ? '—' : `${data.peakQuiet.now}/min`} wide

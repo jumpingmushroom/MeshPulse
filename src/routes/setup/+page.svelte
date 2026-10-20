@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { PageProps } from './$types';
+	import MeshArt from '../../lib/components/MeshArt.svelte';
 
 	let { form }: PageProps = $props();
 	const bad = (f: string) => (form && 'field' in form && form.field === f ? 'true' : undefined);
@@ -22,4 +23,5 @@
 			<div class="form-actions"><button class="btn btn-primary" style="min-width: 120px">Create account</button></div>
 		</form>
 	</div>
+	<MeshArt />
 </div>

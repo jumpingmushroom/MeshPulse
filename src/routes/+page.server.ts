@@ -37,7 +37,7 @@ export const load: PageServerLoad = () => {
 		...networkScore(open),
 		setup: setupNotice({ connected: state.monitor.connected, connectedAt: state.monitor.connectedAt, lastError: state.monitor.lastError,
 			bridgeSeen: bridge.state !== null || bridge.info !== null, mqttUrl: config.mqttUrl, baseTopic: config.baseTopic, now, startedAt: state.monitor.startedAt }),
-		banner: banner(list),
+		banner: banner(list, bridge.state === null && bridge.info === null),
 		learning: learning(first, now),
 		peakQuiet: peakQuiet(msgs, config.tz),
 		offline: watched.filter((d) => d.availability === 'offline').length,

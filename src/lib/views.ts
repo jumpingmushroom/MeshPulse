@@ -219,11 +219,12 @@ export function formatDaysLeft(days: number): string {
 /** Top bar summary: unresolved top-level issues (children are not counted, like the score) and MQTT staleness. */
 export function navSummary(
 	open: { severity: Severity; parentIssueId: number | null }[],
-	monitor: { connected: boolean; downSince: number | null; startedAt: number }
-): { count: number; worst: Severity | null; stale: boolean; staleSince: number | null } {
+	monitor: { connected: boolean; downSince: number | null; startedAt: number; connectedAt?: number | null }
+): { count: number; worst: Severity | null; stale: boolean; staleSince: number | null; neverConnected: boolean } {
 	const top = open.filter((i) => i.parentIssueId === null);
 	const worst = top.reduce<Severity | null>((w, i) => (w === null || RANK[i.severity] > RANK[w] ? i.severity : w), null);
-	return { count: top.length, worst, stale: !monitor.connected, staleSince: monitor.connected ? null : (monitor.downSince ?? monitor.startedAt) };
+	return { count: top.length, worst, stale: !monitor.connected, staleSince: monitor.connected ? null : (monitor.downSince ?? monitor.startedAt),
+		neverConnected: !monitor.connected && monitor.connectedAt === null };
 }
 
 export const RULE_LABELS: Record<RuleId, string> = {
@@ -271,7 +272,9 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const dot = (s: string) => (/[.!?]$/.test(s) ? s : s + '.');
 
 /** Overview banner from the sorted top-level open issues. */
-export function banner(top: { severity: Severity; summary: string; action: string }[]): { tone: 'ok' | 'warn' | 'crit'; kicker: string; title: string; sub: string } {
+export function banner(top: { severity: Severity; summary: string; action: string }[], waiting = false): { tone: 'ok' | 'warn' | 'crit'; kicker: string; title: string; sub: string } {
+	// "All good" means something only once Zigbee2MQTT has been heard from
+	if (!top.length && waiting) return { tone: 'warn', kicker: 'Setting up', title: 'Waiting for Zigbee2MQTT', sub: 'Nothing received yet.' };
 	if (!top.length) return { tone: 'ok', kicker: 'All good', title: 'All good', sub: 'No open issues.' };
 	const crit = top.filter((i) => i.severity === 'critical').length;
 	if (!crit) return { tone: 'warn', kicker: 'Needs attention', title: `${plural(top.length, 'unresolved issue')}`, sub: `Nothing critical. Start with: ${dot(top[0].action)}` };
