@@ -263,6 +263,12 @@ describe('filterRows', () => {
 
 describe('splitBatteries', () => {
 	const r = (name: string, daysLeft: number | null) => ({ ieee: name, name, battery: 50, voltage: null, daysLeft, lastSwapAt: null, low: false, trend: '', batteryType: null, rechargeable: false });
+	it('a device low now is due even without a forecast, first in the list', () => {
+		const out = splitBatteries([r('soon', 10), { ...r('lock', null), low: true }, r('a', null)]);
+		expect(out.soon.map((x) => x.name)).toEqual(['lock', 'soon']);
+		expect(out.none.map((x) => x.name)).toEqual(['a']);
+	});
+
 	it('splits by days left and orders each group', () => {
 		const out = splitBatteries([r('z', null), r('late', 55), r('soon', 6), r('a', null)]);
 		expect(out.soon.map((x) => x.name)).toEqual(['soon']);

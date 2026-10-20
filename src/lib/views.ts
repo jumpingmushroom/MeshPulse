@@ -228,10 +228,12 @@ export function shoppingList(rows: BatteryRow[], days = 30): { buy: { type: stri
 }
 
 export function splitBatteries(rows: BatteryRow[], days = 30) {
+	// same "due" as shoppingList: low now (first) or forecast within `days`
+	const due = (r: BatteryRow) => r.low || (r.daysLeft !== null && r.daysLeft <= days);
 	const withFc = rows.filter((r) => r.daysLeft !== null).sort((a, b) => a.daysLeft! - b.daysLeft!);
 	return {
-		soon: withFc.filter((r) => r.daysLeft! <= days), later: withFc.filter((r) => r.daysLeft! > days),
-		none: rows.filter((r) => r.daysLeft === null).sort((a, b) => a.name.localeCompare(b.name))
+		soon: [...rows.filter((r) => r.low && r.daysLeft === null), ...withFc.filter(due)], later: withFc.filter((r) => !due(r)),
+		none: rows.filter((r) => r.daysLeft === null && !r.low).sort((a, b) => a.name.localeCompare(b.name))
 	};
 }
 
