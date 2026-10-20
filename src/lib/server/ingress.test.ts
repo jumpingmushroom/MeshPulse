@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { addonAccess, assertAddonEnv, addonHandle, appRedirect } from './ingress';
+import { addonAccess, assertAddonEnv, addonHandle, appRedirect, prefixResponse } from './ingress';
 
 const saved = process.env.SUPERVISOR_TOKEN;
 beforeEach(() => { process.env.SUPERVISOR_TOKEN = 't'; });
@@ -60,5 +60,39 @@ describe('assertAddonEnv', () => {
 		expect(() => assertAddonEnv({ SUPERVISOR_TOKEN: 't', ADDRESS_HEADER: 'X-Forwarded-For' })).toThrow('ADDRESS_HEADER');
 		expect(() => assertAddonEnv({ SUPERVISOR_TOKEN: 't' })).not.toThrow();
 		expect(() => assertAddonEnv({ ADDRESS_HEADER: 'X-Forwarded-For' })).not.toThrow();
+	});
+});
+
+describe('prefixResponse', () => {
+	const P = '/api/hassio_ingress/abc';
+	const act = (body: object) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json', 'content-length': '99' } });
+	it('prefixes the action location, keeps the rest', async () => {
+		const r = await prefixResponse(act({ type: 'success', status: 204, location: '/devices/x?range=24h' }), P, true);
+		expect(await r.json()).toEqual({ type: 'success', status: 204, location: P + '/devices/x?range=24h' });
+	});
+	it('does not prefix twice', async () => {
+		const r = await prefixResponse(act({ type: 'redirect', status: 303, location: P + '/x' }), P, true);
+		expect((await r.json()).location).toBe(P + '/x');
+	});
+	it('prefixes relative 3xx only', async () => {
+		const loc = (l: string) => prefixResponse(new Response(null, { status: 308, headers: { location: l } }), P, false).then((r) => r.headers.get('location'));
+		expect(await loc('/login')).toBe(P + '/login');
+		expect(await loc('//evil.com')).toBe('//evil.com');
+		expect(await loc('https://x')).toBe('https://x');
+	});
+	it('leaves non-action JSON and HTML alone', async () => {
+		const j = act({ location: '/x' });
+		expect(await (await prefixResponse(j, P, false)).json()).toEqual({ location: '/x' });
+		const h = new Response('<p>', { headers: { 'content-type': 'text/html' } });
+		expect(await (await prefixResponse(h, P, true)).text()).toBe('<p>');
+	});
+	it('addonHandle rewrites with a valid X-Ingress-Path only', async () => {
+		const go = async (headers: Record<string, string>) => {
+			const event = { url: new URL('http://x/d'), request: new Request('http://x/d', { method: 'POST', headers: { 'x-sveltekit-action': 'true', ...headers } }), locals: {}, getClientAddress: () => '172.30.32.2' };
+			const resolve = async () => act({ type: 'success', status: 204, location: '/d' });
+			return (await (await addonHandle({ event, resolve } as never)).json()).location;
+		};
+		expect(await go(H)).toBe(P + '/d');
+		expect(await go({})).toBe('/d');
 	});
 });
