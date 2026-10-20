@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import IssueRow from '../../../lib/components/IssueRow.svelte';
 	import LineChart from '../../../lib/components/LineChart.svelte';
+	import { KNOWN_TYPES } from '../../../lib/battery-types';
 	import { FOREVER, formatAgo, formatDaysLeft, formatDetail, formatTime, formatVoltage, sortIssues } from '../../../lib/views';
 	import type { PageProps } from './$types';
 
@@ -13,6 +14,10 @@
 	const AVAIL = { online: ['avail-online', '#i-ok', 'Online'], offline: ['avail-offline', '#i-x', 'Offline'] } as const;
 	const avail = $derived(AVAIL[d.availability as keyof typeof AVAIL] ?? (['avail-unknown', '#i-unknown', 'Unknown'] as const));
 	const issues = $derived(sortIssues(data.issues));
+	const bt = $derived(d.batteryType);
+	const known = (t: string) => (KNOWN_TYPES as readonly string[]).includes(t);
+	let pick = $state('');
+	$effect.pre(() => { pick = bt ? (known(bt.type) ? bt.type : 'Other') : 'CR2032'; });
 	const submit = (e: Event) => (e.currentTarget as HTMLInputElement).form?.requestSubmit();
 	const empty = $derived(data.daysLeft === null ? null : new Date(data.now + data.daysLeft * 86_400_000).toLocaleDateString('en-GB', { timeZone: data.tz, dateStyle: 'medium' }));
 </script>
@@ -84,7 +89,23 @@
 					<dl class="kv">
 						<dt>Now</dt><dd>{d.battery !== null ? `${Math.round(d.battery)} %` : '—'}{d.voltage !== null ? ` · ${formatVoltage(d.voltage)} V` : ''}</dd>
 						<dt>Last swap</dt><dd>{data.lastSwapAt ? formatTime(data.lastSwapAt, data.tz) : '—'}</dd>
+						<dt>Battery type</dt><dd>{bt ? `${bt.type} ×${bt.cells} · ${bt.source === 'override' ? 'set by you' : 'built-in list'}` : 'Unknown'}</dd>
 					</dl>
+					<form class="stack" style="gap:8px" method="post" action="?range={data.range}&/batteryType" use:enhance>
+						<div class="row" style="gap:8px">
+							<label class="sr-only" for="btype">Battery type</label>
+							<select class="select" id="btype" name="type" bind:value={pick}>
+								{#each KNOWN_TYPES as t (t)}<option value={t}>{t}</option>{/each}
+								<option value="Other">Other</option>
+							</select>
+							{#if pick === 'Other'}<label class="sr-only" for="bother">Other type</label><input class="input" id="bother" name="other" maxlength="20" style="width:110px" value={bt && !known(bt.type) ? bt.type : ''} aria-invalid={form?.batteryError?.field === 'other' ? 'true' : undefined} />{/if}
+							<label class="sr-only" for="bcells">Cells</label>
+							<input class="input" id="bcells" name="cells" type="number" min="1" max="8" style="width:64px" value={bt?.cells ?? 1} aria-invalid={form?.batteryError?.field === 'cells' ? 'true' : undefined} />
+							<button class="btn btn-sm">Save</button>
+						</div>
+						{#if form?.batteryError}<p class="field-error" role="alert">{form.batteryError.message}</p>{/if}
+						{#if bt?.source === 'override'}<button class="btn btn-sm btn-ghost" name="reset" value="1" style="align-self:flex-start">Reset to built-in</button>{/if}
+					</form>
 				</section>
 			{/if}
 

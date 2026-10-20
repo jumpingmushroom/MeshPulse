@@ -23,6 +23,9 @@ export interface DeviceState {
 	battery: number | null;
 	voltage: number | null;
 	batteryLow: boolean | null;
+	/** user override; null = use the built-in table */
+	batteryType: string | null;
+	batteryCells: number | null;
 	recentSeen: number[];
 	lastSampleAt: number | null;
 	offlineSince: number | null;

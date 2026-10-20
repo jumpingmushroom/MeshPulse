@@ -32,6 +32,7 @@ src/lib/server/active/               schedule.ts, run.ts, loop.ts, parse.ts, par
 src/lib/server/wifi/                 unifi.ts (read-only client), poller.ts, config.ts, overlap.ts, areas.ts, snapshot.ts, correlate.ts; tables wifi_aps, wifi_samples, wifi_areas
 src/lib/wifi-freq.ts                 Wi-Fi/Zigbee channel to MHz
 src/lib/wifi-band.ts                 band diagram layout
+src/lib/battery-types.ts             built-in battery table (sourced entries only), batteryOf (device override wins); battery-form.ts parses the override form
 src/lib/server/mqtt/collector.ts     startCollector(deps) - mqtt.js + effect persistence
 src/lib/server/prereqs.ts            checkPrereqs(config) -> Prereq[]
 src/lib/server/rules/*.ts            one file per rule + index.ts (RULES, RULE_DEFAULTS)

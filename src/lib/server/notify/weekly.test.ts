@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DOOR, HALL, LAMP, T, ctx } from '../../../../tests/helpers/ctx';
+import { DOOR, HALL, LAMP, T, TEMP, ctx } from '../../../../tests/helpers/ctx';
 import { openDb, type Db } from '../db';
 import { baselines, channels, events, healthScores, issues, outbox, samplesHourly, settings } from '../db/schema';
 import type { AppState } from '../types';
@@ -39,6 +39,15 @@ describe('weeklyDigest', () => {
 		state = ctx().state;
 	});
 
+	it('groups batteries to buy by type, then rechargeables', () => {
+		const door = state.devices.get(DOOR)!;
+		Object.assign(door, { battery: 20, powerSource: 'Battery', vendor: 'Aqara', model: 'WSDCGQ11LM' });
+		const temp = state.devices.get(TEMP)!;
+		Object.assign(temp, { battery: 5, powerSource: 'Battery', tags: ['rechargeable'] });
+		const f = Object.fromEntries(weeklyDigest(db, state, now).fields.map((x) => [x.name, x.value]));
+		expect(f['Batteries to buy']).toBe(`CR2032 ×1 (1 device)\nRecharge: ${temp.friendlyName}`);
+	});
+
 	it('has every section from real data', () => {
 		db.insert(healthScores).values([{ ts: now - 7 * DAY, score: 90 }, { ts: now - 3 * DAY, score: 70 }, { ts: now - H, score: 85 }]).run();
 		db.insert(issues).values({ rule: 'battery.low', ieee: LAMP, severity: 'warning', state: 'open', openedAt: T, updatedAt: T, summary: 's', action: '', evidence: {} }).run();
@@ -56,7 +65,7 @@ describe('weeklyDigest', () => {
 		expect(m).toMatchObject({ kind: 'digest', severity: 'info', title: 'Weekly digest', summary: 'How the mesh did this week.' });
 		expect(f['Health score']).toBe('85 now, 90 a week ago, lowest 70');
 		expect(f['Open issues']).toBe('1 warning');
-		expect(f['Batteries to buy']).toContain('about 12 days left');
+		expect(f['Batteries to buy']).toBe('CR1632 ×1 (1 device)');
 		expect(f['Weakest links (24 h)'].split('\n')[0]).toContain('LQI 20');
 		expect(f['Most rejoins (7 days)']).toContain(': 3');
 		expect(f['Route failures (7 days)']).toContain(': 1');

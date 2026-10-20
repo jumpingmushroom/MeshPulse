@@ -33,6 +33,8 @@ export function loadDevices(db: Db, state: AppState): void {
 			battery: s?.battery ?? null,
 			voltage: s?.voltage ?? null,
 			batteryLow: r.batteryLow,
+			batteryType: r.batteryType,
+			batteryCells: r.batteryCells,
 			recentSeen: [],
 			lastSampleAt: s?.ts ?? null,
 			offlineSince: null
@@ -83,6 +85,16 @@ export function setTag(db: Db, state: AppState, ieee: string, tag: 'ignore' | 'c
 	if (!d) return false;
 	d.tags = [...d.tags.filter((t) => t !== tag), ...(on ? [tag] : [])];
 	db.update(devices).set({ tags: tagsToDb(d.tags) }).where(eq(devices.ieee, ieee)).run();
+	return true;
+}
+
+/** Sets or clears the battery override in memory and on the device row (not part of flushDevices, like tags). */
+export function setBatteryType(db: Db, state: AppState, ieee: string, type: string | null, cells: number | null): boolean {
+	const d = state.devices.get(ieee);
+	if (!d) return false;
+	d.batteryType = type;
+	d.batteryCells = cells;
+	db.update(devices).set({ batteryType: type, batteryCells: cells }).where(eq(devices.ieee, ieee)).run();
 	return true;
 }
 

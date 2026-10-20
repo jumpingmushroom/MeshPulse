@@ -11,7 +11,7 @@
 	<div class="dt-wrap"><div class="dt-scroll">
 		<table class="dt compact">
 			<thead><tr>
-				<th scope="col"><span>Name</span></th><th scope="col"><span>Days left</span></th><th scope="col"><span>Empty around</span></th>
+				<th scope="col"><span>Name</span></th><th scope="col"><span>Type</span></th><th scope="col"><span>Days left</span></th><th scope="col"><span>Empty around</span></th>
 				<th scope="col" class="num"><span>Battery</span></th><th scope="col" class="num"><span>Voltage</span></th>
 				<th scope="col"><span>30-day trend</span></th><th scope="col"><span>Last swap</span></th>
 			</tr></thead>
@@ -19,6 +19,7 @@
 				{#each rows as r (r.ieee)}
 					<tr class={r.daysLeft !== null && r.daysLeft <= 7 ? 'is-flagged is-warn' : ''}>
 						<td class="name"><a href="/devices/{r.ieee}">{r.name}</a></td>
+						<td>{r.batteryType ? `${r.batteryType.type} ×${r.batteryType.cells}` : '—'}</td>
 						<td>{r.daysLeft === null ? '—' : formatDaysLeft(r.daysLeft)}</td>
 						<td>{r.daysLeft === null ? '—' : emptyAround(r.daysLeft)}</td>
 						<td class="num">{r.battery === null ? '—' : `${Math.round(r.battery)} %`}</td>
@@ -41,6 +42,19 @@
 	</div>
 
 	{#if data.total}
+		{@const s = data.shopping}
+		<section aria-labelledby="bat-shop" class="panel panel-pad stack" style="gap:11px">
+			<h2 id="bat-shop">Shopping list</h2>
+			{#if !s.buy.length && !s.recharge.length && !s.unknown.length}
+				<p class="muted">Nothing to buy in the next 30 days.</p>
+			{:else}
+				<dl class="kv">
+					{#if s.buy.length}<dt>Buy</dt><dd class="stack" style="gap:4px">{#each s.buy as g (g.type)}<span><strong>{g.type} ×{g.count}</strong> <span class="muted">· {#each g.devices as d, i (d.ieee)}{i ? ', ' : ''}<a href="/devices/{d.ieee}">{d.name}</a>{/each}</span></span>{/each}</dd>{/if}
+					{#if s.recharge.length}<dt>Recharge</dt><dd>{#each s.recharge as d, i (d.ieee)}{i ? ', ' : ''}<a href="/devices/{d.ieee}">{d.name}</a>{/each}</dd>{/if}
+					{#if s.unknown.length}<dt>Type unknown</dt><dd>{#each s.unknown as d, i (d.ieee)}{i ? ', ' : ''}<a href="/devices/{d.ieee}">{d.name}</a>{/each} <span class="muted">· set the type on the device page</span></dd>{/if}
+				</dl>
+			{/if}
+		</section>
 		{#if !data.anyForecast}<p class="muted">No forecasts yet — forecasts need 7 days of battery history.</p>{/if}
 		<section aria-labelledby="bat-soon" class="stack">
 			<div class="section-head"><h2 id="bat-soon">Buy within 30 days <span class="faint">{data.soon.length}</span></h2></div>
