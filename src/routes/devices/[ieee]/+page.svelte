@@ -17,8 +17,8 @@
 	const issues = $derived(sortIssues(data.issues));
 	const bt = $derived(d.batteryType);
 	const known = (t: string) => (KNOWN_TYPES as readonly string[]).includes(t);
-	let pick = $state('');
-	$effect.pre(() => { pick = bt ? (known(bt.type) ? bt.type : 'Other') : 'CR2032'; });
+	// derived, so the server-rendered page already selects the device's type (an $effect only runs after loading); writable for the select
+	let pick = $derived(bt ? (known(bt.type) ? bt.type : 'Other') : 'CR2032');
 	const submit = (e: Event) => (e.currentTarget as HTMLInputElement).form?.requestSubmit();
 	const empty = $derived(data.daysLeft === null ? null : new Date(data.now + data.daysLeft * 86_400_000).toLocaleDateString('en-GB', { timeZone: data.tz, dateStyle: 'medium' }));
 </script>

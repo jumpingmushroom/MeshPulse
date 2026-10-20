@@ -10,6 +10,8 @@ export function parseBatteryForm(form: FormData): Parsed {
 	if (pick === 'Other') {
 		type = String(form.get('other') ?? '').trim();
 		if (!/^[A-Za-z0-9 -]{1,20}$/.test(type)) return { field: 'other', message: 'Use 1-20 letters, digits, spaces or -' };
+		// "cr2032" typed as Other is the known CR2032, so the shopping list groups it with the rest
+		type = KNOWN_TYPES.find((k) => k.toLowerCase() === type.toLowerCase()) ?? type;
 	} else if ((KNOWN_TYPES as readonly string[]).includes(pick)) type = pick;
 	else return { field: 'type', message: 'Choose a battery type' };
 	const cells = Number(form.get('cells'));

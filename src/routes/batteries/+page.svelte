@@ -18,7 +18,7 @@
 			</tr></thead>
 			<tbody>
 				{#each rows as r (r.ieee)}
-					<tr class={r.daysLeft !== null && r.daysLeft <= 7 ? 'is-flagged is-warn' : ''}>
+					<tr class={r.low ? 'is-flagged is-crit' : r.daysLeft !== null && r.daysLeft <= 7 ? 'is-flagged is-warn' : ''}>
 						<td class="name"><a href={resolve('/devices/[ieee]', { ieee: r.ieee })}>{r.name}</a></td>
 						<td>{r.batteryType ? `${r.batteryType.type} ×${r.batteryType.cells}` : '—'}</td>
 						<td>{r.daysLeft === null ? '—' : formatDaysLeft(r.daysLeft)}</td>

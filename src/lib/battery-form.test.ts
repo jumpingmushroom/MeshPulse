@@ -16,5 +16,10 @@ describe('parseBatteryForm', () => {
 		expect(parseBatteryForm(form({ type: 'Other', other, cells: '1' }))).toEqual(OTHER));
 	it.each(['0', '9', 'x', ''])('rejects cells %j', (cells) => expect(parseBatteryForm(form({ type: 'AA', cells }))).toEqual(CELLS));
 	it('rejects an unknown type value', () => expect(parseBatteryForm(form({ type: 'D-cell', cells: '1' }))).toEqual({ field: 'type', message: 'Choose a battery type' }));
+	it('Other text matching a known type uses its standard spelling', () => {
+		expect(parseBatteryForm(form({ type: 'Other', other: ' cr2032 ', cells: '1' }))).toEqual({ type: 'CR2032', cells: 1 });
+		expect(parseBatteryForm(form({ type: 'Other', other: 'aaa', cells: '2' }))).toEqual({ type: 'AAA', cells: 2 });
+		expect(parseBatteryForm(form({ type: 'Other', other: 'lr44', cells: '1' }))).toEqual({ type: 'lr44', cells: 1 }); // unknown: kept as typed
+	});
 	it('reset clears both', () => expect(parseBatteryForm(form({ reset: '1' }))).toEqual({ type: null, cells: null }));
 });
