@@ -30,8 +30,16 @@ describe('addon', () => {
 			expect(auth).toBe('Bearer tok');
 			expect((await supervisorMqtt(reply({ host: 'core-mosquitto', port: 8883, ssl: true, username: 'a', password: 'p' }), 't'))!.url).toBe('mqtts://core-mosquitto:8883');
 		});
+		it('passes an abort signal', async () => {
+			let sig: AbortSignal | undefined;
+			await supervisorMqtt((async (_u: unknown, init?: RequestInit) => { sig = init!.signal as AbortSignal; return new Response('{}', { status: 400 }); }) as unknown as typeof fetch, 't');
+			expect(sig).toBeInstanceOf(AbortSignal);
+		});
 		it('returns null on failure', async () => {
 			expect(await supervisorMqtt(reply({}, 400), 't')).toBeNull();
+			expect(await supervisorMqtt((async () => new Response(JSON.stringify({ result: 'error' }))) as unknown as typeof fetch, 't')).toBeNull();
+			expect(await supervisorMqtt(reply({ port: 1883 }), 't')).toBeNull();
+			expect(await supervisorMqtt((async () => { throw new DOMException('t', 'AbortError'); }) as unknown as typeof fetch, 't')).toBeNull();
 			expect(await supervisorMqtt((async () => { throw new Error('x'); }) as unknown as typeof fetch, 't')).toBeNull();
 		});
 	});

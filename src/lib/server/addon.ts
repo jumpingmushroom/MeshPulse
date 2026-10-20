@@ -19,7 +19,7 @@ export function readAddonOptions(path = '/data/options.json'): AddonOptions {
 
 export async function supervisorMqtt(fetchFn: typeof fetch, token: string): Promise<Mqtt> {
 	try {
-		const r = await fetchFn('http://supervisor/services/mqtt', { headers: { Authorization: `Bearer ${token}` } });
+		const r = await fetchFn('http://supervisor/services/mqtt', { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) });
 		if (!r.ok) return null;
 		const b = (await r.json()) as { result?: string; data?: { host?: string; port?: number; ssl?: boolean; username?: string; password?: string } };
 		const d = b.data;
