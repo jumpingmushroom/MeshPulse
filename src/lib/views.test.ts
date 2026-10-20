@@ -150,13 +150,19 @@ describe('navSummary', () => {
 	const i = (severity: Severity, parentIssueId: number | null = null) => ({ severity, parentIssueId });
 	it('counts top-level issues and picks the worst severity', () => {
 		expect(navSummary([i('warning'), i('critical', 1), i('info')], { connected: true, downSince: null, startedAt: 5 }))
-			.toEqual({ count: 2, worst: 'warning', stale: false, staleSince: null });
+			.toEqual({ count: 2, worst: 'warning', stale: false, staleSince: null, neverConnected: false });
 	});
 	it('is stale while MQTT is down', () => {
-		expect(navSummary([], { connected: false, downSince: 1000, startedAt: 5 })).toEqual({ count: 0, worst: null, stale: true, staleSince: 1000 });
+		expect(navSummary([], { connected: false, downSince: 1000, startedAt: 5 })).toEqual({ count: 0, worst: null, stale: true, staleSince: 1000, neverConnected: false });
 	});
 	it('falls back to the start time when MQTT never connected', () => {
 		expect(navSummary([], { connected: false, downSince: null, startedAt: 5 }).staleSince).toBe(5);
+	});
+
+	it('tells never connected apart from a lost connection', () => {
+		expect(navSummary([], { connected: false, downSince: 1000, startedAt: 5, connectedAt: null }).neverConnected).toBe(true);
+		expect(navSummary([], { connected: false, downSince: 1000, startedAt: 5, connectedAt: 500 }).neverConnected).toBe(false);
+		expect(navSummary([], { connected: true, downSince: null, startedAt: 5, connectedAt: 500 }).neverConnected).toBe(false);
 	});
 });
 
@@ -176,6 +182,10 @@ describe('banner', () => {
 	const w = { severity: 'warning' as const, summary: 'Weak link', action: 'Move a router closer' };
 	const c = { severity: 'critical' as const, summary: 'Zigbee bridge is offline', action: 'Check the Zigbee2MQTT container' };
 	it('all good', () => expect(banner([])).toEqual({ tone: 'ok', kicker: 'All good', title: 'All good', sub: 'No open issues.' }));
+	it('waiting for data instead of all good before Zigbee2MQTT is seen', () => {
+		expect(banner([], true)).toEqual({ tone: 'warn', kicker: 'Setting up', title: 'Waiting for Zigbee2MQTT', sub: 'Nothing received yet.' });
+		expect(banner([w], true).title).toBe('1 unresolved issue'); // real issues still win
+	});
 	it('warnings', () => expect(banner([w, w])).toEqual({ tone: 'warn', kicker: 'Needs attention', title: '2 unresolved issues', sub: 'Nothing critical. Start with: Move a router closer.' }));
 	it('one warning', () => expect(banner([w]).title).toBe('1 unresolved issue'));
 	it('critical', () => expect(banner([c, w])).toEqual({ tone: 'crit', kicker: 'Critical', title: 'Zigbee bridge is offline', sub: '1 critical issue and 1 warning. Start with: Check the Zigbee2MQTT container.' }));

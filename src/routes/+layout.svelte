@@ -53,15 +53,19 @@
 			<div class="nav-end">
 				<span class="updated" class:is-stale={data.nav.stale} role="status" aria-live="off">
 					<span class="updated-dot"></span>
-					{#if data.nav.stale}Stale · last update {hm(data.lastMessageAt ?? data.nav.staleSince)}{:else if sec === null}Updated {hms(data.now)}{:else}Updated {sec} s ago{/if}
+					{#if data.nav.neverConnected}Not connected{:else if data.nav.stale}Stale · last update {hm(data.lastMessageAt ?? data.nav.staleSince)}{:else if sec === null}Updated {hms(data.now)}{:else}Updated {sec} s ago{/if}
 				</span>
 				<form method="post" action="/login?/logout"><button class="btn btn-sm" type="submit"><svg class="i"><use href="#i-signout" /></svg><span class="signout-label">Sign out</span></button></form>
 			</div>
 		</header>
-		{#if data.nav.stale}
+		{#if data.nav.stale && !(data.nav.neverConnected && page.data.setup)}
 			<div class="monitor-alert stale-note" role="alert">
 				<svg class="i"><use href="#i-unlink" /></svg>
-				<span><strong>MeshPulse lost its MQTT connection {staleMin} min ago.</strong> Nothing on this page is live — data is frozen at {hm(data.lastMessageAt ?? data.nav.staleSince)}.</span>
+				{#if data.nav.neverConnected}
+					<span><strong>MeshPulse hasn't connected to the MQTT broker yet.</strong> The Overview shows why.</span>
+				{:else}
+					<span><strong>MeshPulse lost its MQTT connection {staleMin} min ago.</strong> Nothing on this page is live — data is frozen at {hm(data.lastMessageAt ?? data.nav.staleSince)}.</span>
+				{/if}
 			</div>
 		{/if}
 	{/if}
