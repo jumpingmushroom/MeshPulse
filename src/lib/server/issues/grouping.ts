@@ -4,7 +4,9 @@ import type { Settings } from '../settings';
 /** Incident rules and the device-level rules that attach to them as silent children. */
 export const PARENT_RULES: Partial<Record<RuleId, RuleId[]>> = {
 	'network.mass_offline': ['device.offline', 'device.flapping'],
-	'network.storm': ['device.storm', 'device.dominant']
+	'network.storm': ['device.storm', 'device.dominant'],
+	// a network-wide rejoin wave (a power cut, routers restarting) is one issue, not one per battery device
+	'network.churn': ['device.rejoin_churn']
 };
 
 export type DeviceLookup = (ieee: string) => { type: string; friendlyName?: string; lastSeenAt: number | null; offlineSince: number | null } | undefined;
@@ -17,8 +19,10 @@ export const isRouterOffline = (rule: RuleId, ieee: string | null, devices: Devi
 export const isParent = (rule: RuleId, ieee: string | null, devices: DeviceLookup) => rule in PARENT_RULES || isRouterOffline(rule, ieee, devices);
 
 /** Key of the earliest-opened candidate `child` belongs to, or null. */
-export function parentFor(child: Pick<Finding, 'rule' | 'ieee'>, candidates: Candidate[], devices: DeviceLookup, settings: Settings, realParent?: (ieee: string) => string | null): string | null {
+export function parentFor(child: Pick<Finding, 'rule' | 'ieee'> & { severity?: Finding['severity'] }, candidates: Candidate[], devices: DeviceLookup, settings: Settings, realParent?: (ieee: string) => string | null): string | null {
 	const matches = (p: Candidate) => {
+		// a critical device keeps its own notification: a warning-level wave must not hide it
+		if (p.rule === 'network.churn' && child.severity === 'critical') return false;
 		if (PARENT_RULES[p.rule]?.includes(child.rule)) return true;
 		if (child.rule !== 'device.offline' || child.ieee === null || !isRouterOffline(p.rule, p.ieee, devices)) return false;
 		const c = devices(child.ieee);

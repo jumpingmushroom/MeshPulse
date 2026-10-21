@@ -220,6 +220,15 @@ describe('computeBaselines', () => {
 			expect(get(db, IEEE, 'battery_drop')).toBeDefined();
 		});
 
+		it('max_gap_7d is the longest gap between stored readings in 7 days', () => {
+			const { db } = setup();
+			addDevice(db);
+			db.insert(samples).values([0, 30, 60, 645, 660].map((m) => ({ ieee: IEEE, ts: T - 2 * D + m * 60_000, lqi: 100 }))).run(); // 585 min quiet spell
+			db.insert(samples).values({ ieee: IEEE, ts: T - 9 * D, lqi: 100 }).run(); // older than 7 days: ignored
+			computeBaselines(db, T);
+			expect(get(db, IEEE, 'max_gap_7d')).toMatchObject({ value: 585 * 60_000 });
+		});
+
 		it('deletes a stale row and ignores mains devices', () => {
 			const { db } = setup();
 			addDevice(db);

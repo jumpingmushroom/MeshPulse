@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS = {
 	silenceMultiplier: 3,
 	silenceMinH: 2,
 	silenceMaxH: 25,
+	silenceLongGapFactor: 1.5,
 	flappingCount: 4,
 	flappingClearBelow: 2,
 	flappingWindowH: 6,
@@ -108,7 +109,7 @@ export function saveFormSettings(db: Db, s: Settings): void {
 const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'rechargeableLowPct', 'rechargeableCriticalPct', 'rechargeableClearPct', 'rechargeableDropPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct', 'wifiBusyPct', 'wifiClearPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
-const POSITIVE = ['silenceMultiplier', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
+const POSITIVE = ['silenceMultiplier', 'silenceLongGapFactor', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
 	'lqiWeak', 'lqiWeakClear', 'lqiMinHours', 'lqiDegradePct', 'lqiRecoverPct', 'baselineMinDays',
 	'routeFailWarn', 'routeFailCrit', 'routeFailClear', 'netRouteFactor', 'netRouteMin', 'netRouteClearFactor',
 	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays', 'massOfflineRouterPct', 'massOfflineDevices', 'massOfflineWindowMin', 'massOfflineClearPct',

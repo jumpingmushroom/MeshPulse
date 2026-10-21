@@ -22,8 +22,9 @@ export const THRESHOLDS: Group[] = [
 	], more: [] },
 	{ title: 'Devices offline', rows: [
 		row('Offline grace', 'How long a device may be offline before an issue opens.', 'Open after', f('graceMin', 'Offline grace', 'min')),
-		row('Silent', 'A device that stops reporting without going offline.',
-			'After', f('silenceMultiplier', 'Silent after typical gap', '×'), 'its usual gap, at least', f('silenceMinH', 'Silence at least', 'h'), 'at most', f('silenceMaxH', 'Silence at most', 'h')),
+		row('Silent', 'A device that stops reporting without going offline. Leak sensors and buttons stay quiet for hours; the longest gap this week covers them.',
+			'After', f('silenceMultiplier', 'Silent after typical gap', '×'), 'its usual gap or', f('silenceLongGapFactor', 'Silent after longest gap', '×'),
+			'its longest gap this week, at least', f('silenceMinH', 'Silence at least', 'h'), 'at most', f('silenceMaxH', 'Silence at most', 'h')),
 		row('Flapping', 'A device that keeps dropping off and coming back.',
 			'At', f('flappingCount', 'Flapping at', 'drops'), 'within', f('flappingWindowH', 'Flapping window', 'h'), 'clears below', f('flappingClearBelow', 'Flapping clears below', 'drops')),
 		row('Mass offline', 'Many devices dropping at once: one incident instead of many issues.',

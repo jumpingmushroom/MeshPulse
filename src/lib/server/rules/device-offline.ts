@@ -1,3 +1,4 @@
+import { baselineOf } from '../trends/history';
 import { inGrace, issueKey, type Finding, type RuleContext } from './types';
 
 const H = 3_600_000;
@@ -14,8 +15,10 @@ export function deviceOffline(ctx: RuleContext): Finding[] {
 	for (const d of ctx.state.devices.values()) {
 		if (d.type === 'Coordinator') continue;
 		const open = ctx.open.has(issueKey('device.offline', d.ieee));
+		// event-driven devices (leak sensors, buttons) have a short median but long normal quiet spells: the week's longest gap covers them
+		const longest = baselineOf(ctx.history, d.ieee, 'max_gap_7d')?.value ?? 0;
 		const threshold = d.typicalGapMs === null ? null
-			: Math.min(Math.max(s.silenceMultiplier * d.typicalGapMs, s.silenceMinH * H), s.silenceMaxH * H);
+			: Math.min(Math.max(s.silenceMultiplier * d.typicalGapMs, s.silenceLongGapFactor * longest, s.silenceMinH * H), s.silenceMaxH * H);
 		// grace only blocks new silence findings; an open one stops when the device is seen again
 		// a new finding counts from reconnect / Z2M restart too: device state isn't replayed after an outage
 		const since = open ? d.lastSeenAt

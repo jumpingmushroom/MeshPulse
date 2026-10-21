@@ -53,6 +53,20 @@ describe('device.offline', () => {
 		expect(deviceOffline(silent(10 * H, 25 * H - MIN))).toEqual([]);
 	});
 
+	it('an event-driven device is judged by its longest recent gap (1.5 × the 7-day max)', () => {
+		// a leak sensor: median gap 18 min, but quiet spells up to 585 min are normal
+		const leak = (ago: number) => { const c = silent(18 * MIN, ago); c.history.baselines.set(`${DOOR}|max_gap_7d`, { value: 585 * MIN, days: 3 }); return c; };
+		expect(deviceOffline(leak(8 * H))).toEqual([]);
+		expect(deviceOffline(leak(14 * H))).toEqual([]);
+		expect(deviceOffline(leak(15 * H))[0].evidence.thresholdMs).toBe(877.5 * MIN);
+	});
+
+	it('the long-gap threshold is still capped at 25 h', () => {
+		const c = silent(18 * MIN, 26 * H);
+		c.history.baselines.set(`${DOOR}|max_gap_7d`, { value: 30 * H, days: 7 });
+		expect(deviceOffline(c)[0].evidence.thresholdMs).toBe(25 * H);
+	});
+
 	it('has no silence finding without a typical gap', () => {
 		expect(deviceOffline(silent(null as unknown as number, 100 * H))).toEqual([]);
 	});

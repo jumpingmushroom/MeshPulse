@@ -56,6 +56,17 @@ describe('grouping', () => {
 		expect(kinds(h.notes)).toEqual(['network.mass_offline|:open']);
 	});
 
+	it('device rejoins during a network-wide rejoin wave sit under network.churn; a critical one still notifies', () => {
+		const h = harness({ '0xa': { type: 'EndDevice', friendlyName: 'a', lastSeenAt: T, offlineSince: null }, '0xb': { type: 'EndDevice', friendlyName: 'b', lastSeenAt: T, offlineSince: null } });
+		const wave = [f('network.churn', null), f('device.rejoin_churn', '0xa'), f('device.rejoin_churn', '0xb', 'critical')];
+		h.run(wave, T);
+		h.run(wave, T + MIN);
+		expect(h.get('device.rejoin_churn', '0xa').parentIssueId).toBe(h.get('network.churn', null).id);
+		expect(h.get('device.rejoin_churn', '0xb').parentIssueId).toBeNull();
+		expect(kinds(h.notes)).toEqual(expect.arrayContaining([`${issueKey('network.churn', null)}:open`, `${issueKey('device.rejoin_churn', '0xb')}:open`]));
+		expect(kinds(h.notes)).not.toContain(`${issueKey('device.rejoin_churn', '0xa')}:open`);
+	});
+
 	it('a child firing while its parent is still pending waits and opens attached', () => {
 		const h = harness();
 		h.run([f('device.offline', '0xend0')], T);

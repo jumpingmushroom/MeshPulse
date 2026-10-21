@@ -52,7 +52,10 @@ export function rejoinChurn(ctx: RuleContext): Finding[] {
 			rule: 'device.rejoin_churn',
 			ieee,
 			severity: last24h >= s.churnCritical ? 'critical' : 'warning',
-			summary: `${d.friendlyName} keeps rejoining the network (${Math.max(announces, addressChanges)} rejoins in ${s.churnWindowH} h)`,
+			// held open while it stays quiet for churnClearH: say so instead of "0 rejoins in 6 h"
+			summary: announces >= s.churnAnnounce || addressChanges >= s.churnAddrChanges
+				? `${d.friendlyName} keeps rejoining the network (${Math.max(announces, addressChanges)} rejoins in ${s.churnWindowH} h)`
+				: `${d.friendlyName} rejoined the network ${last24h} ${last24h === 1 ? 'time' : 'times'} in 24 h, quiet for ${Math.floor((now - evs.at(-1)!.ts) / H)} h`,
 			action: "Check the device's power and its nearest router",
 			evidence: { announces, addressChanges, windowH: s.churnWindowH, last24h }
 		});

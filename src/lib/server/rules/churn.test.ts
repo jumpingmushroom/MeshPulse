@@ -87,6 +87,15 @@ describe('device.rejoin_churn', () => {
 		expect(rejoinChurn(c)).toEqual([]);
 	});
 
+	it('a held-open issue says how often it rejoined and how long it has been quiet, never "0 rejoins"', () => {
+		const c = ctx();
+		for (const h of [9, 8.5, 8]) at(c, 'device_announce', LAMP, NOW - h * H);
+		c.open.add(issueKey('device.rejoin_churn', LAMP));
+		const [f] = rejoinChurn(c);
+		expect(f.summary).toBe('living/lamp rejoined the network 3 times in 24 h, quiet for 8 h');
+		expect(f.summary).not.toContain('0 rejoins');
+	});
+
 	it('opens once, resolves after 12 h quiet and never reopens', () => {
 		const c = ctx();
 		const { notes } = runs(c, 30 * 6, 10, (c, k) => { if (k < 3) at(c, 'device_announce', LAMP, c.now); });
