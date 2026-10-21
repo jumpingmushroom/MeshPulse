@@ -169,6 +169,13 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		} else {
 			// the parent resolved: an unannounced child still firing gets one normal open; others just lose the parent
 			p.patch.parentIssueId = null;
+			if (p.f?.evidence.holding === true && p.i.lastNotifiedAt === null) {
+				// only held open through its quiet period (rejoins that were part of the wave): nothing left to report
+				Object.assign(p.patch, { state: 'resolved', resolvedAt: now, updatedAt: now, evidence: { ...p.i.evidence, durationMs: now - p.i.openedAt } });
+				p.kind = null;
+				out.released.push(p.i.id);
+				continue;
+			}
 			p.kind = p.f && p.i.lastNotifiedAt === null ? 'open' : null;
 			if (p.kind) p.patch.summary = `${p.f!.summary}${RELEASE_SUFFIX[p.i.rule] ?? ''}`;
 			out.released.push(p.i.id);

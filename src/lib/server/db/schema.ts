@@ -58,7 +58,7 @@ export const samplesHourly = sqliteTable(
 	(t) => [primaryKey({ columns: [t.ieee, t.hour] }), index('samples_hourly_hour_idx').on(t.hour)]
 );
 
-export type BaselineMetric = 'lqi_mean' | 'lqi_stddev' | 'route_errors_hourly' | 'battery_days_left' | 'msg_per_min' | 'battery_report_gap_h' | 'battery_last_report' | 'battery_drop';
+export type BaselineMetric = 'lqi_mean' | 'lqi_stddev' | 'route_errors_hourly' | 'battery_days_left' | 'msg_per_min' | 'battery_report_gap_h' | 'battery_last_report' | 'battery_drop' | 'max_gap_7d';
 
 export const baselines = sqliteTable(
 	'baselines',

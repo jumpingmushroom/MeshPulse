@@ -84,6 +84,16 @@ export function computeBaselines(db: Db, now: number): void {
 	}
 	out.push({ ieee: '', metric: 'msg_per_min', value: netPerMin, days: netDays, computedAt: now });
 
+	// for device.offline: the longest gap between stored readings in 7 days (event-driven devices are quiet for hours)
+	const lastTs = new Map<string, number>(), maxGap = new Map<string, number>(), firstTs = new Map<string, number>();
+	for (const r of db.select({ ieee: samples.ieee, ts: samples.ts }).from(samples).where(gte(samples.ts, now - 7 * D)).orderBy(samples.ieee, samples.ts).all()) {
+		const prev = lastTs.get(r.ieee);
+		if (prev === undefined) firstTs.set(r.ieee, r.ts);
+		else maxGap.set(r.ieee, Math.max(maxGap.get(r.ieee) ?? 0, r.ts - prev));
+		lastTs.set(r.ieee, r.ts);
+	}
+	for (const [ieee, value] of maxGap) out.push({ ieee, metric: 'max_gap_7d', value, days: Math.floor((lastTs.get(ieee)! - firstTs.get(ieee)!) / D), computedAt: now });
+
 	const { stale, staleDrop, forecasts } = batteryForecasts(db, now);
 	out.push(...forecasts);
 

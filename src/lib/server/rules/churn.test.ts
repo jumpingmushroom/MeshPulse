@@ -50,7 +50,7 @@ describe('device.rejoin_churn', () => {
 			rule: 'device.rejoin_churn', ieee: LAMP, severity: 'warning',
 			summary: 'living/lamp keeps rejoining the network (3 rejoins in 6 h)',
 			action: "Check the device's power and its nearest router",
-			evidence: { announces: 3, addressChanges: 0, windowH: 6, last24h: 3 }
+			evidence: { announces: 3, addressChanges: 0, windowH: 6, last24h: 3, holding: false }
 		}]);
 	});
 
@@ -85,6 +85,15 @@ describe('device.rejoin_churn', () => {
 		expect(rejoinChurn(c)).toHaveLength(1);
 		c.now += 2 * H;
 		expect(rejoinChurn(c)).toEqual([]);
+	});
+
+	it('a held-open issue says how often it rejoined and how long it has been quiet, never "0 rejoins"', () => {
+		const c = ctx();
+		for (const h of [9, 8.5, 8]) at(c, 'device_announce', LAMP, NOW - h * H);
+		c.open.add(issueKey('device.rejoin_churn', LAMP));
+		const [f] = rejoinChurn(c);
+		expect(f.summary).toBe('living/lamp rejoined the network 3 times in 24 h, quiet for 8 h');
+		expect(f.summary).not.toContain('0 rejoins');
 	});
 
 	it('opens once, resolves after 12 h quiet and never reopens', () => {
