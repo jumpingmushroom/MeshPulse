@@ -67,6 +67,21 @@ describe('grouping', () => {
 		expect(kinds(h.notes)).not.toContain(`${issueKey('device.rejoin_churn', '0xa')}:open`);
 	});
 
+	it('when the rejoin wave ends, quiet children resolve silently and an active one is released once', () => {
+		const devs = { '0xa': { type: 'EndDevice', friendlyName: 'a', lastSeenAt: T, offlineSince: null }, '0xb': { type: 'EndDevice', friendlyName: 'b', lastSeenAt: T, offlineSince: null } };
+		const h = harness(devs);
+		const wave = [f('network.churn', null), f('device.rejoin_churn', '0xa'), f('device.rejoin_churn', '0xb')];
+		h.run(wave, T);
+		h.run(wave, T + MIN);
+		const after = [f('device.rejoin_churn', '0xa', 'warning', { holding: true }), f('device.rejoin_churn', '0xb', 'warning', { holding: false })];
+		// network.churn gone: its issue resolves; like the rule, a holding finding stops once its issue is closed
+		for (let k = 2; k < 6; k++) h.run(after.filter((x) => x.ieee !== '0xa' || h.get('device.rejoin_churn', '0xa').state !== 'resolved'), T + k * MIN);
+		expect(h.get('network.churn', null).state).toBe('resolved');
+		expect(h.get('device.rejoin_churn', '0xa').state).toBe('resolved');
+		expect(kinds(h.notes)).not.toContain(`${issueKey('device.rejoin_churn', '0xa')}:open`);
+		expect(kinds(h.notes).filter((k) => k === `${issueKey('device.rejoin_churn', '0xb')}:open`)).toHaveLength(1);
+	});
+
 	it('a child firing while its parent is still pending waits and opens attached', () => {
 		const h = harness();
 		h.run([f('device.offline', '0xend0')], T);

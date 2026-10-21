@@ -50,7 +50,7 @@ describe('device.rejoin_churn', () => {
 			rule: 'device.rejoin_churn', ieee: LAMP, severity: 'warning',
 			summary: 'living/lamp keeps rejoining the network (3 rejoins in 6 h)',
 			action: "Check the device's power and its nearest router",
-			evidence: { announces: 3, addressChanges: 0, windowH: 6, last24h: 3 }
+			evidence: { announces: 3, addressChanges: 0, windowH: 6, last24h: 3, holding: false }
 		}]);
 	});
 
