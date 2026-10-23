@@ -13,6 +13,8 @@ export interface ActiveDeps { db: Db; state: AppState; requester: Requester; con
 type Kind = 'networkmap' | 'coordinator_check';
 export type RunResult = { status: 'ok' | 'failed' | 'skipped'; reason?: string };
 
+const openKeys = (db: Db) => new Set(db.select().from(issues).where(ne(issues.state, 'resolved')).all().map((i) => issueKey(i.rule, i.ieee)));
+
 const TIMEOUT = { networkmap: 600_000, coordinator_check: 60_000 };
 
 /** A networkmap row (any trigger, running included) started within the hour, or null. */
@@ -21,7 +23,7 @@ const scanTooRecent = (db: Db, now: number) =>
 
 export async function runActive(deps: ActiveDeps, kind: Kind, trigger: 'scheduled' | 'manual', now: number): Promise<RunResult> {
 	const { db, state, requester, config } = deps;
-	const open = new Set(db.select().from(issues).where(ne(issues.state, 'resolved')).all().map((i) => issueKey(i.rule, i.ieee)));
+	const open = openKeys(db);
 	const skip = activeGuard(state, open, now, requester.busy(kind), config.tz) ?? (kind === 'networkmap' ? scanTooRecent(db, now) : null);
 	if (skip) {
 		// one skipped row per day: later ticks update it rather than adding another
@@ -71,7 +73,7 @@ export function loadActive(db: Db): { missingRouters: string[] | null; scanFailS
 export async function requestManualScan(deps: ActiveDeps, now: number): Promise<{ ok: true } | { ok: false; reason: string }> {
 	const { db, state, requester, config } = deps;
 	if (!getSettings(db).activeNetworkScan) return { ok: false, reason: 'The network scan is off' };
-	const open = new Set(db.select().from(issues).where(ne(issues.state, 'resolved')).all().map((i) => issueKey(i.rule, i.ieee)));
+	const open = openKeys(db);
 	const reason = activeGuard(state, open, now, requester.busy('networkmap'), config.tz);
 	if (reason) return { ok: false, reason };
 	const recent = scanTooRecent(db, now);

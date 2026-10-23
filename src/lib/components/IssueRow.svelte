@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { formatAgo, groupedSummary, isWifiKey, RULE_LABELS } from '../views';
+	import { formatAgo, groupedSummary, isWifiKey, ISSUE_STATE, RULE_LABELS, SEV_CLASS } from '../views';
 	import type { RuleId } from '../server/rules/types';
 	import type { Severity } from '../server/types';
 	import SevBadge from './SevBadge.svelte';
@@ -9,11 +9,10 @@
 		issue: { id: number; severity: Severity; state: string; summary: string; action?: string; ieee: string | null; deviceName?: string; rule: string; openedAt: number };
 		now: number; children?: { id: number; summary: string; rule: string }[];
 	} = $props();
-	const STATE = { open: ['state-open', 'Open'], acknowledged: ['state-ack', 'Acknowledged'], resolved: ['state-resolved', 'Resolved'] } as const;
-	const sev = { critical: 'is-crit', warning: 'is-warn', info: 'is-info' } as const;
+	const st = $derived(ISSUE_STATE[issue.state as keyof typeof ISSUE_STATE]);
 </script>
 
-<article class="issue {sev[issue.severity]}">
+<article class="issue {SEV_CLASS[issue.severity]}">
 	<SevBadge severity={issue.severity} />
 	<div class="issue-main">
 		<div class="issue-title"><a href={resolve('/issues/[id]', { id: String(issue.id) })}>{issue.summary}</a></div>
@@ -23,7 +22,7 @@
 			<span>{RULE_LABELS[issue.rule as RuleId] ?? issue.rule}</span>
 		</div>
 	</div>
-	<div class="issue-when"><span>opened {formatAgo(issue.openedAt, now)}</span><span class="state {STATE[issue.state as keyof typeof STATE]?.[0]}">{STATE[issue.state as keyof typeof STATE]?.[1] ?? issue.state}</span></div>
+	<div class="issue-when"><span>opened {formatAgo(issue.openedAt, now)}</span><span class="state {st?.[0]}">{st?.[1] ?? issue.state}</span></div>
 	{#if children.length}
 		<details class="issue-children">
 			<summary><svg class="i" aria-hidden="true"><use href="#i-caret" /></svg>{groupedSummary(children)}</summary>

@@ -1,6 +1,7 @@
 export type MapNode = { ieee: string; type: string; failed: boolean };
 export type MapParents = Map<string, { parent: string; lqi: number }>;
 export const WEAK_LQI = 60;
+export const MAP_W = 1100, MAP_H = 760; // layout canvas, shared by the server layout and the page's viewBox
 
 const GAP = 12; // min centre distance for nodes packed on one arc
 const SUB = 14; // radial step between sub-rings of end devices

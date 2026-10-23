@@ -3,7 +3,7 @@ import type { Db } from './db';
 import { events } from './db/schema';
 import type { EventKind } from './types';
 
-export const PAGE_SIZE = 100;
+const PAGE_SIZE = 100;
 const DAYS_90 = 90 * 86_400_000;
 
 export const EVENT_KINDS: Record<EventKind, string> = {
@@ -27,7 +27,7 @@ export function queryEvents(db: Db, knownIeees: ReadonlySet<string>, params: URL
 	const device = params.get('device') || null;
 	const n = Number(params.get('page'));
 	const page = Number.isInteger(n) && n >= 1 ? n : 1;
-	const unknown = (kind !== null && !(kind in EVENT_KINDS)) || (device !== null && !knownIeees.has(device));
+	const unknown = (kind !== null && !Object.hasOwn(EVENT_KINDS, kind)) || (device !== null && !knownIeees.has(device));
 	const base = { kind, device, page, unknown };
 	if (unknown) return { ...base, rows: [], hasNext: false };
 	const rows = db.select().from(events)

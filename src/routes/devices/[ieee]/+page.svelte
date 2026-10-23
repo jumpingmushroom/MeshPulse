@@ -3,22 +3,24 @@
 	import { enhance } from '$app/forms';
 	import IssueRow from '../../../lib/components/IssueRow.svelte';
 	import LineChart from '../../../lib/components/LineChart.svelte';
+	import MuteForm from '../../../lib/components/MuteForm.svelte';
 	import { KNOWN_TYPES } from '../../../lib/battery-types';
-	import { FOREVER, formatAgo, formatDaysLeft, formatDetail, formatTime, formatVoltage, sortIssues } from '../../../lib/views';
+	import { availOf, formatAgo, formatDaysLeft, formatDetail, formatTime, formatVoltage, sortIssues, TYPE_LABEL } from '../../../lib/views';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 	const d = $derived(data.device);
 	const muted = $derived(d.mutedUntil && d.mutedUntil > data.now ? d.mutedUntil : null);
 	const RANGES = [['24h', '24 h'], ['7d', '7 d'], ['30d', '30 d']] as const;
-	const TYPE = { Coordinator: 'Coordinator', Router: 'Router', EndDevice: 'End device' } as const;
-	const AVAIL = { online: ['avail-online', '#i-ok', 'Online'], offline: ['avail-offline', '#i-x', 'Offline'] } as const;
-	const avail = $derived(AVAIL[d.availability as keyof typeof AVAIL] ?? (['avail-unknown', '#i-unknown', 'Unknown'] as const));
+	const avail = $derived(availOf(d.availability));
 	const issues = $derived(sortIssues(data.issues));
 	const bt = $derived(d.batteryType);
+	// primitives: the 15 s reload brings a new batteryType object, but an equal string or number does not reset the form fields below
+	const btType = $derived(bt?.type ?? null);
+	const btCells = $derived(bt?.cells ?? 1);
 	const known = (t: string) => (KNOWN_TYPES as readonly string[]).includes(t);
 	// derived, so the server-rendered page already selects the device's type (an $effect only runs after loading); writable for the select
-	let pick = $derived(bt ? (known(bt.type) ? bt.type : 'Other') : 'CR2032');
+	let pick = $derived(btType ? (known(btType) ? btType : 'Other') : 'CR2032');
 	const submit = (e: Event) => (e.currentTarget as HTMLInputElement).form?.requestSubmit();
 	const empty = $derived(data.daysLeft === null ? null : new Date(data.now + data.daysLeft * 86_400_000).toLocaleDateString('en-GB', { timeZone: data.tz, dateStyle: 'medium' }));
 </script>
@@ -31,7 +33,7 @@
 			<span class="avail {avail[0]}" style="font-size:15px" title={formatTime(d.lastSeenAt, data.tz)}><svg class="i" aria-hidden="true"><use href={avail[1]} /></svg>{avail[2]} · seen {formatAgo(d.lastSeenAt, data.now)}</span>
 		</div>
 		<div class="row" style="gap:6px 17px;font-size:13px">
-			<span class="tag tag-outline">{TYPE[d.type as keyof typeof TYPE] ?? d.type}</span>
+			<span class="tag tag-outline">{TYPE_LABEL[d.type as keyof typeof TYPE_LABEL] ?? d.type}</span>
 			{#if d.model || d.vendor}<span class="muted">{[d.model, d.vendor].filter(Boolean).join(' · ')}</span>{/if}
 			{#if d.powerSource}<span class="muted">{d.powerSource}</span>{/if}
 			{#if data.parent}<span class="tag tag-outline">Parent {#if data.parent.name}<a href={resolve('/devices/[ieee]', { ieee: data.parent.ieee })}>{data.parent.name}</a>{:else}{data.parent.ieee}{/if} · LQI {data.parent.lqi}{data.parent.changed ? ' · changed since previous scan' : ''}</span>{/if}
@@ -100,9 +102,9 @@
 								{#each KNOWN_TYPES as t (t)}<option value={t}>{t}</option>{/each}
 								<option value="Other">Other</option>
 							</select>
-							{#if pick === 'Other'}<label class="sr-only" for="bother">Other type</label><input class="input" id="bother" name="other" maxlength="20" style="width:110px" value={bt && !known(bt.type) ? bt.type : ''} aria-invalid={form?.batteryError?.field === 'other' ? 'true' : undefined} />{/if}
+							{#if pick === 'Other'}<label class="sr-only" for="bother">Other type</label><input class="input" id="bother" name="other" maxlength="20" style="width:110px" value={btType && !known(btType) ? btType : ''} aria-invalid={form?.batteryError?.field === 'other' ? 'true' : undefined} />{/if}
 							<label class="sr-only" for="bcells">Cells</label>
-							<input class="input" id="bcells" name="cells" type="number" min="1" max="8" style="width:64px" value={bt?.cells ?? 1} aria-invalid={form?.batteryError?.field === 'cells' ? 'true' : undefined} />
+							<input class="input" id="bcells" name="cells" type="number" min="1" max="8" style="width:64px" value={btCells} aria-invalid={form?.batteryError?.field === 'cells' ? 'true' : undefined} />
 							<button class="btn btn-sm">Save</button>
 						</div>
 						{#if form?.batteryError}<p class="field-error" role="alert">{form.batteryError.message}</p>{/if}
@@ -114,18 +116,7 @@
 			<section class="panel panel-pad stack" style="gap:17px" aria-labelledby="dev-ctl">
 				<h2 id="dev-ctl" class="muted" style="font-size:12px;font-weight:500">Alerts for this device</h2>
 				{#if form?.error}<p class="field-error" role="alert">{form.error}</p>{/if}
-				<form class="mute" method="post" action="?range={data.range}&/mute" use:enhance>
-					<div class="mute-status" class:is-muted={muted}>{muted === FOREVER ? 'Muted forever' : muted ? `Muted until ${formatTime(muted, data.tz)}` : 'Not muted'}</div>
-					<div class="mute-row">
-						<label class="sr-only" for="dmute">Mute for</label>
-						<select class="select" id="dmute" name="duration">
-							<option value="1h">1 hour</option><option value="24h">24 hours</option>
-							<option value="7d">7 days</option><option value="forever">forever</option>
-							{#if muted}<option value="unmute">unmute</option>{/if}
-						</select>
-						<button class="btn">Mute</button>
-					</div>
-				</form>
+				<MuteForm action="?range={data.range}&/mute" id="dmute" {muted} tz={data.tz} />
 				<hr class="rule" />
 				<form method="post" action="?range={data.range}&/ignore" use:enhance class="stack" style="gap:6px">
 					<label class="toggle"><input type="checkbox" role="switch" name="on" value="1" checked={d.ignored} onchange={submit} /><span class="track"></span>Ignore this device</label>

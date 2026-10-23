@@ -2,7 +2,7 @@ import { error, redirect } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit/hooks';
 import { isAddon } from './addon';
 
-export const INGRESS_PROXY = '172.30.32.2';
+const INGRESS_PROXY = '172.30.32.2';
 
 /** Add-on only: /api/health is open for the Supervisor watchdog; everything else needs the ingress proxy's address. */
 export const addonAccess = (path: string, clientAddress: string): 'allow' | 'forbid' =>

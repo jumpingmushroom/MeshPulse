@@ -1,6 +1,6 @@
 import { baselineOf } from '../trends/history';
 import type { DeviceState } from '../types';
-import { issueKey, openFor, restartStarts, type Finding, type RuleContext } from './types';
+import { issueKey, openFor, restartStarts, resumedAt, type Finding, type RuleContext } from './types';
 
 const MIN = 60_000;
 const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
@@ -14,10 +14,7 @@ const show = (n: number) => Math.round(n * 10) / 10;
 function ready(ctx: RuleContext, n: number): boolean {
 	const s = ctx.settings;
 	const { startedAt, connectedAt } = ctx.state.monitor;
-	const { silenceEndedAt, silenceMs } = ctx.state.bridge;
-	// same "real silence" as the device.offline recovery hold
-	const resumedAt = silenceMs >= s.bridgeSilenceMin * MIN ? silenceEndedAt ?? 0 : 0;
-	const since = Math.max(startedAt, connectedAt ?? 0, ...[...restartStarts(ctx), resumedAt].map((t) => t + s.graceMin * MIN));
+	const since = Math.max(startedAt, connectedAt ?? 0, ...[...restartStarts(ctx), resumedAt(ctx)].map((t) => t + s.graceMin * MIN));
 	return Math.floor(ctx.now / MIN) * MIN - n * MIN >= since;
 }
 

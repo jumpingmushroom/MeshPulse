@@ -4,11 +4,11 @@ const FRESH_MS = 30 * 60_000;
 
 export function bridgeBacklog(ctx: RuleContext): Finding[] {
 	const s = ctx.settings;
-	// stale samples (Z2M down or not publishing health) prove nothing either way
+	// stale samples (Z2M down or not publishing health) cannot open it, and an open one resolves without them
 	const fresh = ctx.health.filter((h) => h.ts >= ctx.now - FRESH_MS);
 	const [prev, last] = [fresh.at(-2)?.queued ?? null, fresh.at(-1)?.queued ?? null];
 	const bad = ctx.open.has(issueKey('bridge.mqtt_backlog', null))
-		? last === null || last >= s.backlogClear
+		? fresh.length > 0 && (last === null || last >= s.backlogClear)
 		: prev !== null && last !== null && prev > s.backlogHigh && last > s.backlogHigh;
 	if (!bad) return [];
 	return [{

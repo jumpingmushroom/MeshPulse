@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { freeChannels, overlaps, wifiMHz, zigbeeMHz } from './overlap';
+import { wifiMHz, zigbeeMHz } from '../../wifi-freq';
+import { freeChannels, overlaps } from './overlap';
 
 describe('overlap', () => {
 	it('maps channels to frequencies', () => {

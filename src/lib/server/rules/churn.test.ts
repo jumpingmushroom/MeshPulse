@@ -145,6 +145,12 @@ describe('device.leave', () => {
 		expect(deviceLeave(c)).toEqual([]);
 	});
 
+	it('when open, resolves once the device is gone', () => {
+		const c = ctx();
+		c.open.add(issueKey('device.leave', '0xgone'));
+		expect(deviceLeave(c)).toEqual([]);
+	});
+
 	it('a leave event opens a warning until the device is seen again', () => {
 		const c = ctx();
 		dev(c, DOOR).lastSeenAt = NOW - 10 * MIN;
@@ -237,6 +243,12 @@ describe('device.interview_failed', () => {
 		const c = ctx();
 		at(c, 'device_interview', '0xnew', NOW - MIN, { status: 'failed', friendly_name: '0xnew_name' });
 		expect(interviewFailed(c)).toMatchObject([{ ieee: '0xnew', summary: '0xnew_name could not be interviewed' }]);
+	});
+
+	it('when open, an unknown device resolves once its failure ages out of 24 h', () => {
+		const c = ctx();
+		c.open.add(issueKey('device.interview_failed', '0xnew'));
+		expect(interviewFailed(c)).toEqual([]);
 	});
 });
 

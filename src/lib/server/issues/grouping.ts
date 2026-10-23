@@ -2,7 +2,7 @@ import type { Finding, RuleId } from '../rules/index';
 import type { Settings } from '../settings';
 
 /** Incident rules and the device-level rules that attach to them as silent children. */
-export const PARENT_RULES: Partial<Record<RuleId, RuleId[]>> = {
+const PARENT_RULES: Partial<Record<RuleId, RuleId[]>> = {
 	'network.mass_offline': ['device.offline', 'device.flapping'],
 	'network.storm': ['device.storm', 'device.dominant'],
 	// a network-wide rejoin wave (a power cut, routers restarting) is one issue, not one per battery device

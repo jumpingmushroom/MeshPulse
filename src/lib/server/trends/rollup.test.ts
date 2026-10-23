@@ -148,12 +148,14 @@ describe('computeBaselines', () => {
 		expect(get(db, '', 'route_errors_hourly')!.days).toBe(0);
 	});
 
-	it('network route_errors_hourly is the mean per hour', () => {
+	it('network route_errors_hourly is the mean per hour with data, not per hour of the window', () => {
 		const { db } = setup();
-		const ev = Array.from({ length: 48 }, (_, i) => ({ ts: T - 8 * D + i * H, kind: 'route_error' }));
-		db.insert(events).values(ev).run();
+		// 3 days of history in the 7-day window, 2 errors an hour
+		const start = hourStart(T - 4 * D);
+		db.insert(samplesHourly).values(Array.from({ length: 72 }, (_, i) => ({ ieee: IEEE, hour: start + i * H, msgCount: 1 }))).run();
+		db.insert(events).values(Array.from({ length: 144 }, (_, i) => ({ ts: start + (i * H) / 2, kind: 'route_error' }))).run();
 		computeBaselines(db, T);
-		expect(get(db, '', 'route_errors_hourly')!.value).toBeCloseTo(48 / 168);
+		expect(get(db, '', 'route_errors_hourly')).toMatchObject({ value: 2, days: 3 });
 	});
 
 	it('route_errors_hourly is 0 with no events', () => {
@@ -227,6 +229,14 @@ describe('computeBaselines', () => {
 			db.insert(samples).values({ ieee: IEEE, ts: T - 9 * D, lqi: 100 }).run(); // older than 7 days: ignored
 			computeBaselines(db, T);
 			expect(get(db, IEEE, 'max_gap_7d')).toMatchObject({ value: 585 * 60_000 });
+		});
+
+		it('forecasts a device with no power source from its battery reports', () => {
+			const { db } = setup();
+			db.insert(devices).values({ ieee: IEEE }).run();
+			battery(db, T - 10 * D, 10, 80, 1);
+			computeBaselines(db, T);
+			expect(get(db, IEEE, 'battery_days_left')).toBeDefined();
 		});
 
 		it('deletes a stale row and ignores mains devices', () => {

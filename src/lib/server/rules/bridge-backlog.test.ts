@@ -36,11 +36,12 @@ describe('bridge.mqtt_backlog', () => {
 		expect(bridgeBacklog(with_([51, null], true))).toHaveLength(1);
 	});
 
-	it('samples older than 30 min: no new finding, an open issue holds', () => {
+	it('samples older than 30 min (bridge/health stopped): no new finding, an open issue resolves', () => {
 		const c = with_([60, 60]);
 		c.now += 30 * MIN;
 		expect(bridgeBacklog(c)).toEqual([]);
 		c.open.add(issueKey('bridge.mqtt_backlog', null));
-		expect(bridgeBacklog(c)).toHaveLength(1);
+		expect(bridgeBacklog(c)).toEqual([]);
+		expect(bridgeBacklog(with_([], true))).toEqual([]);
 	});
 });

@@ -5,10 +5,9 @@ import { scanLinks, scans } from '../../lib/server/db/schema';
 import { NETWORK_SCAN_AT } from '../../lib/server/active/schedule';
 import { getRuntime } from '../../lib/server/runtime';
 import { getSettings } from '../../lib/server/settings';
-import { mapLayout, placeLabels, type MapNode } from '../../lib/map';
+import { MAP_H as H, MAP_W as W, mapLayout, placeLabels, type MapNode } from '../../lib/map';
 import type { Actions, PageServerLoad } from './$types';
 
-const W = 1100, H = 760;
 const isScan = and(eq(scans.kind, 'networkmap'), ne(scans.status, 'skipped'));
 
 export const load: PageServerLoad = () => {
