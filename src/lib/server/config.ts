@@ -10,8 +10,7 @@ export function resolveSecretKey(
 	databasePath: string
 ): { key: string; source: SecretSource } {
 	if (envKey) return { key: envKey, source: 'env' };
-	const key = randomBytes(32).toString('base64');
-	if (databasePath === ':memory:') return { key, source: 'memory' };
+	if (databasePath === ':memory:') return { key: randomBytes(32).toString('base64'), source: 'memory' };
 	const file = join(dirname(databasePath), 'secret.key');
 	try {
 		const saved = readFileSync(file, 'utf8').trim();
@@ -19,6 +18,7 @@ export function resolveSecretKey(
 	} catch {
 		// missing file: generate below
 	}
+	const key = randomBytes(32).toString('base64');
 	try {
 		writeFileSync(file, key, { mode: 0o600 });
 	} catch (e) {
@@ -44,6 +44,20 @@ export type Config = {
 	adminPassword?: string;
 };
 
+let tzWarned = false;
+
+function validTz(tz: string | undefined): string {
+	if (!tz) return 'Europe/Oslo';
+	try {
+		new Intl.DateTimeFormat(undefined, { timeZone: tz });
+		return tz;
+	} catch {
+		if (!tzWarned) console.warn(`TZ "${tz}" is not a valid time zone; using Europe/Oslo`);
+		tzWarned = true;
+		return 'Europe/Oslo';
+	}
+}
+
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
 	const databasePath = env.DATABASE_PATH || '/data/meshpulse.db';
 	const secret = resolveSecretKey(env.SECRET_KEY || undefined, databasePath);
@@ -54,7 +68,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 		baseTopic: env.Z2M_BASE_TOPIC || 'zigbee2mqtt',
 		databasePath,
 		publicUrl: env.PUBLIC_URL || undefined,
-		tz: env.TZ || 'Europe/Oslo',
+		tz: validTz(env.TZ),
 		secretKey: secret.key,
 		secretSource: secret.source,
 		heartbeatUrl: env.HEARTBEAT_URL || undefined,

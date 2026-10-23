@@ -1,24 +1,22 @@
 import { fail } from '@sveltejs/kit';
 import { and, desc, eq, ne } from 'drizzle-orm';
-import { encrypt } from '../../lib/server/crypto';
+import { decrypt, encrypt } from '../../lib/server/crypto';
 import { channels, outbox, scans, wifiAps, wifiAreas } from '../../lib/server/db/schema';
 import type { Message } from '../../lib/server/notify/channel';
 import { parseAppriseForm } from '../../lib/server/notify/apprise';
 import { haTarget, haTokenKept, listNotifyServices, parseHomeAssistantForm } from '../../lib/server/notify/homeassistant';
 import { isAddon } from '../../lib/server/addon';
-import { decrypt } from '../../lib/server/crypto';
 import { WEBHOOK_RE } from '../../lib/server/notify/discord';
 import { sendTest } from '../../lib/server/notify/outbox';
 import { due, lastDay, setActive } from '../../lib/server/active/schedule';
 import { lastPing } from '../../lib/server/heartbeat';
 import { checkPrereqs } from '../../lib/server/prereqs';
 import { getRuntime } from '../../lib/server/runtime';
-import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveFormSettings } from '../../lib/server/settings';
+import { DEFAULT_SETTINGS, getSettings, parseSettingsForm, saveFormSettings, saveSettings } from '../../lib/server/settings';
 import { candidateAreas, parseAreasForm, saveAreas, suggestArea } from '../../lib/server/wifi/areas';
 import { canKeepPassword, getWifiConfig, getWifiForm, saveWifiConfig } from '../../lib/server/wifi/config';
 import { exclusive } from '../../lib/server/wifi/poller';
 import { createUnifi } from '../../lib/server/wifi/unifi';
-import { saveSettings } from '../../lib/server/settings';
 import type { Severity } from '../../lib/server/types';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -47,6 +45,21 @@ function areaSettings(db: ReturnType<typeof getRuntime>['db']) {
 		aps: db.select().from(wifiAps).all().map((a) => ({ mac: a.mac, name: a.name, model: a.model, area: a.area, hint: a.area ? null : suggestArea(a.name, areas.map((r) => r.name)) })),
 		suggested: candidateAreas([...getRuntime().state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator' && !d.tags.includes('ignore')).map((d) => d.friendlyName))
 	};
+}
+
+/** The UniFi fields as typed (`values`, echoed back on errors, never the password) and normalised. */
+function wifiForm(form: FormData) {
+	const text = (k: string) => String(form.get(k) ?? '').trim();
+	const values = { url: text('url'), site: text('site'), user: text('user'), wifiEnabled: form.get('wifiEnabled') === 'on' };
+	return { values, url: values.url.replace(/\/+$/, ''), site: values.site || 'default', password: String(form.get('password') ?? '') };
+}
+
+async function testChannel<S extends string>(kind: string, section: S, name: string) {
+	const { db, config } = getRuntime();
+	const ch = channelOf(kind);
+	if (!ch) return fail(400, { section, error: `Save the ${name} channel first.` });
+	const r = await sendTest(db, ch.id, config.secretKey);
+	return r.ok ? { section, tested: true } : fail(400, { section, error: `Test failed: ${r.error}` });
 }
 
 export const load: PageServerLoad = () => {
@@ -94,28 +107,19 @@ export const actions: Actions = {
 	},
 	saveWifi: async ({ request }) => {
 		const { db, config } = getRuntime();
-		const form = await request.formData();
-		const text = (k: string) => String(form.get(k) ?? '').trim();
-		const values = { url: text('url'), site: text('site'), user: text('user'), wifiEnabled: form.get('wifiEnabled') === 'on' }; // never the password
-		const url = values.url.replace(/\/+$/, '');
+		const { values, url, site, password } = wifiForm(await request.formData());
 		if (url && !URL_RE.test(url)) return fail(400, { section: 'wifi', error: 'The controller URL must look like https://192.168.1.1', wifiValues: values });
-		const site = values.site || 'default';
-		if (!form.get('password') && getWifiForm(db).passwordSet && !canKeepPassword(db, { url, site })) return fail(400, { section: 'wifi', error: NEW_CONTROLLER, wifiValues: values });
-		if (values.wifiEnabled && (!url || !values.user || (!text('password') && !canKeepPassword(db, { url, site })))) return fail(400, { section: 'wifi', error: 'Enter the URL, user and password before enabling.', wifiValues: values });
-		saveWifiConfig(db, config.secretKey, { url, site, user: values.user, password: String(form.get('password') ?? '') });
+		if (!password && getWifiForm(db).passwordSet && !canKeepPassword(db, { url, site })) return fail(400, { section: 'wifi', error: NEW_CONTROLLER, wifiValues: values });
+		if (values.wifiEnabled && (!url || !values.user || (!password.trim() && !canKeepPassword(db, { url, site })))) return fail(400, { section: 'wifi', error: 'Enter the URL, user and password before enabling.', wifiValues: values });
+		saveWifiConfig(db, config.secretKey, { url, site, user: values.user, password });
 		saveSettings(db, { wifiEnabled: values.wifiEnabled });
 		return { section: 'wifi', saved: true };
 	},
 	testWifi: async ({ request }) => {
 		const { db, config } = getRuntime();
-		const form = await request.formData();
-		const text = (k: string) => String(form.get(k) ?? '').trim();
-		const values = { url: text('url'), site: text('site'), user: text('user'), wifiEnabled: form.get('wifiEnabled') === 'on' };
-		const url = values.url.replace(/\/+$/, '');
+		const { values, url, site, password: typed } = wifiForm(await request.formData());
 		if (!url || !URL_RE.test(url) || !values.user) return fail(400, { section: 'wifi', error: 'Enter the controller URL (like https://192.168.1.1) and user to test.', wifiValues: values });
 		// a typed password wins; the stored one only for the same controller and site; nothing is saved
-		const site = values.site || 'default';
-		const typed = String(form.get('password') ?? '');
 		const password = typed || (canKeepPassword(db, { url, site }) ? getWifiConfig(db, config.secretKey)?.password : '') || '';
 		if (!password) return fail(400, { section: 'wifi', error: getWifiForm(db).passwordSet ? NEW_CONTROLLER : 'Enter the password to test.', wifiValues: values });
 		const r = await exclusive(async () => {
@@ -153,13 +157,7 @@ export const actions: Actions = {
 		else db.insert(channels).values({ kind: 'discord', name: 'Discord', ...values }).run();
 		return { section: 'channel', saved: true };
 	},
-	test: async () => {
-		const { db, config } = getRuntime();
-		const ch = discordChannel();
-		if (!ch) return fail(400, { section: 'channel', error: 'Save the Discord channel first.' });
-		const r = await sendTest(db, ch.id, config.secretKey);
-		return r.ok ? { section: 'channel', tested: true } : fail(400, { section: 'channel', error: `Test failed: ${r.error}` });
-	},
+	test: () => testChannel('discord', 'channel', 'Discord'),
 	saveApprise: async ({ request }) => {
 		const { db, config } = getRuntime();
 		const form = await request.formData();
@@ -174,13 +172,7 @@ export const actions: Actions = {
 		else db.insert(channels).values({ kind: 'apprise', name: 'Apprise', ...values }).run();
 		return { section: 'apprise', saved: true };
 	},
-	testApprise: async () => {
-		const { db, config } = getRuntime();
-		const ch = channelOf('apprise');
-		if (!ch) return fail(400, { section: 'apprise', error: 'Save the Apprise channel first.' });
-		const r = await sendTest(db, ch.id, config.secretKey);
-		return r.ok ? { section: 'apprise', tested: true } : fail(400, { section: 'apprise', error: `Test failed: ${r.error}` });
-	},
+	testApprise: () => testChannel('apprise', 'apprise', 'Apprise'),
 	saveHomeAssistant: async ({ request }) => {
 		const { db, config } = getRuntime();
 		const form = await request.formData();
@@ -213,12 +205,6 @@ export const actions: Actions = {
 			return fail(400, { section: 'homeassistant', error: `Could not load notify services: ${e instanceof Error ? e.message : String(e)}` });
 		}
 	},
-	testHomeAssistant: async () => {
-		const { db, config } = getRuntime();
-		const ch = channelOf('homeassistant');
-		if (!ch) return fail(400, { section: 'homeassistant', error: 'Save the Home Assistant channel first.' });
-		const r = await sendTest(db, ch.id, config.secretKey);
-		return r.ok ? { section: 'homeassistant', tested: true } : fail(400, { section: 'homeassistant', error: `Test failed: ${r.error}` });
-	}
+	testHomeAssistant: () => testChannel('homeassistant', 'homeassistant', 'Home Assistant')
 };
 

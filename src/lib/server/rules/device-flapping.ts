@@ -1,15 +1,13 @@
-import { inGrace, issueKey, type Finding, type RuleContext } from './types';
+import { inGrace, issueKey, restartGuard, type Finding, type RuleContext } from './types';
 
 export function deviceFlapping(ctx: RuleContext): Finding[] {
 	const { now, settings: s, events } = ctx;
-	const graceMs = s.graceMin * 60_000;
-	const restarts = events.filter((e) => e.kind === 'bridge_restart').map((e) => e.ts);
-	if (ctx.state.bridge.restartedAt !== null) restarts.push(ctx.state.bridge.restartedAt);
+	const guarded = restartGuard(ctx);
 	const counts = new Map<string, number>();
 	for (const e of events) {
 		if (e.kind !== 'availability' || !e.ieee || e.ts <= now - s.flappingWindowH * 3_600_000) continue;
 		if (e.detail.from == null) continue; // first-ever availability is not a change
-		if (restarts.some((r) => e.ts >= r && e.ts < r + graceMs)) continue;
+		if (guarded(e.ts)) continue;
 		counts.set(e.ieee, (counts.get(e.ieee) ?? 0) + 1);
 	}
 	const grace = inGrace(ctx);

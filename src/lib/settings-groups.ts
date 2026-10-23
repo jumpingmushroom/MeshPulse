@@ -5,7 +5,7 @@ type Key = keyof Settings;
 export type Field = { key: Key; name: string; unit: string };
 /** One alert as a sentence: text pieces with inline fields. */
 export type Row = { label: string; help: string; parts: (string | Field)[] };
-export type Group = { title: string; rows: Row[]; more: Row[] };
+type Group = { title: string; rows: Row[]; more: Row[] };
 
 const f = (key: Key, name: string, unit = ''): Field => ({ key, name, unit });
 const row = (label: string, help: string, ...parts: (string | Field)[]): Row => ({ label, help, parts });

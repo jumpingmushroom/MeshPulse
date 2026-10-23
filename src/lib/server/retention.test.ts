@@ -21,7 +21,9 @@ describe('prune', () => {
 		db.insert(outbox).values([
 			{ ...o, dedupeKey: '1', status: 'sent', sentAt: now - 8 * D },
 			{ ...o, dedupeKey: '2', status: 'sent', sentAt: now - 6 * D },
-			{ ...o, dedupeKey: '3', status: 'pending', sentAt: null }
+			{ ...o, dedupeKey: '3', status: 'pending', sentAt: null },
+			{ ...o, dedupeKey: '4', status: 'failed', sentAt: null, createdAt: now - 8 * D },
+			{ ...o, dedupeKey: '5', status: 'failed', sentAt: null, createdAt: now - 6 * D }
 		]).run();
 
 		prune(db, now);
@@ -29,7 +31,7 @@ describe('prune', () => {
 		expect(db.select().from(samples).all().map((r) => r.ts)).toEqual([now - 13 * D]);
 		expect(db.select().from(events).all().map((r) => r.ts)).toEqual([now - 89 * D]);
 		expect(db.select().from(issues).all().map((r) => r.rule)).toEqual(['r2', 'r3']);
-		expect(db.select().from(outbox).all().map((r) => r.dedupeKey)).toEqual(['2', '3']);
+		expect(db.select().from(outbox).all().map((r) => r.dedupeKey)).toEqual(['2', '3', '5']);
 	});
 });
 

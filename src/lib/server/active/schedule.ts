@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { Db } from '../db/index';
 import { settings } from '../db/schema';
 import { issueKey } from '../rules/types';
-import { getSettings, saveSettings, type Settings } from '../settings';
+import { getSettings, saveSettings, setSetting, type Settings } from '../settings';
 import type { AppState } from '../types';
 
 const HOUR = 3_600_000;
@@ -34,7 +34,7 @@ export function activeGuard(state: AppState, open: Set<string>, now: number, bus
 }
 
 // not DEFAULT_SETTINGS keys: raw rows, so the settings form never validates or overwrites them
-export const DAY_KEY = { coordinator_check: 'activeCheckDay', networkmap: 'activeScanDay' } as const;
+const DAY_KEY = { coordinator_check: 'activeCheckDay', networkmap: 'activeScanDay' } as const;
 
 export function lastDay(db: Db, kind: keyof typeof DAY_KEY): string {
 	const v = db.select().from(settings).where(eq(settings.key, DAY_KEY[kind])).get()?.value;
@@ -42,7 +42,7 @@ export function lastDay(db: Db, kind: keyof typeof DAY_KEY): string {
 }
 
 export function setLastDay(db: Db, kind: keyof typeof DAY_KEY, day: string): void {
-	db.insert(settings).values({ key: DAY_KEY[kind], value: day }).onConflictDoUpdate({ target: settings.key, set: { value: day } }).run();
+	setSetting(db, DAY_KEY[kind], day);
 }
 
 export const localDay = (now: number, tz: string) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);

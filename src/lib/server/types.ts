@@ -33,7 +33,7 @@ export interface DeviceState {
 	offlineSince: number | null;
 }
 
-export interface BridgeState {
+interface BridgeState {
 	state: 'online' | 'offline' | null;
 	onlineSince: number | null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

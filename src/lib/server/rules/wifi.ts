@@ -5,7 +5,7 @@ const BUSY_FOR = 15;
 const CLEAR_FOR = 30;
 
 /** Wi-Fi issues key on `wifi:<mac>` in the ieee slot: they are not devices. */
-export const wifiKey = (mac: string) => `wifi:${mac}`;
+const wifiKey = (mac: string) => `wifi:${mac}`;
 
 /** With the Zigbee channel missing (bridge/info not seen yet) or stale Wi-Fi data, only already-open issues are held, on the last known channel. */
 const on = (ctx: RuleContext) => (ctx.wifi?.enabled && (ctx.wifi.zigbeeChannel ?? ctx.wifi.lastZigbeeChannel) !== null ? ctx.wifi : null);

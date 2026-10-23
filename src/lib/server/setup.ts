@@ -1,5 +1,5 @@
 import { count } from 'drizzle-orm';
-import type { Auth } from './auth';
+import { createAdmin, type Auth } from './auth';
 import type { Db } from './db/index';
 import { user } from './db/schema';
 
@@ -24,9 +24,7 @@ let chain: Promise<unknown> = Promise.resolve();
 export function createFirstAdmin(auth: Auth, db: Db, email: string, password: string): Promise<'created' | 'done'> {
 	const run = chain.then(async () => {
 		if (!needsSetup(db)) return 'done' as const;
-		const ctx = await auth.$context;
-		const u = await ctx.internalAdapter.createUser({ email, name: 'Admin', emailVerified: true }, { method: 'admin' });
-		await ctx.internalAdapter.linkAccount({ providerId: 'credential', accountId: u.id, userId: u.id, password: await ctx.password.hash(password) });
+		await createAdmin(auth, email, password);
 		known = true;
 		return 'created' as const;
 	});

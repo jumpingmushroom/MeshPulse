@@ -1,5 +1,5 @@
 // Pure view helpers shared by the pages (server loads and components).
-import { batteryOf } from './battery-types';
+import { batteryOf, isBatteryPowered } from './battery-types';
 import { deviceScore } from './score';
 import type { RuleId } from './server/rules/types';
 import type { AppState, DeviceState, Severity } from './server/types';
@@ -10,11 +10,18 @@ const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
 
 export type Status = 'green' | 'amber' | 'red';
 
+export const TYPE_LABEL = { Coordinator: 'Coordinator', Router: 'Router', EndDevice: 'End device' } as const;
+export const SEV_CLASS = { critical: 'is-crit', warning: 'is-warn', info: 'is-info' } as const;
+export const ISSUE_STATE = { open: ['state-open', 'Open'], acknowledged: ['state-ack', 'Acknowledged'], resolved: ['state-resolved', 'Resolved'] } as const;
+const AVAIL = { online: ['avail-online', '#i-ok', 'Online'], offline: ['avail-offline', '#i-x', 'Offline'] } as const;
+/** [class, icon, label] for an availability value */
+export const availOf = (a: string | null) => AVAIL[a as keyof typeof AVAIL] ?? (['avail-unknown', '#i-unknown', 'Unknown'] as const);
+
 export function sortIssues<T extends { severity: Severity; openedAt: number }>(issues: T[]): T[] {
 	return [...issues].sort((a, b) => RANK[b.severity] - RANK[a.severity] || b.openedAt - a.openedAt);
 }
 
-export interface DeviceRow {
+interface DeviceRow {
 	ieee: string;
 	name: string;
 	type: DeviceState['type'];
@@ -44,7 +51,7 @@ export function deviceRows(state: Pick<AppState, 'devices'>, openIssues: { ieee:
 	for (const i of openIssues) if (i.ieee) by.set(i.ieee, [...(by.get(i.ieee) ?? []), i]);
 	return watched(state).map((d) => ({
 		ieee: d.ieee, name: d.friendlyName, type: d.type, battery: d.battery, voltage: d.voltage,
-		batteryPowered: d.powerSource === 'Battery' || d.battery !== null || d.voltage !== null,
+		batteryPowered: isBatteryPowered(d),
 		availability: d.availability, lastSeenAt: d.lastSeenAt, lqi: d.lqi, mutedUntil: d.mutedUntil,
 		openIssues: by.get(d.ieee)?.length ?? 0, score: deviceScore(by.get(d.ieee) ?? []),
 		worst: (by.get(d.ieee) ?? []).reduce<Severity | null>((w, i) => (w === null || RANK[i.severity] > RANK[w] ? i.severity : w), null),
@@ -66,7 +73,7 @@ export function sortRows(rows: DeviceRow[], key: SortKey, asc: boolean): DeviceR
 	});
 }
 
-export interface RowFilter { q: string; routers: boolean; battery: boolean; offline: boolean; issues: boolean }
+interface RowFilter { q: string; routers: boolean; battery: boolean; offline: boolean; issues: boolean }
 
 export function filterRows(rows: DeviceRow[], f: RowFilter): DeviceRow[] {
 	const q = f.q.trim().toLowerCase();
@@ -117,7 +124,7 @@ export function humanise(key: string): string {
 	return w.charAt(0).toUpperCase() + w.slice(1);
 }
 
-export const EVIDENCE_LABELS: Record<string, string> = {
+const EVIDENCE_LABELS: Record<string, string> = {
 	offlineSince: 'Offline since', lastSeenAt: 'Last seen', typicalGapMs: 'Typical gap', thresholdMs: 'Threshold',
 	availability: 'Availability', avg: 'Average LQI', avg12h: 'Average LQI, 12 h', hours: 'Hours of data', hours12h: 'Hours of data, 12 h',
 	threshold: 'Threshold', clearAbove: 'Clears above', baseline: 'Baseline', baselineDays: 'Baseline days',
@@ -197,7 +204,7 @@ export interface BatteryRow {
 export function batteryRows(devices: DeviceState[], daysLeft: Map<string, number>, lastSwap: Map<string, number>, isLow: (d: DeviceState) => boolean = (d) => d.batteryLow === true || (d.battery !== null && d.battery <= 25), trends: Map<string, string> = new Map()): BatteryRow[] {
 	const pct = (r: BatteryRow) => r.battery ?? 101;
 	const group = (r: BatteryRow) => (r.low ? 0 : r.daysLeft !== null ? 1 : 2);
-	return devices.filter((d) => d.powerSource === 'Battery' && d.removedAt === null).map((d) => ({
+	return devices.filter((d) => isBatteryPowered(d) && d.removedAt === null).map((d) => ({
 		ieee: d.ieee, name: d.friendlyName, battery: d.battery, voltage: d.voltage,
 		daysLeft: daysLeft.get(d.ieee) ?? null, lastSwapAt: lastSwap.get(d.ieee) ?? null,
 		trend: trends.get(d.ieee) ?? '',

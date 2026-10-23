@@ -2,8 +2,8 @@
 	import { resolve } from '$app/paths';
 	import { enhance } from '$app/forms';
 	import { onMount } from 'svelte';
-	import { clampBox, focusBox, neighbours, placeLabels, zoomAt, type ViewBox } from '../../lib/map';
-	import { formatAgo, formatTime } from '../../lib/views';
+	import { clampBox, focusBox, MAP_H as H, MAP_W as W, neighbours, placeLabels, WEAK_LQI, zoomAt, type ViewBox } from '../../lib/map';
+	import { formatAgo, formatTime, TYPE_LABEL } from '../../lib/views';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -14,9 +14,8 @@
 	const at = $derived(new Map((data.scan?.nodes ?? []).map((n) => [n.ieee, n])));
 
 	// interactivity is progressive enhancement: without JS the static SVG and links stay
-	const W = 1100, H = 760, LIMITS = { w: W, h: H, min: 1, max: 8 };
+	const LIMITS = { w: W, h: H, min: 1, max: 8 };
 	const BASE: ViewBox = { x: 0, y: 0, w: W, h: H };
-	const TYPE = { Coordinator: 'Coordinator', Router: 'Router', EndDevice: 'End device' } as const;
 	let js = $state(false);
 	onMount(() => (js = true));
 	let vb = $state<ViewBox>(BASE);
@@ -173,7 +172,7 @@
 				{#if sel}
 					<section class="panel panel-pad stack">
 						<h2 style="font-size:13px">{sel.name}</h2>
-						<p class="muted" style="font-size:13px">{TYPE[type(sel.type)]}{sel.failed ? ' · Did not answer' : ''}</p>
+						<p class="muted" style="font-size:13px">{TYPE_LABEL[type(sel.type)]}{sel.failed ? ' · Did not answer' : ''}</p>
 						{#if selParent}<p style="font-size:13px">Link to parent: LQI {selParent.lqi}<br />Parent: <a href={resolve('/devices/[ieee]', { ieee: selParent.to })}>{selParent.parent}</a></p>{/if}
 						{#if sel.type === 'Router'}<p style="font-size:13px">{selKids} {selKids === 1 ? 'device routes' : 'devices route'} through this router</p>{/if}
 						<a href={resolve('/devices/[ieee]', { ieee: sel.ieee })} style="font-size:13px">Open device page →</a>
@@ -187,8 +186,8 @@
 						<span><svg width="14" height="14"><circle cx="7" cy="7" r="5" style="fill:var(--accent-tint);stroke:var(--accent);stroke-width:1.5"></circle></svg>Router</span>
 						<span><svg width="14" height="14"><circle cx="7" cy="7" r="3.5" style="fill:var(--surface-2);stroke:var(--text-faint)"></circle></svg>End device</span>
 						<span><svg width="14" height="14"><circle cx="7" cy="7" r="5" style="fill:var(--crit-bg);stroke:var(--crit-fg);stroke-width:2"></circle></svg>Did not answer (crossed)</span>
-						<span><i class="ref" style="border-top:1.5px dashed var(--warn-fg)"></i>Weak link, LQI under 60</span>
-						<span><i style="border-top:1px solid var(--text-faint)"></i>Link, LQI 60+</span>
+						<span><i class="ref" style="border-top:1.5px dashed var(--warn-fg)"></i>Weak link, LQI under {WEAK_LQI}</span>
+						<span><i style="border-top:1px solid var(--text-faint)"></i>Link, LQI {WEAK_LQI}+</span>
 					</div>
 				</section>
 				{/if}
