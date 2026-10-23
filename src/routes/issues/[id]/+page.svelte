@@ -3,8 +3,9 @@
 	import { enhance } from '$app/forms';
 	import LineChart from '../../../lib/components/LineChart.svelte';
 	import KV from '../../../lib/components/KV.svelte';
+	import MuteForm from '../../../lib/components/MuteForm.svelte';
 	import SevBadge from '../../../lib/components/SevBadge.svelte';
-	import { evidenceRows, FOREVER, formatAgo, formatDuration, formatTime, formatDetail, isWifiKey, RULE_LABELS } from '../../../lib/views';
+	import { evidenceRows, formatAgo, formatDuration, formatTime, formatDetail, isWifiKey, ISSUE_STATE, RULE_LABELS, SEV_CLASS } from '../../../lib/views';
 	import type { RuleId } from '../../../lib/server/rules/types';
 	import type { PageProps } from './$types';
 
@@ -12,12 +13,10 @@
 	const i = $derived(data.issue);
 	const muted = $derived(data.device?.mutedUntil && data.device.mutedUntil > data.now ? data.device.mutedUntil : null);
 	const evidence = $derived(evidenceRows(data.issue.evidence ?? {}, data.tz, new Map(Object.entries(data.byName))));
-	const STATE = { open: ['state-open', 'Open'], acknowledged: ['state-ack', 'Acknowledged'], resolved: ['state-resolved', 'Resolved'] } as const;
-	const st = $derived(STATE[i.state as keyof typeof STATE] ?? ['', i.state]);
-	const SEV = { critical: 'is-crit', warning: 'is-warn', info: 'is-info' } as const;
+	const st = $derived(ISSUE_STATE[i.state as keyof typeof ISSUE_STATE] ?? ['', i.state]);
 </script>
 
-<div class="page {SEV[i.severity]}">
+<div class="page {SEV_CLASS[i.severity]}">
 	<a class="crumb" href={resolve('/issues')}><svg class="i" style="width:14px;height:14px" aria-hidden="true"><use href="#i-arrow-left" /></svg>Issues</a>
 	<header class="stack" style="gap:11px">
 		<div class="row">
@@ -64,7 +63,7 @@
 					<div class="section-head"><h2 id="re-h">Recent events for {data.device?.name ?? i.ieee}</h2></div>
 					<ol class="timeline">
 						{#each data.events as e (e.id)}
-							<li><time>{formatTime(e.ts, data.tz)}</time><span class="dot"></span><div class="what">{e.kind.replaceAll('_', ' ')} <span class="faint">{formatDetail(e.kind, e.detail)}</span></div></li>
+							<li><time>{formatTime(e.ts, data.tz)}</time><span class="dot"></span><div class="what">{e.label} <span class="faint">{formatDetail(e.kind, e.detail)}</span></div></li>
 						{/each}
 					</ol>
 				</section>
@@ -85,18 +84,7 @@
 				{/if}
 				{#if data.device}
 					{#if i.state === 'open'}<hr class="rule" />{/if}
-					<form class="mute" method="post" action="?/mute" use:enhance>
-						<label class="field-label" for="imute">Mute {data.device.name}</label>
-						<div class="mute-row">
-							<select class="select" id="imute" name="duration">
-								<option value="1h">1 hour</option><option value="24h">24 hours</option>
-								<option value="7d">7 days</option><option value="forever">forever</option>
-								{#if muted}<option value="unmute">unmute</option>{/if}
-							</select>
-							<button class="btn">Mute</button>
-						</div>
-						<div class="mute-status" class:is-muted={muted}>{muted === FOREVER ? 'Muted forever' : muted ? `Muted until ${formatTime(muted, data.tz)}` : 'Not muted'}</div>
-					</form>
+					<MuteForm action="?/mute" id="imute" {muted} tz={data.tz} label="Mute {data.device.name}" />
 					{#if data.canTurnOff}
 						<hr class="rule" />
 						<form method="post" action="?/ignoreRule" use:enhance class="stack" style="gap:6px">

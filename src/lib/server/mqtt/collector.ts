@@ -54,5 +54,5 @@ export function startCollector({ config, state, onEffects }: {
 			console.warn('collector: failed to handle message', topic, e);
 		}
 	});
-	return { client, requester, stop: () => client.endAsync() };
+	return { requester, stop: () => client.endAsync() };
 }

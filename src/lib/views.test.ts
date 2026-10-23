@@ -125,9 +125,9 @@ describe('batteryRows', () => {
 		expect(rows[3]).toMatchObject({ daysLeft: null, lastSwapAt: null });
 	});
 
-	it('excludes mains and removed devices', () => {
-		const rows = batteryRows([b('a'), b('m', { powerSource: 'Mains (single phase)' }), b('r', { removedAt: 1 })], new Map(), new Map());
-		expect(rows.map((r) => r.ieee)).toEqual(['a']);
+	it('excludes mains without readings and removed devices, keeps any device with a reading', () => {
+		const rows = batteryRows([b('a'), b('m', { powerSource: 'Mains (single phase)', battery: null }), b('r', { removedAt: 1 }), b('v', { powerSource: null, battery: null, voltage: 3 })], new Map(), new Map());
+		expect(rows.map((r) => r.ieee)).toEqual(['a', 'v']);
 	});
 
 	it('puts low-now rows first by charge, nulls last in their group', () => {

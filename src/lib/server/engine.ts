@@ -54,8 +54,8 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		health: db.select({ ts: healthSamples.ts, queued: healthSamples.mqttQueued }).from(healthSamples).orderBy(desc(healthSamples.ts)).limit(2).all().reverse() };
 	const areas = ctx.wifi.enabled ? db.select().from(wifiAreas).all() : [];
 	const findings = withWifi(evaluateRules(ctx), ctx.open, ctx.wifi, (ieee) => areaOf(state.devices.get(ieee)?.friendlyName ?? '', areas), settings.wifiBusyPct, config.tz, now, state.wifi.lastOkAt);
-	let parents: ReturnType<typeof latestParents> | undefined; // loaded only when grouping asks
-	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee), realParent: (ieee) => (parents ??= latestParents(db, (i) => state.devices.get(i)?.type, now, false))?.parents.get(ieee)?.parent ?? null,
+	let parents: ReturnType<typeof latestParents> | undefined; // loaded only when grouping asks; undefined = not loaded yet (null is a result)
+	const r = evaluate({ findings, issues: open, counters, settings, now, networkQuiet: deviceSilentFor(ctx, 60_000), device: (ieee) => state.devices.get(ieee), realParent: (ieee) => (parents === undefined ? (parents = latestParents(db, (i) => state.devices.get(i)?.type, now, false)) : parents)?.parents.get(ieee)?.parent ?? null,
 		// ignored devices are silent like muted ones, so ignoring does not send "Resolved" for each issue
 		mutedUntil: (ieee) => (state.devices.get(ieee)?.tags.includes('ignore') ? FOREVER : (state.devices.get(ieee)?.mutedUntil ?? null)) });
 	const quiet = isQuietHours(now, settings, config.tz);

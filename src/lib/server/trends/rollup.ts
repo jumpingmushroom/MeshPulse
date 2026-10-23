@@ -70,9 +70,10 @@ export function computeBaselines(db: Db, now: number): void {
 			{ ieee, metric: 'lqi_stddev', value: sd, days, computedAt: now });
 	}
 	// hours the monitor was collecting; route errors were only parsed since then, so events do not count
-	const netDays = Math.floor(new Set(hourly.map((r) => r.hour)).size / 24);
+	const netHours = new Set(hourly.map((r) => r.hour)).size;
+	const netDays = Math.floor(netHours / 24);
 	const errors = evs.filter((e) => e.kind === 'route_error').length;
-	out.push({ ieee: '', metric: 'route_errors_hourly', value: errors / ((to - from) / H), days: netDays, computedAt: now });
+	out.push({ ieee: '', metric: 'route_errors_hourly', value: netHours ? errors / netHours : 0, days: netDays, computedAt: now });
 	const counts = new Map<string, number[]>();
 	// a 0 count is a lost counter (restart), not a quiet hour: it must not pull the baseline down
 	for (const r of hourly) if (r.msgCount > 0) counts.set(r.ieee, [...(counts.get(r.ieee) ?? []), r.msgCount]);
@@ -109,9 +110,8 @@ export function computeBaselines(db: Db, now: number): void {
 /** Days until each battery device hits the target, fitted on the last 30 days since its latest battery swap. */
 function batteryForecasts(db: Db, now: number) {
 	const s = getSettings(db);
-	const rows = db.select({ ieee: devices.ieee, tags: devices.tags }).from(devices).where(and(eq(devices.powerSource, 'Battery'), sql`${devices.removedAt} is null`)).all();
-	const ieees = rows.map((r) => r.ieee);
-	const rechargeable = new Set(rows.filter((r) => r.tags?.rechargeable).map((r) => r.ieee));
+	const all = db.select({ ieee: devices.ieee, tags: devices.tags, powerSource: devices.powerSource }).from(devices).where(sql`${devices.removedAt} is null`).all();
+	const rechargeable = new Set(all.filter((r) => r.tags?.rechargeable).map((r) => r.ieee));
 	const swaps = new Map<string, number>();
 	for (const e of db.select({ ieee: events.ieee, ts: events.ts }).from(events).where(and(eq(events.kind, 'battery_swap'), gte(events.ts, now - 30 * D))).orderBy(events.ts).all())
 		if (e.ieee) swaps.set(e.ieee, e.ts);
@@ -122,6 +122,8 @@ function batteryForecasts(db: Db, now: number) {
 		if (r.hour <= (swaps.get(r.ieee) ?? -Infinity)) continue;
 		pts.set(r.ieee, [...(pts.get(r.ieee) ?? []), { t: r.hour, battery: r.batteryMin! }]);
 	}
+	// some devices report no power source: count those by their battery reports
+	const ieees = all.filter((r) => r.powerSource === 'Battery' || (r.powerSource === null && reports.has(r.ieee))).map((r) => r.ieee);
 	const forecasts: (typeof baselines.$inferInsert)[] = [];
 	for (const ieee of ieees) {
 		// for battery.stale; not deleted when reports age out of 30 days, so a device that stopped stays stale

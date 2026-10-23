@@ -7,7 +7,7 @@ import type { EventRow } from '../rules/types';
 import type { AppState, EventKind } from '../types';
 import { GREEN } from '../../score';
 import { batteryRows, shoppingList } from '../../views';
-import { getSettings } from '../settings';
+import { getSettings, setSetting } from '../settings';
 import type { Message } from './channel';
 
 const H = 3_600_000;
@@ -81,7 +81,7 @@ export function sendWeekly(db: Db, state: AppState, now: number, tz: string, qui
 	const last = db.select().from(settings).where(eq(settings.key, KEY)).get()?.value;
 	const week = shouldSendWeekly(now, typeof last === 'string' && last ? last : null, tz);
 	if (!week) return;
-	const record = () => db.insert(settings).values({ key: KEY, value: week }).onConflictDoUpdate({ target: settings.key, set: { value: week } }).run();
+	const record = () => setSetting(db, KEY, week);
 	if (!last) {
 		record();
 		return;

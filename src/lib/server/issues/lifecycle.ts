@@ -80,6 +80,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 	const keyOf = new Map(issues.map((i) => [i.id, issueKey(i.rule, i.ieee)]));
 	const muted = (ieee: string | null) => ieee !== null && (mutedUntil(ieee) ?? 0) > now;
 	const guard = [...issues, ...findings].some((x) => GUARD_RULES.includes(x.rule));
+	const resolve = (i: IssueRow) => ({ state: 'resolved' as const, resolvedAt: now, updatedAt: now, evidence: { ...i.evidence, durationMs: now - i.openedAt } });
 
 	for (const key of counters.seen.keys()) if (!found.has(key)) counters.seen.delete(key);
 	for (const key of counters.missing.keys()) if (found.has(key)) counters.missing.delete(key);
@@ -115,8 +116,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 			counters.missing.set(key, missing);
 			if (missing < RULE_DEFAULTS[i.rule].resolveRuns) continue;
 			counters.missing.delete(key);
-			Object.assign(patch, { state: 'resolved', resolvedAt: now, updatedAt: now,
-				evidence: { ...i.evidence, durationMs: now - i.openedAt } });
+			Object.assign(patch, resolve(i));
 			if (!unannounced) plan.kind = 'resolved'; // never announced: resolve silently
 		}
 	}
@@ -171,7 +171,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 			p.patch.parentIssueId = null;
 			if (p.f?.evidence.holding === true && p.i.lastNotifiedAt === null) {
 				// only held open through its quiet period (rejoins that were part of the wave): nothing left to report
-				Object.assign(p.patch, { state: 'resolved', resolvedAt: now, updatedAt: now, evidence: { ...p.i.evidence, durationMs: now - p.i.openedAt } });
+				Object.assign(p.patch, resolve(p.i));
 				p.kind = null;
 				out.released.push(p.i.id);
 				continue;

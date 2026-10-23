@@ -1,15 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { formatAgo, formatTime, formatVoltage, type SortKey } from '../../lib/views';
+	import { availOf as avail, formatAgo, formatTime, formatVoltage, SEV_CLASS as SEV, TYPE_LABEL as TYPE, type SortKey } from '../../lib/views';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	const COLS: [SortKey, string, boolean][] = [['name', 'Name', false], ['type', 'Type', false], ['availability', 'Availability', false], ['lastSeenAt', 'Last seen', false],
 		['lqi', 'LQI now · 24 h · base', false], ['battery', 'Battery', true], ['msgH', 'Msg/h', true], ['score', 'Health', true], ['openIssues', 'Issues', true]];
 	const CHIPS = [['routers', 'Routers'], ['battery', 'Battery'], ['offline', 'Offline'], ['issues', 'Has issues']] as const;
-	const SEV = { critical: 'is-crit', warning: 'is-warn', info: 'is-info' } as const;
 	const SEV_ICON = { critical: '#i-crit', warning: '#i-warn', info: '#i-info' } as const;
-	const AVAIL = { online: ['avail-online', '#i-ok', 'Online'], offline: ['avail-offline', '#i-x', 'Offline'] } as const;
 	const TYPE_ICON = { Coordinator: '#i-cpu', Router: '#i-plug', EndDevice: '#i-sensor' } as const;
 
 	const params = (over: Record<string, string | null> = {}) => {
@@ -23,9 +21,7 @@
 		return `?${p}`;
 	};
 	const sortHref = (k: SortKey) => params({ sort: k, dir: data.sort === k && data.asc ? 'desc' : 'asc' });
-	const avail = (a: string | null) => AVAIL[a as keyof typeof AVAIL] ?? (['avail-unknown', '#i-unknown', 'Unknown'] as const);
 	const weak = (lqi: number | null) => lqi !== null && lqi < data.lqiWeak;
-	const TYPE = { Coordinator: 'Coordinator', Router: 'Router', EndDevice: 'End device' } as const;
 	const SHORT: Partial<Record<SortKey, string>> = { lqi: 'LQI', lastSeenAt: 'last seen', openIssues: 'issues', msgH: 'msg/h' };
 	const summary = $derived(`${data.counts.total} devices · ${data.counts.routers} routers · ${data.counts.battery} on battery`);
 </script>

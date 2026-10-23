@@ -13,6 +13,7 @@ export function prune(db: Db, now: number): void {
 	db.delete(events).where(lt(events.ts, now - 90 * DAY)).run();
 	db.delete(issues).where(and(eq(issues.state, 'resolved'), lt(issues.resolvedAt, now - 90 * DAY))).run();
 	db.delete(outbox).where(and(eq(outbox.status, 'sent'), lt(outbox.sentAt, now - 7 * DAY))).run();
+	db.delete(outbox).where(and(eq(outbox.status, 'failed'), lt(outbox.createdAt, now - 7 * DAY))).run(); // failed rows have no sentAt
 	// the latest ok run of each kind feeds the map and the missing-router issues: keep it however old
 	const keep = ['networkmap', 'coordinator_check'].map((kind) => db.select({ id: scans.id }).from(scans).where(and(eq(scans.kind, kind), eq(scans.status, 'ok'))).orderBy(desc(scans.startedAt), desc(scans.id)).get()?.id);
 	const old = db.select({ id: scans.id }).from(scans).where(lt(scans.startedAt, now - 30 * DAY)).all().map((r) => r.id).filter((id) => !keep.includes(id));

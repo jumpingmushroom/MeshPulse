@@ -95,9 +95,12 @@ export function getSettings(db: Db): Settings {
 	return { ...DEFAULT_SETTINGS, ...rows };
 }
 
+/** Upserts one settings row; raw keys (outside DEFAULT_SETTINGS) are allowed. */
+export const setSetting = (db: Db, key: string, value: unknown) =>
+	db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
+
 export function saveSettings(db: Db, patch: Partial<Settings>): void {
-	for (const [key, value] of Object.entries(patch))
-		db.insert(settings).values({ key, value }).onConflictDoUpdate({ target: settings.key, set: { value } }).run();
+	for (const [key, value] of Object.entries(patch)) setSetting(db, key, value);
 }
 
 /** Saves the Settings form. The active switches live in their own form: an absent checkbox here must not turn them off. */

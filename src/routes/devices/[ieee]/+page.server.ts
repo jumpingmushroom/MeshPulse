@@ -4,14 +4,15 @@ import { EVENT_KINDS } from '../../../lib/server/events-page';
 import { deviceScore } from '../../../lib/score';
 import { latestParents, parentChanged } from '../../../lib/server/active/parents';
 import { deviceCharts, type Range } from '../../../lib/server/device-history';
-import { baselines, devices, events, issues, wifiAreas } from '../../../lib/server/db/schema';
+import { baselines, events, issues, wifiAreas } from '../../../lib/server/db/schema';
 import { getRuntime } from '../../../lib/server/runtime';
 import { getSettings } from '../../../lib/server/settings';
 import { apsNear, areaOf } from '../../../lib/server/wifi/areas';
 import { loadWifiSnapshot } from '../../../lib/server/wifi/snapshot';
-import { muteUntil, setBatteryType, setIgnoredRule, setTag } from '../../../lib/server/store';
+import { setBatteryType, setIgnoredRule, setTag } from '../../../lib/server/store';
+import { muteDevice } from '../../../lib/server/mute';
 import { canIgnore, rulesFor } from '../../../lib/server/rules/index';
-import { batteryOf } from '../../../lib/battery-types';
+import { batteryOf, isBatteryPowered } from '../../../lib/battery-types';
 import { parseBatteryForm } from '../../../lib/battery-form';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -31,7 +32,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 
 	const baseline = (metric: 'battery_days_left') =>
 		db.select().from(baselines).where(and(eq(baselines.ieee, d.ieee), eq(baselines.metric, metric))).get()?.value ?? null;
-	const batteryPowered = d.powerSource === 'Battery' || d.battery !== null || d.voltage !== null;
+	const batteryPowered = isBatteryPowered(d);
 	const c = deviceCharts(db, d.ieee, range, settings, t1, batteryPowered);
 
 	const openIssues = db.select().from(issues).where(and(eq(issues.ieee, d.ieee), ne(issues.state, 'resolved'))).all()
@@ -76,14 +77,7 @@ export const load: PageServerLoad = ({ params, url }) => {
 };
 
 export const actions: Actions = {
-	mute: async ({ params, request }) => {
-		const { db } = getRuntime();
-		const device = getDevice(params.ieee);
-		const mutedUntil = muteUntil(String((await request.formData()).get('duration')), Date.now());
-		if (mutedUntil === undefined) return fail(400, { error: 'Cannot mute: unknown duration.' });
-		db.update(devices).set({ mutedUntil }).where(eq(devices.ieee, device.ieee)).run();
-		device.mutedUntil = mutedUntil; // the lifecycle reads memory, not the DB
-	},
+	mute: ({ params, request }) => muteDevice(getDevice(params.ieee), request),
 	ignore: async ({ params, request }) => {
 		const { db, state } = getRuntime();
 		const on = (await request.formData()).get('on') === '1';
