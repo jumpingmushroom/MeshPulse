@@ -260,10 +260,10 @@ describe('recordScore', () => {
 	it('writes one network score row per hour', () => {
 		const { db } = setup();
 		const open = [{ severity: 'warning' as const, parentIssueId: null }];
-		recordScore(db, open, T + 5 * 60_000);
-		recordScore(db, [], T + 30 * 60_000);
+		recordScore(db, open, 10, T + 5 * 60_000);
+		recordScore(db, [], 10, T + 30 * 60_000);
 		expect(db.select().from(healthScores).all()).toEqual([{ ts: T, score: 92 }]);
-		recordScore(db, [], T + H);
+		recordScore(db, [], 10, T + H);
 		expect(db.select().from(healthScores).all()).toHaveLength(2);
 	});
 });

@@ -19,7 +19,7 @@ import { hourStart, computeBaselines, recordScore, rollupHours } from './trends/
 import { getSettings } from './settings';
 import { flushDevices } from './store';
 import type { AppState, EventKind } from './types';
-import { FOREVER } from '../views';
+import { FOREVER, watched } from '../views';
 
 const MIN = 60_000;
 const H = 60 * MIN;
@@ -110,7 +110,7 @@ export function startEngine(deps: EngineDeps): { stop(): void } {
 			if (hourStart(now) > lastTrendHour) {
 				rollupHours(deps.db, deps.state, now);
 				computeBaselines(deps.db, now);
-				recordScore(deps.db, deps.db.select().from(issues).where(ne(issues.state, 'resolved')).all(), now);
+				recordScore(deps.db, deps.db.select().from(issues).where(ne(issues.state, 'resolved')).all(), watched(deps.state).length, now);
 				lastTrendHour = hourStart(now);
 			}
 		} catch (e) {
