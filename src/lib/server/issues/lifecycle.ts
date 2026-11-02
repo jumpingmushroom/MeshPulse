@@ -80,6 +80,8 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 	const keyOf = new Map(issues.map((i) => [i.id, issueKey(i.rule, i.ieee)]));
 	const muted = (ieee: string | null) => ieee !== null && (mutedUntil(ieee) ?? 0) > now;
 	const guard = [...issues, ...findings].some((x) => GUARD_RULES.includes(x.rule));
+	// warnings wait out notifyDelayMin unannounced, so short blips resolve silently; criticals go out at once
+	const announce = (severity: Severity, openedAt: number) => severity === 'critical' || now - openedAt >= settings.notifyDelayMin * 60_000;
 	const resolve = (i: IssueRow) => ({ state: 'resolved' as const, resolvedAt: now, updatedAt: now, evidence: { ...i.evidence, durationMs: now - i.openedAt } });
 
 	for (const key of counters.seen.keys()) if (!found.has(key)) counters.seen.delete(key);
@@ -105,7 +107,8 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		if (f) {
 			Object.assign(patch, { summary: f.summary, evidence: f.evidence, updatedAt: now });
 			if (f.severity !== i.severity) patch.severity = plan.severity = f.severity;
-			if (unannounced) plan.kind = 'open'; // late announcement once the mute has expired
+			// late announcement once the mute has expired, or once a warning outlasts the notification delay
+			if (unannounced) plan.kind = announce(f.severity, i.openedAt) ? 'open' : null;
 			else if (RANK[f.severity] > RANK[i.severity]) plan.kind = 'escalate';
 			else if (f.severity === i.severity && i.state !== 'acknowledged' && i.severity !== 'info') {
 				const every = (i.severity === 'critical' ? settings.reminderCriticalH : settings.reminderWarningH) * H;
@@ -152,7 +155,8 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 	for (const p of plans) {
 		const parentId = p.i.parentIssueId;
 		if (parentId === null) {
-			if (resolving.has(p.i.id) || tops.some((t) => t.key === p.key) || !fresh.length) continue;
+			// a router dropping first is a parent of its own until the outage it started is seen; then it joins it
+			if (resolving.has(p.i.id) || (tops.some((t) => t.key === p.key) && !isRouterOffline(p.i.rule, p.i.ieee, device)) || !fresh.length) continue;
 			// an old offline/flapping issue is not part of a new incident
 			const stale = (t: Candidate) => (p.i.rule === 'device.offline' || p.i.rule === 'device.flapping') && p.i.openedAt < t.openedAt - settings.massOfflineWindowMin * 60_000;
 			const parent = parentFor(p.i, fresh.filter((t) => !stale(t)), device, settings, realParent);
@@ -214,7 +218,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 		const key = issueKey(f.rule, f.ieee);
 		const names = tally.get(key)?.names ?? [];
 		out.opens.push(names.length ? { ...f, summary: label(f, names.length), evidence: { ...f.evidence, children: { count: names.length, names, recovered: 0 } } } : f);
-		if (!out.parentOf.has(key) && RULE_DEFAULTS[f.rule].notify && !muted(f.ieee)) out.notify.push({ key, kind: 'open', severity: f.severity });
+		if (!out.parentOf.has(key) && RULE_DEFAULTS[f.rule].notify && !muted(f.ieee) && announce(f.severity, now)) out.notify.push({ key, kind: 'open', severity: f.severity });
 	}
 	for (const { i, key, patch, kind, severity } of plans) {
 		if (kind && RULE_DEFAULTS[i.rule].notify && !muted(i.ieee)) {

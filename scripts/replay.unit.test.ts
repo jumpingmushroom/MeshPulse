@@ -21,7 +21,8 @@ describe('replay', () => {
 		const lamp = r.issues.filter((i) => i.rule === 'device.offline' && i.name === 'living/lamp');
 		expect(lamp).toHaveLength(1);
 		expect(lamp[0].resolvedAt).not.toBeNull();
-		expect(r.notifications.filter((n) => n.name === 'living/lamp').map((n) => n.kind)).toEqual(['open', 'resolved']);
+		// a 3-min blip resolves inside the notification delay: nothing is sent
+		expect(r.notifications.filter((n) => n.name === 'living/lamp')).toEqual([]);
 		expect(formatReport(r, 'UTC')).toContain('device.offline');
 	});
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../settings';
+
+// notify at once: these tests check what is sent; the delay has its own tests
+const NOW_SETTINGS = { ...DEFAULT_SETTINGS, notifyDelayMin: 0 };
 import type { Finding, RuleId } from '../rules/index';
 import type { Severity } from '../types';
 import { evaluate, type Counters, type IssueRow } from './lifecycle';
@@ -20,10 +23,47 @@ const issue = (p: Partial<IssueRow> = {}): IssueRow => ({
 const counters = (): Counters => ({ seen: new Map(), missing: new Map() });
 
 function run(findings: Finding[], issues: IssueRow[], c: Counters, now: number, muted: number | null = null, networkQuiet = false) {
-	return evaluate({ device: () => undefined, findings, issues, counters: c, mutedUntil: () => muted, settings: DEFAULT_SETTINGS, now, networkQuiet });
+	return evaluate({ device: () => undefined, findings, issues, counters: c, mutedUntil: () => muted, settings: NOW_SETTINGS, now, networkQuiet });
 }
 
 describe('lifecycle', () => {
+	describe('notification delay (default 30 min)', () => {
+		const at = (findings: Finding[], issues: IssueRow[], c: Counters, now: number) =>
+			evaluate({ device: () => undefined, findings, issues, counters: c, mutedUntil: () => null, settings: DEFAULT_SETTINGS, now, networkQuiet: false });
+
+		it('a warning opens unannounced and is sent once it has been open 30 min', () => {
+			const c = counters();
+			at([f()], [], c, T);
+			const opened = at([f()], [], c, T + MIN);
+			expect(opened.opens).toHaveLength(1);
+			expect(opened.notify).toEqual([]);
+			const i = issue({ openedAt: T + MIN, lastNotifiedAt: null });
+			expect(at([f()], [i], c, T + 30 * MIN).notify).toEqual([]);
+			const sent = at([f()], [i], c, T + 31 * MIN);
+			expect(sent.notify).toEqual([{ key: `battery.low|${DEV}`, kind: 'open', severity: 'warning' }]);
+			expect(sent.updates[0].patch.lastNotifiedAt).toBe(T + 31 * MIN);
+		});
+
+		it('a warning that clears inside the delay resolves without any notification', () => {
+			const c = counters();
+			const i = issue({ lastNotifiedAt: null });
+			let r = at([], [i], c, T + 5 * MIN);
+			for (let k = 6; !r.updates.some((u) => u.patch.state === 'resolved'); k++) {
+				expect(r.notify).toEqual([]);
+				r = at([], [i], c, T + k * MIN);
+			}
+			expect(r.notify).toEqual([]);
+		});
+
+		it('a critical is sent at once, and an unannounced warning that escalates is sent at once', () => {
+			const c = counters();
+			at([f('critical')], [], c, T);
+			expect(at([f('critical')], [], c, T + MIN).notify).toEqual([{ key: `battery.low|${DEV}`, kind: 'open', severity: 'critical' }]);
+			const i = issue({ lastNotifiedAt: null });
+			expect(at([f('critical')], [i], counters(), T + 5 * MIN).notify).toEqual([{ key: `battery.low|${DEV}`, kind: 'open', severity: 'critical' }]);
+		});
+	});
+
 	it('keeps the Wi-Fi context across runs without duplicating the note', () => {
 		const note = 'Wi-Fi may be involved: ap on channel 1 (overlaps Zigbee 11) was 72 % busy';
 		const wifi = [{ ap: 'ap' }];

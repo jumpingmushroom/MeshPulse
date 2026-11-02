@@ -32,6 +32,7 @@ export const DEFAULT_SETTINGS = {
 	quietEnd: '07:00',
 	reminderCriticalH: 6,
 	reminderWarningH: 24,
+	notifyDelayMin: 30,
 	lqiWeak: 30,
 	lqiWeakClear: 40,
 	lqiMinHours: 6,
@@ -50,7 +51,8 @@ export const DEFAULT_SETTINGS = {
 	forecastMinDays: 7,
 	massOfflineRouterPct: 20,
 	massOfflineDevices: 10,
-	massOfflineWindowMin: 5,
+	// Z2M notices a power cut one router at a time, spread over its 10 min availability timeout
+	massOfflineWindowMin: 15,
 	massOfflineClearPct: 5,
 	routerGroupWindowMin: 10,
 	churnAnnounce: 3,
