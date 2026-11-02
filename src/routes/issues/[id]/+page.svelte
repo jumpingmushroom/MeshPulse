@@ -76,7 +76,7 @@
 				{#if i.state === 'open'}
 					<form method="post" action="?/acknowledge" use:enhance class="stack" style="gap:6px">
 						<button class="btn btn-primary" style="width:100%"><svg class="i" aria-hidden="true"><use href="#i-check" /></svg>Acknowledge</button>
-						<p class="field-help">Stops reminders. The issue stays open until it resolves.</p>
+						<p class="field-help">Stops reminders and leaves the health score. The issue stays open until it resolves.</p>
 					</form>
 				{/if}
 				{#if isWifiKey(i.ieee)}
