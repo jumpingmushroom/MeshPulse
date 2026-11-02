@@ -1,12 +1,11 @@
 // Pure view helpers shared by the pages (server loads and components).
 import { batteryOf, isBatteryPowered } from './battery-types';
-import { deviceScore } from './score';
+import { deviceScore, RANK } from './score';
 import type { RuleId } from './server/rules/types';
 import type { AppState, DeviceState, Severity } from './server/types';
 
 export const FOREVER = 253402300799000; // 9999-12-31, the "mute forever" sentinel
 
-const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
 
 export type Status = 'green' | 'amber' | 'red';
 
@@ -42,7 +41,7 @@ interface DeviceRow {
 }
 
 // the coordinator is the network itself, not a device to watch
-const watched = (state: Pick<AppState, 'devices'>) =>
+export const watched = (state: Pick<AppState, 'devices'>) =>
 	[...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator');
 
 export function deviceRows(state: Pick<AppState, 'devices'>, openIssues: { ieee: string | null; severity: Severity }[],

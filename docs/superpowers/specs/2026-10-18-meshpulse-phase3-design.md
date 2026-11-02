@@ -95,9 +95,13 @@ Phase 2 (`floor(hours with data / 24)`).
 
 ## Health score
 
-- Network: 100 − 25 × Critical − 8 × Warning − 1 × Info over unresolved issues
-  that have no parent; floor 0. Green ≥ 85 and no Critical; amber ≥ 60 or any
-  Warning; red < 60 or any Critical.
+- Network (changed 2026-11-02): over unresolved, unacknowledged issues that
+  have no parent. Network-wide issues (no device) cost 25 × Critical, 8 ×
+  Warning, 1 × Info. Device issues cost 100 × the share of watched devices they
+  affect, each device weighted by its worst issue (Critical 1, Warning 0.5,
+  Info 0.1). Floor 0. Green ≥ 85 and no Warning or Critical; amber ≥ 60 or any
+  Warning; red < 60 or any Critical. The flat formula scored 0 on a normal day
+  on a 139-device mesh; acknowledging an issue now means "accepted" for the score.
 - Device: same formula over the device's own unresolved issues (children
   included).
 - The hourly job stores the network score in `health_scores`.
