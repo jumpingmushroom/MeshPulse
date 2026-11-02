@@ -31,12 +31,12 @@ const setup = (ends: number, routers = 0) => {
 };
 
 describe('network.mass_offline', () => {
-	it('10 devices offline within 5 min: critical', () => {
+	it('10 devices offline within 15 min: critical', () => {
 		const { c, ends } = setup(10);
 		drop(c, ends);
 		expect(massOffline(c)).toEqual([{
 			rule: 'network.mass_offline', ieee: null, severity: 'critical',
-			summary: '10 devices went offline within 5 min',
+			summary: '10 devices went offline within 15 min',
 			action: 'Check the Zigbee coordinator and router power',
 			evidence: { count: 10, routersOffline: 0, routersTotal: 2, names: ends.map((e) => dev(c, e).friendlyName) }
 		}]);
@@ -71,7 +71,7 @@ describe('network.mass_offline', () => {
 		expect(massOffline(c)).toEqual([]);
 		c.events = [];
 		drop(c, ends.slice(0, 10), 4);
-		c.events.find((e) => e.ieee === ends[9])!.ts = c.now - 5 * MIN - 1;
+		c.events.find((e) => e.ieee === ends[9])!.ts = c.now - 15 * MIN - 1;
 		expect(massOffline(c)).toEqual([]);
 	});
 
@@ -142,6 +142,41 @@ describe('network.mass_offline', () => {
 		expect(issues[0].rule).toBe('network.mass_offline');
 		expect(children.length).toBeGreaterThan(0);
 		expect(children.every((i) => i.parentIssueId === 1 && i.state === 'resolved')).toBe(true);
+	});
+
+	it('a power cut Z2M reports one router a minute (25 Oct): one Critical, the router issues stay silent', () => {
+		const { c, routers } = setup(0, 60); // a big mesh: 11 routers stay under the 20 % router share
+		c.settings = { ...c.settings, notifyDelayMin: 30 };
+		const issues: IssueRow[] = [];
+		const counters = { seen: new Map(), missing: new Map() };
+		const notes: string[] = [];
+		for (let k = 0; k < 240; k++) {
+			const now = NOW + k * MIN;
+			c.state.bridge.lastDeviceAt = now;
+			if (k >= 1 && k <= 11) drop({ ...c, now }, [routers[k - 1]], 0);
+			if (k === 200) for (const e of routers) Object.assign(dev(c, e), { availability: 'online', offlineSince: null, lastSeenAt: now });
+			const open = issues.filter((i) => i.state !== 'resolved');
+			const run = { ...c, now, open: new Set(open.map((i) => issueKey(i.rule, i.ieee))) };
+			const r = evaluate({ device: (ieee) => c.state.devices.get(ieee), findings: evaluateRules(run), issues: open, counters, mutedUntil: () => null, settings: c.settings, now,
+				networkQuiet: deviceSilentFor(run, 60_000) });
+			for (const f of r.opens) issues.push({ id: issues.length + 1, ...newIssue(f, now, r.notify.some((n) => n.key === issueKey(f.rule, f.ieee))) });
+			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);
+			for (const [ck, pk] of r.parentOf) issues.find((i) => issueKey(i.rule, i.ieee) === ck)!.parentIssueId = issues.find((i) => issueKey(i.rule, i.ieee) === pk)!.id;
+			notes.push(...r.notify.map((n) => `${n.key}:${n.kind}:${n.severity}`));
+		}
+		expect(notes).toEqual(['network.mass_offline|:open:critical', 'network.mass_offline|:resolved:critical']);
+		const parent = issues.find((i) => i.rule === 'network.mass_offline')!;
+		const routerIssues = issues.filter((i) => i.rule === 'device.offline');
+		expect(routerIssues).toHaveLength(11);
+		// the first routers opened before the outage was seen and joined it afterwards
+		expect(routerIssues.every((i) => i.parentIssueId === parent.id && i.lastNotifiedAt === null)).toBe(true);
+	});
+
+	it('11 routers of 60 dropping one a minute: a 5-min window misses it, the 15-min default sees it', () => {
+		const { c, routers } = setup(0, 60);
+		drop(c, routers.slice(0, 11), 10);
+		expect(massOffline(c)).toMatchObject([{ evidence: { count: 11, routersOffline: 11 } }]);
+		expect(massOffline({ ...c, settings: { ...c.settings, massOfflineWindowMin: 5 } })).toEqual([]);
 	});
 
 	it('skips ignored devices', () => {

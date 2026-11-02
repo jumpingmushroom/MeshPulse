@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../settings';
+
+// notify at once: these tests check what is sent; the delay has its own tests
+const NOW_SETTINGS = { ...DEFAULT_SETTINGS, notifyDelayMin: 0 };
 import { issueKey, type Finding, type RuleId } from '../rules/index';
 import type { Severity } from '../types';
 import { evaluate, newIssue, type IssueRow, type Notify } from './lifecycle';
@@ -24,7 +27,7 @@ function harness(devices: Record<string, Dev> = {}) {
 	return {
 		issues, notes,
 		run(findings: Finding[], now: number) {
-			const r = evaluate({ findings, issues: open(), counters, mutedUntil: () => null, settings: DEFAULT_SETTINGS, now, networkQuiet: false,
+			const r = evaluate({ findings, issues: open(), counters, mutedUntil: () => null, settings: NOW_SETTINGS, now, networkQuiet: false,
 				device: (ieee) => devices[ieee] });
 			for (const o of r.opens) issues.push({ id: issues.length + 1, ...newIssue(o, now, r.notify.some((n) => n.key === issueKey(o.rule, o.ieee))) });
 			for (const { id, patch } of r.updates) Object.assign(issues[id - 1], patch);

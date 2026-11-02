@@ -16,6 +16,7 @@ const HALL = '0x00124b0000000003';
 describe('engine', () => {
 	it('runOnce persists opens and updates in one transaction', () => {
 		const db = openDb(':memory:');
+		saveSettings(db, { notifyDelayMin: 0 }); // these tests check what is sent, not when
 		const state = createState(T);
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
@@ -43,6 +44,7 @@ describe('engine', () => {
 
 	it('stores parent links: a child is never sent while its router is offline, and is released with one open', () => {
 		const db = openDb(':memory:');
+		saveSettings(db, { notifyDelayMin: 0 }); // these tests check what is sent, not when
 		const state = createState(T);
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
@@ -68,6 +70,7 @@ describe('engine', () => {
 
 	it('ignoring a device resolves its issues without a notification', () => {
 		const db = openDb(':memory:');
+		saveSettings(db, { notifyDelayMin: 0 }); // these tests check what is sent, not when
 		const state = createState(T);
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
@@ -87,6 +90,7 @@ describe('engine', () => {
 
 	it('feeds hourly history to the rules', () => {
 		const db = openDb(':memory:');
+		saveSettings(db, { notifyDelayMin: 0 }); // these tests check what is sent, not when
 		const state = createState(T);
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
@@ -104,6 +108,7 @@ describe('engine', () => {
 
 	it('feeds the last two health samples to the rules', () => {
 		const db = openDb(':memory:');
+		saveSettings(db, { notifyDelayMin: 0 }); // these tests check what is sent, not when
 		const state = createState(T);
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
 		const dirty = new Set<string>();
@@ -118,6 +123,7 @@ describe('engine', () => {
 
 	it('enqueues notifications to the outbox by default', () => {
 		const db = openDb(':memory:');
+		saveSettings(db, { notifyDelayMin: 0 }); // these tests check what is sent, not when
 		db.insert(channels).values({ kind: 'discord', name: 'd', config: {} }).run();
 		const state = createState(T);
 		Object.assign(state.monitor, { connected: true, connectedAt: T });
@@ -134,6 +140,7 @@ describe('engine', () => {
 
 	const heldSetup = () => {
 		const db = openDb(':memory:');
+		saveSettings(db, { notifyDelayMin: 0 }); // these tests check what is sent, not when
 		db.insert(channels).values({ kind: 'discord', name: 'd', config: {} }).run();
 		db.insert(outbox).values({ channelId: 1, issueId: null, kind: 'open', severity: 'warning', message: {}, dedupeKey: 'h1',
 			status: 'held', createdAt: T }).run();
