@@ -13,7 +13,8 @@ const DAY = 24 * 60 * MIN;
  * The broker counts as connected from the start; `hooks` (keyed by fixture-time ms) change what fixtures can't express.
  */
 export function simulate(msgs: MqttMsg[], opts: { until: number; settings?: Partial<Settings>; hooks?: Record<number, (s: AppState) => void> }) {
-	const settings = { ...DEFAULT_SETTINGS, ...opts.settings };
+	// notify at once unless a test sets the delay: most tests check what is sent, not when
+	const settings = { ...DEFAULT_SETTINGS, notifyDelayMin: 0, ...opts.settings };
 	const sorted = [...msgs].sort((a, b) => a.ts - b.ts);
 	const start = sorted[0].ts;
 	const state = createState(start);

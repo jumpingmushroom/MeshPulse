@@ -160,6 +160,11 @@ queues the messages in one transaction.
   severity updates silently.
 - **Resolve**: the finding has been absent for the rule's hold (default 2
   runs; `bridge.offline` 2 min). Queues a resolve message with the duration.
+- **Notification delay** (added 2026-11-02, `notifyDelayMin`, default 30 min):
+  a Warning or Info issue is only announced once it has been open that long; one
+  that resolves sooner resolves silently. Critical, and an escalation to
+  Critical, goes out at once. Production data: 49 of the issues notified
+  between 19 Oct and 2 Nov resolved within an hour (32 of them device.offline).
 - **Reminder**: Critical every 6 h, Warning every 24 h, Info never. Not for
   acknowledged issues.
 - **Muted device**: the issue is stored and shown, no messages are queued.
