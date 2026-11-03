@@ -1,0 +1,1 @@
+ALTER TABLE `samples_hourly` ADD `msg_peak` integer;

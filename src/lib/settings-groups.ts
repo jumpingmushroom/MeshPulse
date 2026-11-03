@@ -81,8 +81,8 @@ export const THRESHOLDS: Group[] = [
 			'clears after', f('netChurnQuietH', 'Network churn clears after', 'h quiet'))
 	], more: [] },
 	{ title: 'Message storms', rows: [
-		row('Device storm', "A device sending far more than its normal.",
-			'Above', f('stormFactor', 'Device storm above', '× normal'), 'and at least', f('stormMinPerMin', 'Device storm at least', 'msgs/min'),
+		row('Device storm', "A device sending far more than its normal, and above its usual busiest minute (learned per device, so a busy presence sensor is not a storm).",
+			'Above', f('stormFactor', 'Device storm above', '× normal'), 'and', f('stormPeakFactor', 'Device storm above usual peak', '× its usual peak'), 'and at least', f('stormMinPerMin', 'Device storm at least', 'msgs/min'),
 			'critical above', f('stormCritPerMin', 'Device storm critical above', 'msgs/min'), 'clears below', f('stormClearFactor', 'Device storm clears below', '× normal')),
 		row('Network storm', 'The whole network far above its normal message rate.',
 			'Above', f('netStormFactor', 'Network storm above', '× normal'), 'clears below', f('netStormClearFactor', 'Network storm clears below', '× normal')),
