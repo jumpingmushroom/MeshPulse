@@ -48,14 +48,16 @@ export function rejoinChurn(ctx: RuleContext): Finding[] {
 			? evs.at(-1)!.ts >= now - s.churnClearH * H
 			: announces >= s.churnAnnounce || addressChanges >= s.churnAddrChanges;
 		if (!bad) continue;
+		const quietH = Math.floor((now - evs.at(-1)!.ts) / H);
 		out.push({
 			rule: 'device.rejoin_churn',
 			ieee,
 			severity: last24h >= s.churnCritical ? 'critical' : 'warning',
-			// held open while it stays quiet for churnClearH: say so instead of "0 rejoins in 6 h"
-			summary: announces >= s.churnAnnounce || addressChanges >= s.churnAddrChanges
-				? `${d.friendlyName} keeps rejoining the network (${Math.max(announces, addressChanges)} rejoins in ${s.churnWindowH} h)`
-				: `${d.friendlyName} rejoined the network ${last24h} ${last24h === 1 ? 'time' : 'times'} in 24 h, quiet for ${Math.floor((now - evs.at(-1)!.ts) / H)} h`,
+			// one sentence that always leads with the 24 h count (it sets the severity); then the recent count, or how long it has
+			// been quiet while held open through churnClearH, so reminders and the summary read the same from one run to the next
+			summary: `${d.friendlyName} rejoined the network ${last24h} ${last24h === 1 ? 'time' : 'times'} in 24 h, ` + (announces >= s.churnAnnounce || addressChanges >= s.churnAddrChanges
+				? `${Math.max(announces, addressChanges)} in the last ${s.churnWindowH} h`
+				: quietH ? `quiet for ${quietH} h` : 'quiet for under 1 h'),
 			action: "Check the device's power and its nearest router",
 			// holding: open only through churnClearH of quiet, not rejoining now (a resolving incident drops it silently)
 			evidence: { announces, addressChanges, windowH: s.churnWindowH, last24h, holding: !(announces >= s.churnAnnounce || addressChanges >= s.churnAddrChanges) }
