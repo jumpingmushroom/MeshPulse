@@ -83,7 +83,7 @@ const rejoins = (c: RuleContext, n: number, lastAgo = MIN) => {
 	for (let i = 0; i < n; i++) at(c, 'device_announce', DOOR, c.now - lastAgo - i * 10 * MIN);
 };
 const lqiHours = (avg: number) => Array.from({ length: 24 }, (_, i): HourlyRow =>
-	({ hour: hourStart(NOW) - (24 - i) * H, lqiMin: avg, lqiAvg: avg, lqiMax: avg, batteryMin: null, voltageMin: null, msgCount: 1 }));
+	({ hour: hourStart(NOW) - (24 - i) * H, lqiMin: avg, lqiAvg: avg, lqiMax: avg, batteryMin: null, voltageMin: null, msgCount: 1, msgPeak: null }));
 
 describe('battery.low causing issues', () => {
 	it.each<[string, (c: RuleContext) => void, string]>([

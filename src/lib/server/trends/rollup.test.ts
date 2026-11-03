@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { openDb } from '../db/index';
 import { baselines, devices, events, healthScores, samples, samplesHourly } from '../db/schema';
 import { createState } from '../types';
+import { MinuteCounters } from './minutes';
 import { computeBaselines, hourStart, networkMsgPerMin, recordScore, rollupHours } from './rollup';
 
 const H = 3_600_000;
@@ -27,9 +28,25 @@ describe('rollupHours', () => {
 		state.msgCounts.set(`${IEEE}|${at(10)}`, 7);
 		rollupHours(db, state, T);
 		expect(db.select().from(samplesHourly).all()).toEqual([
-			{ ieee: IEEE, hour: at(10), lqiMin: 80, lqiAvg: 90, lqiMax: 100, batteryMin: 58, voltageMin: 2.8, msgCount: 7 }
+			{ ieee: IEEE, hour: at(10), lqiMin: 80, lqiAvg: 90, lqiMax: 100, batteryMin: 58, voltageMin: 2.8, msgCount: 7, msgPeak: null }
 		]);
 		expect(state.msgCounts.size).toBe(0);
+	});
+
+	it('records the busiest minute of the hour that just ended, keeping the larger one when an hour is rolled again', () => {
+		const { db, state } = setup();
+		state.devices.set(IEEE, { ieee: IEEE } as never);
+		for (let i = 0; i < 5; i++) state.minutes.add(IEEE, at(11, 10));
+		for (let i = 0; i < 2; i++) state.minutes.add(IEEE, at(11, 50));
+		state.minutes.add(IEEE, at(10, 59)); // before the hour: not in it
+		state.msgCounts.set(`${IEEE}|${at(11)}`, 7);
+		rollupHours(db, state, T);
+		expect(db.select().from(samplesHourly).all()).toMatchObject([{ hour: at(11), msgCount: 7, msgPeak: 5 }]);
+		state.minutes = new MinuteCounters(); // a restart splits the hour: a lower peak must not overwrite
+		state.minutes.add(IEEE, at(11, 59));
+		state.msgCounts.set(`${IEEE}|${at(11)}`, 1);
+		rollupHours(db, state, T + 60_000);
+		expect(db.select().from(samplesHourly).all()).toMatchObject([{ hour: at(11), msgCount: 8, msgPeak: 5 }]);
 	});
 
 	it('writes a row for a device with only a message count', () => {
@@ -123,6 +140,15 @@ describe('computeBaselines', () => {
 		db.insert(events).values(Array.from({ length: 100 }, (_, i) => ({ ts: T - 8 * D + i * H, kind: 'route_error' }))).run();
 		computeBaselines(db, T);
 		expect(get(db, '', 'route_errors_hourly')!.days).toBe(2);
+	});
+
+	it('msg_peak_per_min is the 99th percentile of hourly peaks, ignoring hours without one', () => {
+		const { db } = setup();
+		const start = hourStart(T - 7 * D);
+		db.insert(samplesHourly).values(Array.from({ length: 100 }, (_, i) => ({ ieee: '0xa', hour: start + i * H, msgCount: 1, msgPeak: i === 99 ? 500 : i + 1 }))).run();
+		db.insert(samplesHourly).values({ ieee: '0xa', hour: start + 100 * H, msgCount: 1, msgPeak: null }).run();
+		computeBaselines(db, T);
+		expect(get(db, '0xa', 'msg_peak_per_min')).toMatchObject({ value: 99, days: 4 }); // one runaway hour does not set the bar
 	});
 
 	it('msg_per_min is the mean hourly msgCount / 60 per device, network the sum of device means', () => {

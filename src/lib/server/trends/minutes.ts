@@ -24,6 +24,13 @@ export class MinuteCounters {
 		return Array.from({ length: minutes }, (_, i) => map?.get(cur - minutes + i) ?? 0);
 	}
 
+	/** Most messages `ieee` sent in one minute of [from, to); 0 when none are kept. */
+	peak(ieee: string, from: number, to: number): number {
+		let max = 0;
+		for (const [m, n] of this.dev.get(ieee) ?? []) if (m >= from / M && m < to / M && n > max) max = n;
+		return max;
+	}
+
 	/** Busiest device outside `exclude`, as a share of all network messages in the window. */
 	topShare(now: number, minutes: number, exclude: Set<string>): { ieee: string; share: number; total: number } | null {
 		const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);

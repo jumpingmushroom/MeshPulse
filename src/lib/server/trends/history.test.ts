@@ -7,7 +7,7 @@ const H = 3_600_000;
 const NOW = Date.UTC(2026, 9, 18, 12, 30);
 const at = (ago: number) => Date.UTC(2026, 9, 18, 12) - ago * H;
 const row = (ieee: string, ago: number, lqiAvg: number | null) =>
-	({ ieee, hour: at(ago), lqiMin: null, lqiAvg, lqiMax: null, batteryMin: null, voltageMin: null, msgCount: 1 });
+	({ ieee, hour: at(ago), lqiMin: null, lqiAvg, lqiMax: null, batteryMin: null, voltageMin: null, msgCount: 1, msgPeak: null });
 
 describe('loadHistory', () => {
 	it('loads last 24 h ascending and all baselines', () => {
