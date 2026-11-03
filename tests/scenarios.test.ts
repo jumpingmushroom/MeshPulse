@@ -110,7 +110,7 @@ describe('scenarios', () => {
 	it('no duplicate notifies', () => {
 		const all = [z2mRestart(40 * S), z2mRestart(3 * MIN), massReconnect(), batterySwap(), renamed(), mqttLost()];
 		for (const r of all) {
-			const ks = r.notifies.filter((n) => n.kind !== 'reminder').map((n) => `${n.key}:${n.kind}:${n.severity}`);
+			const ks = r.notifies.map((n) => `${n.key}:${n.kind}:${n.severity}`);
 			expect(new Set(ks).size).toBe(ks.length);
 		}
 	});

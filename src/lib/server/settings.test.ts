@@ -49,7 +49,7 @@ describe('parseSettingsForm ordering', () => {
 		expect(parseSettingsForm(form(o))).toHaveProperty('error');
 	});
 
-	it.each([['silenceMultiplier'], ['flappingWindowH'], ['reminderCriticalH'], ['reminderWarningH'], ['bridgeSilenceMin'], ['mqttLostSec'],
+	it.each([['silenceMultiplier'], ['flappingWindowH'], ['bridgeSilenceMin'], ['mqttLostSec'],
 		['lqiWeak'], ['lqiWeakClear'], ['lqiMinHours'], ['lqiDegradePct'], ['lqiRecoverPct'], ['baselineMinDays'],
 		['routeFailWarn'], ['routeFailCrit'], ['routeFailClear'], ['netRouteFactor'], ['netRouteMin'], ['netRouteClearFactor'],
 		['forecastWarnDays'], ['forecastClearDays'], ['forecastMinDays'],

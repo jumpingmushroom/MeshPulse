@@ -139,16 +139,9 @@ describe('lifecycle', () => {
 		expect(run([], [issue()], c, T + 3 * MIN).notify).toEqual([]);
 	});
 
-	it('reminds critical after 6 h, warning after 24 h, never info', () => {
-		const at = (sev: Severity, h: number) =>
-			run([f(sev)], [issue({ severity: sev })], counters(), T + h * H).notify.map((n) => n.kind);
-		expect(at('critical', 5.9)).toEqual([]);
-		expect(at('critical', 6)).toEqual(['reminder']);
-		expect(at('warning', 23.9)).toEqual([]);
-		expect(at('warning', 24)).toEqual(['reminder']);
-		expect(at('info', 100)).toEqual([]);
-		const r = run([f('critical')], [issue({ severity: 'critical' })], counters(), T + 6 * H);
-		expect(r.updates[0].patch.lastNotifiedAt).toBe(T + 6 * H);
+	it('sends no per-issue reminders: the daily summary lists what is still open', () => {
+		for (const sev of ['critical', 'warning', 'info'] as const)
+			expect(run([f(sev)], [issue({ severity: sev })], counters(), T + 100 * H).notify).toEqual([]);
 	});
 
 	it('no reminders when acknowledged', () => {
