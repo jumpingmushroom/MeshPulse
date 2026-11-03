@@ -165,8 +165,12 @@ queues the messages in one transaction.
   that resolves sooner resolves silently. Critical, and an escalation to
   Critical, goes out at once. Production data: 49 of the issues notified
   between 19 Oct and 2 Nov resolved within an hour (32 of them device.offline).
-- **Reminder**: Critical every 6 h, Warning every 24 h, Info never. Not for
-  acknowledged issues.
+- **Reminder** (changed 2026-11-03): no per-issue reminders. Once a day at
+  `summaryTime` (default 09:00 in `TZ`, not during quiet hours) each channel gets
+  one "Still open" message listing the announced, unacknowledged, top-level
+  Critical and Warning issues at or above its minimum severity, skipping muted
+  and ignored devices. Nothing is sent when the list is empty. Production: 12
+  of 20 notifications on 2–3 Nov were reminders.
 - **Muted device**: the issue is stored and shown, no messages are queued.
 - **Quiet hours** (default 23:00–07:00 in `TZ`): Warning and Info messages
   (all kinds) are held. At the end of quiet hours, one summary message lists

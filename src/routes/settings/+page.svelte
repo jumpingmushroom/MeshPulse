@@ -12,7 +12,7 @@
 	const errs = $derived(msg('settings')?.errors ?? []);
 	const count = (keys: string[]) => errs.filter((e) => keys.includes(e.field)).length;
 	const nThresh = $derived(count(thresholdFields().map((x) => x.key)));
-	const nQuiet = $derived(count(['quietStart', 'quietEnd']));
+	const nQuiet = $derived(count(['quietStart', 'quietEnd', 'summaryTime']));
 	const nHeart = $derived(count(['heartbeatUrl']));
 	const errOf = (key: string) => errs.find((e) => e.field === key)?.message;
 	// after a failed save keep what the user typed
@@ -133,6 +133,9 @@
 						<div class="field"><label for="quietEnd">To</label><input class="input" id="quietEnd" name="quietEnd" type="time" value={val('quietEnd')} required aria-invalid={errOf('quietEnd') ? 'true' : undefined} />
 							{#if errOf('quietEnd')}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf('quietEnd')}</span>{/if}</div>
 					</div>
+					<div class="field"><label for="summaryTime">Daily summary at</label><input class="input" id="summaryTime" name="summaryTime" type="time" value={val('summaryTime')} required aria-describedby="summaryTime-help" aria-invalid={errOf('summaryTime') ? 'true' : undefined} />
+						<span class="field-help" id="summaryTime-help">One message a day lists the issues still open, in place of reminders per issue. Acknowledged issues are left out.</span>
+						{#if errOf('summaryTime')}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf('summaryTime')}</span>{/if}</div>
 				</section>
 
 				<section id="heartbeat" class="stack">

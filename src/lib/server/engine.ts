@@ -8,6 +8,7 @@ import { evaluate, newIssue, type Counters, type IssueRow, type Notify } from '.
 import { isQuietHours } from './issues/quiet';
 import { enqueue, foldHeld } from './notify/outbox';
 import { sendWeekly } from './notify/weekly';
+import { sendDaily } from './notify/daily';
 import { prune } from './retention';
 import { evaluateRules, issueKey, type EventRow, type RuleId } from './rules/index';
 import { deviceSilentFor } from './rules/bridge-offline';
@@ -84,6 +85,7 @@ export function runOnce(deps: EngineDeps, now: number): void {
 		if (!quiet) fold(deps, now);
 	});
 	sendWeekly(db, state, now, config.tz, quiet);
+	sendDaily(db, state, now, config.tz, quiet, settings);
 	state.monitor.lastRulesRunAt = now;
 	flushDevices(db, state, deps.dirty);
 }
