@@ -24,7 +24,7 @@ export interface Counters {
 	missing: Map<string, number>;
 }
 
-export type NotifyKind = 'open' | 'escalate' | 'reminder' | 'resolved';
+export type NotifyKind = 'open' | 'escalate' | 'resolved';
 export interface Notify {
 	key: string;
 	kind: NotifyKind;
@@ -57,7 +57,6 @@ export interface LifecycleResult {
 }
 
 export const RANK: Record<Severity, number> = { info: 0, warning: 1, critical: 2 };
-const H = 3_600_000;
 const GUARD_RULES: readonly string[] = ['bridge.offline', 'monitor.mqtt_lost'];
 
 const RELEASE_SUFFIX: Partial<Record<RuleId, string>> = {
@@ -109,11 +108,7 @@ export function evaluate({ findings, issues, counters, mutedUntil, settings, now
 			if (f.severity !== i.severity) patch.severity = plan.severity = f.severity;
 			// late announcement once the mute has expired, or once a warning outlasts the notification delay
 			if (unannounced) plan.kind = announce(f.severity, i.openedAt) ? 'open' : null;
-			else if (RANK[f.severity] > RANK[i.severity]) plan.kind = 'escalate';
-			else if (f.severity === i.severity && i.state !== 'acknowledged' && i.severity !== 'info') {
-				const every = (i.severity === 'critical' ? settings.reminderCriticalH : settings.reminderWarningH) * H;
-				if (now - i.lastNotifiedAt! >= every) plan.kind = 'reminder';
-			}
+			else if (RANK[f.severity] > RANK[i.severity]) plan.kind = 'escalate'; // reminders are the daily summary (notify/daily.ts)
 		} else {
 			const missing = (counters.missing.get(key) ?? 0) + 1;
 			counters.missing.set(key, missing);

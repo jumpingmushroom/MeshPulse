@@ -45,7 +45,7 @@ export function toMessage(issue: IssueRow, kind: NotifyKind, device: DeviceState
 		return { severity: 'resolved', kind, title: `Resolved: ${issue.summary}`, fields, url, tag: `meshpulse-issue-${issue.id}`,
 			summary: typeof ms === 'number' ? `${issue.summary}, resolved after ${formatDuration(ms)}` : issue.summary };
 	}
-	const note = kind === 'escalate' ? 'Escalated. ' : kind === 'reminder' ? 'Reminder: still open. Acknowledge it in MeshPulse to stop reminders. ' : '';
+	const note = kind === 'escalate' ? 'Escalated. ' : '';
 	return { severity: issue.severity, kind, title: `${SEVERITY_LABEL[issue.severity]}: ${issue.summary}`, summary: note + issue.summary,
 		action: issue.action || undefined, fields, url, tag: `meshpulse-issue-${issue.id}` };
 }
