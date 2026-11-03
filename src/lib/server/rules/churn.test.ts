@@ -48,10 +48,17 @@ describe('device.rejoin_churn', () => {
 		at(c, 'device_announce', LAMP, NOW - 30 * MIN);
 		expect(rejoinChurn(c)).toEqual([{
 			rule: 'device.rejoin_churn', ieee: LAMP, severity: 'warning',
-			summary: 'living/lamp keeps rejoining the network (3 rejoins in 6 h)',
+			summary: 'living/lamp rejoined the network 3 times in 24 h, 3 in the last 6 h',
 			action: "Check the device's power and its nearest router",
 			evidence: { announces: 3, addressChanges: 0, windowH: 6, last24h: 3, holding: false }
 		}]);
+	});
+
+	it('a critical with few recent rejoins says why it is critical (Workshop motion sensor, 2 Nov)', () => {
+		const c = ctx();
+		for (let i = 0; i < 12; i++) at(c, 'device_announce', LAMP, NOW - 7 * H - i * 30 * MIN);
+		announces(c, LAMP, 3);
+		expect(rejoinChurn(c)).toMatchObject([{ severity: 'critical', summary: 'living/lamp rejoined the network 15 times in 24 h, 3 in the last 6 h' }]);
 	});
 
 	it('announces older than 6 h do not open it', () => {
