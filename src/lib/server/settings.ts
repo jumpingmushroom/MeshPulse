@@ -63,6 +63,7 @@ export const DEFAULT_SETTINGS = {
 	netChurnWindowMin: 15,
 	netChurnQuietH: 1,
 	stormFactor: 5,
+	stormPeakFactor: 2,
 	stormMinPerMin: 20,
 	stormCritPerMin: 60,
 	stormSustainMin: 5,
@@ -118,7 +119,7 @@ const POSITIVE = ['silenceMultiplier', 'silenceLongGapFactor', 'flappingWindowH'
 	'routeFailWarn', 'routeFailCrit', 'routeFailClear', 'netRouteFactor', 'netRouteMin', 'netRouteClearFactor',
 	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays', 'massOfflineRouterPct', 'massOfflineDevices', 'massOfflineWindowMin', 'massOfflineClearPct',
 	'churnAnnounce', 'churnAddrChanges', 'churnWindowH', 'churnCritical', 'churnClearH', 'netChurnDevices', 'netChurnWindowMin', 'netChurnQuietH',
-	'stormFactor', 'stormMinPerMin', 'stormCritPerMin', 'stormSustainMin', 'stormClearFactor', 'stormClearMin',
+	'stormFactor', 'stormPeakFactor', 'stormMinPerMin', 'stormCritPerMin', 'stormSustainMin', 'stormClearFactor', 'stormClearMin',
 	'dominantPct', 'dominantClearPct', 'dominantWindowMin', 'dominantClearMin', 'dominantMinMsgs', 'netStormFactor', 'netStormClearFactor',
 	'backlogHigh', 'backlogClear', 'wifiBusyPct', 'wifiClearPct', 'causingWindowH', 'staleBatteryDays', 'rechargeableDropPct'];
 
@@ -169,6 +170,7 @@ export function parseSettingsForm(form: FormData): { settings: Settings } | { er
 		[v.netChurnWindowMin <= v.netChurnQuietH * 60 && v.netChurnQuietH <= 24, 'netChurnWindowMin', 'Network churn window must not exceed its quiet time, which is at most 24 hours'],
 		[v.backlogClear < v.backlogHigh, 'backlogClear', 'MQTT backlog must clear below the queue that raises it'],
 		[v.stormClearFactor < v.stormFactor && v.netStormClearFactor < v.netStormFactor, 'stormClearFactor', 'Storms must clear below the factor that raises them'],
+		[v.stormPeakFactor > 1, 'stormPeakFactor', 'Device storm must be above the usual peak (more than 1×)'],
 		[v.stormMinPerMin < v.stormCritPerMin, 'stormMinPerMin', 'Storm critical rate must be above the storm minimum rate'],
 		[v.wifiClearPct < v.wifiBusyPct, 'wifiClearPct', 'Wi-Fi must clear below the busy percentage that raises it'],
 		[v.dominantClearPct < v.dominantPct, 'dominantClearPct', 'Dominant device must clear below the share that raises it'],

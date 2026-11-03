@@ -12,6 +12,7 @@ const send = (c: RuleContext, ieee: string, perMin: number, mins: number, from =
 	for (let a = from; a < from + mins; a++) for (let i = 0; i < perMin; i++) c.state.minutes.add(ieee, minute(c, a));
 };
 const base = (c: RuleContext, ieee: string, value: number, days = 7) => c.history.baselines.set(`${ieee}|msg_per_min`, { value, days });
+const peak = (c: RuleContext, ieee: string, value: number, days = 7) => c.history.baselines.set(`${ieee}|msg_peak_per_min`, { value, days });
 const add = (c: RuleContext, n: number) => Array.from({ length: n }, (_, i) => {
 	const ieee = `0xfake${i}`;
 	c.state.devices.set(ieee, { ...dev(c, LAMP), ieee, friendlyName: `fake_${i}`, tags: [], recentSeen: [] });
@@ -157,6 +158,35 @@ describe('device.storm', () => {
 	});
 });
 
+describe('device.storm against the usual peak (Kitchen mmwave, 3 Nov)', () => {
+	it('a presence burst within 2 x its usual peak is not a storm; far above it is', () => {
+		const c = ctx();
+		base(c, LAMP, 9.1);
+		peak(c, LAMP, 130);
+		send(c, LAMP, 128, 5); // 07:37 Oslo: someone in the kitchen
+		expect(deviceStorm(c)).toEqual([]);
+		send(c, LAMP, 140, 5); // 268 a minute: above 2 x 130
+		expect(deviceStorm(c)).toMatchObject([{ severity: 'critical', summary: expect.stringContaining('normally 9.1, peaks at 130'), evidence: { usualPeak: 130 } }]);
+	});
+
+	it('a thin peak baseline is ignored: the mean alone decides', () => {
+		const c = ctx();
+		base(c, LAMP, 9.1);
+		peak(c, LAMP, 130, 2);
+		send(c, LAMP, 128, 5);
+		expect(deviceStorm(c)).toHaveLength(1);
+	});
+
+	it('an open storm clears once every minute is back within the usual peak, not 2 x the mean', () => {
+		const c = ctx();
+		base(c, LAMP, 9.1);
+		peak(c, LAMP, 130);
+		c.open = new Set([issueKey('device.storm', LAMP)]);
+		send(c, LAMP, 40, 15); // 40 > 2 x 9.1 held it open before
+		expect(deviceStorm(c)).toEqual([]);
+	});
+});
+
 describe('device.dominant', () => {
 	const share = (c: RuleContext, lamp: number, others: number) => {
 		// spread over the 15-minute window; others split evenly so none of them dominates
@@ -181,6 +211,15 @@ describe('device.dominant', () => {
 		const c = ctx();
 		share(c, 30, 70);
 		expect(deviceDominant(c)).toEqual([]);
+	});
+
+	it('a device at or below its usual busiest minute is not dominant, however quiet the rest is', () => {
+		const c = ctx();
+		peak(c, LAMP, 10);
+		share(c, 150, 50); // 10 a minute for LAMP: its usual peak
+		expect(deviceDominant(c)).toEqual([]);
+		peak(c, LAMP, 9);
+		expect(deviceDominant(c)).toHaveLength(1);
 	});
 
 	it('chatty devices are excluded', () => {

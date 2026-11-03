@@ -28,3 +28,15 @@ describe('MinuteCounters', () => {
 		expect(new MinuteCounters().topShare(T, 5, new Set())).toBeNull();
 	});
 });
+
+describe('MinuteCounters.peak', () => {
+	it('is the busiest minute of [from, to) for one device, 0 when none', () => {
+		const m = new MinuteCounters();
+		const t = 1_800_000_000_000 - (1_800_000_000_000 % 3_600_000);
+		for (let i = 0; i < 3; i++) m.add('a', t + 60_000);
+		m.add('a', t + 120_000);
+		for (let i = 0; i < 9; i++) m.add('a', t - 60_000);
+		expect(m.peak('a', t, t + 3_600_000)).toBe(3);
+		expect(m.peak('b', t, t + 3_600_000)).toBe(0);
+	});
+});

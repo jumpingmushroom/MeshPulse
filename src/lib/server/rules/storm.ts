@@ -27,6 +27,16 @@ function storming(ctx: RuleContext, ieee: string | null, open: boolean, raise: n
 	return ready(ctx, s.stormSustainMin) && m.perMinute(ieee, ctx.now, s.stormSustainMin).every((n) => n > raise);
 }
 
+/** The device's usual busiest minute once learned, else 0. */
+function usualPeak(ctx: RuleContext, ieee: string): number {
+	const p = baselineOf(ctx.history, ieee, 'msg_peak_per_min');
+	return p && p.days >= ctx.settings.baselineMinDays ? p.value : 0;
+}
+
+/** Storm rate for a device with mean `mean`: far above its mean and above its usual peak, so busy-room bursts are not storms. */
+const raiseAt = (ctx: RuleContext, ieee: string, mean: number) =>
+	Math.max(ctx.settings.stormFactor * mean, ctx.settings.stormPeakFactor * usualPeak(ctx, ieee), ctx.settings.stormMinPerMin);
+
 export function deviceStorm(ctx: RuleContext): Finding[] {
 	const s = ctx.settings;
 	const out: Finding[] = [];
@@ -34,15 +44,17 @@ export function deviceStorm(ctx: RuleContext): Finding[] {
 		const b = baselineOf(ctx.history, d.ieee, 'msg_per_min');
 		const open = ctx.open.has(issueKey('device.storm', d.ieee));
 		if (!b || (!open && b.days < s.baselineMinDays)) continue;
-		if (!storming(ctx, d.ieee, open, Math.max(s.stormFactor * b.value, s.stormMinPerMin), s.stormClearFactor * b.value)) continue;
+		const peak = usualPeak(ctx, d.ieee);
+		// clears once every minute is back within its usual range
+		if (!storming(ctx, d.ieee, open, raiseAt(ctx, d.ieee, b.value), Math.max(s.stormClearFactor * b.value, peak))) continue;
 		const last = ctx.state.minutes.perMinute(d.ieee, ctx.now, s.stormSustainMin);
 		out.push({
 			rule: 'device.storm',
 			ieee: d.ieee,
 			severity: last.every((n) => n > s.stormCritPerMin) ? 'critical' : 'warning',
-			summary: `${d.friendlyName} is flooding the network (${show(sum(last) / last.length)} msgs/min, normally ${show(b.value)})`,
+			summary: `${d.friendlyName} is flooding the network (${show(sum(last) / last.length)} msgs/min, normally ${show(b.value)}${peak ? `, peaks at ${show(peak)}` : ''})`,
 			action: 'Check the device for a stuck sensor or a reporting-interval misconfiguration; power-cycle it',
-			evidence: { perMin: last, baseline: b.value, baselineDays: b.days, factor: s.stormFactor, minPerMin: s.stormMinPerMin, critPerMin: s.stormCritPerMin }
+			evidence: { perMin: last, baseline: b.value, baselineDays: b.days, usualPeak: peak, factor: s.stormFactor, minPerMin: s.stormMinPerMin, critPerMin: s.stormCritPerMin }
 		});
 	}
 	return out;
@@ -56,9 +68,14 @@ export function deviceDominant(ctx: RuleContext): Finding[] {
 	// a storm still building (the storm window not yet full) would otherwise open dominant first
 	for (const d of state.devices.values()) {
 		const b = baselineOf(ctx.history, d.ieee, 'msg_per_min');
-		if (b && b.days >= s.baselineMinDays && m.perMinute(d.ieee, now, 1)[0] > Math.max(s.stormFactor * b.value, s.stormMinPerMin)) storm.add(d.ieee);
+		if (b && b.days >= s.baselineMinDays && m.perMinute(d.ieee, now, 1)[0] > raiseAt(ctx, d.ieee, b.value)) storm.add(d.ieee);
 	}
-	const skip = (d: DeviceState) => d.tags.includes('chatty') || d.tags.includes('ignore') || storm.has(d.ieee);
+	// at or below its usual busiest minute it is behaving normally; a high share then only means the rest of the mesh is quiet
+	const usual = (d: DeviceState) => {
+		const peak = usualPeak(ctx, d.ieee);
+		return peak > 0 && sum(m.perMinute(d.ieee, now, s.dominantWindowMin)) / s.dominantWindowMin <= peak;
+	};
+	const skip = (d: DeviceState) => d.tags.includes('chatty') || d.tags.includes('ignore') || storm.has(d.ieee) || usual(d);
 	const share = (ieee: string, min: number) => {
 		const [n, total] = [sum(m.perMinute(ieee, now, min)), sum(m.perMinute(null, now, min))];
 		return { n, total, share: total ? n / total : 0 };

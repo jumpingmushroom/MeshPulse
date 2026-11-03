@@ -38,14 +38,23 @@ export function rollupHours(db: Db, state: AppState, now: number): void {
 		row(ieee, h).msgCount = n;
 		counted.add(`${ieee}|${h}`);
 	}
+	// the minute counters hold the last hour only: its busiest minute per device
+	const peaks = new Set<string>();
+	for (const ieee of state.devices.keys()) {
+		const n = state.minutes.peak(ieee, to - H, to);
+		if (n === 0) continue;
+		row(ieee, to - H).msgPeak = n;
+		peaks.add(`${ieee}|${to - H}`);
+	}
 	// counters outside the window can never be rolled up; drop them
 	for (const k of state.msgCounts.keys()) if (Number(k.slice(k.lastIndexOf('|') + 1)) < to) drained.push(k);
 	db.transaction((tx) => {
 		for (const r of rows.values()) {
-			const { ieee, hour, msgCount, ...set } = r;
+			const { ieee, hour, msgCount, msgPeak, ...set } = r;
 			// a counter is added to the stored count (a restart can split an hour); no counter leaves it untouched
 			const count = counted.has(`${ieee}|${hour}`) ? { msgCount: sql`${samplesHourly.msgCount} + ${msgCount}` } : {};
-			tx.insert(samplesHourly).values(r).onConflictDoUpdate({ target: [samplesHourly.ieee, samplesHourly.hour], set: { ...set, ...count } }).run();
+			const peak = peaks.has(`${ieee}|${hour}`) ? { msgPeak: sql`max(coalesce(${samplesHourly.msgPeak}, 0), ${msgPeak})` } : {};
+			tx.insert(samplesHourly).values(r).onConflictDoUpdate({ target: [samplesHourly.ieee, samplesHourly.hour], set: { ...set, ...count, ...peak } }).run();
 		}
 	});
 	for (const k of drained) state.msgCounts.delete(k);
@@ -84,6 +93,13 @@ export function computeBaselines(db: Db, now: number): void {
 		out.push({ ieee, metric: 'msg_per_min', value: perMin, days: Math.floor(c.length / 24), computedAt: now });
 	}
 	out.push({ ieee: '', metric: 'msg_per_min', value: netPerMin, days: netDays, computedAt: now });
+	// a device's usual busiest minute: bursty devices (mmwave presence) run far above their mean while a room is in use
+	const peaks = new Map<string, number[]>();
+	for (const r of hourly) if (r.msgPeak) peaks.set(r.ieee, [...(peaks.get(r.ieee) ?? []), r.msgPeak]);
+	for (const [ieee, p] of peaks) {
+		p.sort((a, b) => a - b);
+		out.push({ ieee, metric: 'msg_peak_per_min', value: p[Math.floor(0.99 * (p.length - 1))], days: Math.floor(p.length / 24), computedAt: now });
+	}
 
 	// for device.offline: the longest gap between stored readings in 7 days (event-driven devices are quiet for hours)
 	const lastTs = new Map<string, number>(), maxGap = new Map<string, number>(), firstTs = new Map<string, number>();

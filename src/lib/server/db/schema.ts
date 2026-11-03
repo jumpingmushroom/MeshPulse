@@ -53,12 +53,14 @@ export const samplesHourly = sqliteTable(
 		lqiMax: integer('lqi_max'),
 		batteryMin: real('battery_min'),
 		voltageMin: real('voltage_min'),
-		msgCount: integer('msg_count').notNull()
+		msgCount: integer('msg_count').notNull(),
+		/** most messages in one minute of the hour (live minute counters; null before they were kept) */
+		msgPeak: integer('msg_peak')
 	},
 	(t) => [primaryKey({ columns: [t.ieee, t.hour] }), index('samples_hourly_hour_idx').on(t.hour)]
 );
 
-export type BaselineMetric = 'lqi_mean' | 'lqi_stddev' | 'route_errors_hourly' | 'battery_days_left' | 'msg_per_min' | 'battery_report_gap_h' | 'battery_last_report' | 'battery_drop' | 'max_gap_7d';
+export type BaselineMetric = 'lqi_mean' | 'lqi_stddev' | 'route_errors_hourly' | 'battery_days_left' | 'msg_per_min' | 'msg_peak_per_min' | 'battery_report_gap_h' | 'battery_last_report' | 'battery_drop' | 'max_gap_7d';
 
 export const baselines = sqliteTable(
 	'baselines',
