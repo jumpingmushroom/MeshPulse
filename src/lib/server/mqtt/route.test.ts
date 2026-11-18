@@ -307,6 +307,16 @@ describe('route', () => {
 			msg(T + 2 * MIN, 'living/lamp', { linkquality: 52 }, true)]);
 		expect(s.msgCounts.get(`${LAMP}|${hour}`)).toBe(2);
 	});
+
+	it('OTA progress messages are not counted, but still keep the device seen (Hue updates, 9 Nov)', () => {
+		const s = withDevices();
+		const hour = Math.floor(T / 3_600_000) * 3_600_000;
+		const ota = (ts: number, progress: number) => msg(ts, 'living/lamp', { linkquality: 60, update: { state: 'updating', progress, remaining: 3000 } });
+		feed(s, [ota(T, 1.2), ota(T + 1000, 1.3), ota(T + 2000, 1.4), msg(T + 3000, 'living/lamp', { linkquality: 61, update: { state: 'idle' } })]);
+		expect(s.msgCounts.get(`${LAMP}|${hour}`)).toBe(1);
+		expect(s.minutes.perMinute(LAMP, T + MIN, 1)).toEqual([1]);
+		expect(s.devices.get(LAMP)!.lastSeenAt).toBe(T + 3000);
+	});
 });
 
 describe('route bridge/logging', () => {
