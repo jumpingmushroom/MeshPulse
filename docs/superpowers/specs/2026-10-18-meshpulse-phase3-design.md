@@ -64,7 +64,7 @@ on announces, leaves or rates.
 | `device.storm` | Device msg/min > 5 × its 7-day baseline AND > 20 msg/min, for 5 consecutive minutes; baseline needs ≥ 3 days | Warning; Critical if > 60 msg/min | < 2 × baseline for 15 min |
 | `device.dominant` | One device > 30% of all messages over 15 min (excluding `chatty`), network total ≥ 60 msg in that window | Warning | < 15% for 30 min |
 | `network.storm` | Total msg/min > 4 × network baseline for 5 min; baseline ≥ 3 days | Critical; top 5 contributors in evidence | < 2 × baseline for 15 min |
-| `network.mass_offline` | ≥ 20% of routers, or ≥ 10 devices, went offline within 5 min | Critical | < 5% of routers offline and < 10 devices offline |
+| `network.mass_offline` | ≥ 20% of routers, or ≥ 10 devices, went offline within 15 min (was 5; Z2M reports a power cut one router at a time over its 10 min availability timeout) | Critical | < 5% of routers offline and < 10 devices offline |
 | `battery.low` (extended) | Existing conditions; escalates to Critical "causing issues" when battery ≤ 35% (or coin cell ≤ 2.8 V) and in the last 48 h: churn, flapping, report gaps > 2 × typical, LQI drop > 25%, or route failures | Warning → Critical | As today (swap / > 40%), or 48 h without instability drops back to Warning |
 | `battery.stale` | No battery value for > 7 days from a device whose battery normally reports at least daily | Info, never notifies | Battery report received |
 | `bridge.mqtt_backlog` | `mqtt.queued` > 50 in two consecutive health samples | Warning | Queue < 10 |
