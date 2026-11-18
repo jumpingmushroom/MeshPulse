@@ -151,8 +151,8 @@ function batteryForecasts(db: Db, now: number) {
 }
 
 /** One network score row per hour; the first call in an hour wins. */
-export function recordScore(db: Db, open: { severity: Severity; parentIssueId: number | null }[], now: number): void {
-	db.insert(healthScores).values({ ts: hourStart(now), score: networkScore(open).score }).onConflictDoNothing().run();
+export function recordScore(db: Db, open: Parameters<typeof networkScore>[0], devices: number, now: number): void {
+	db.insert(healthScores).values({ ts: hourStart(now), score: networkScore(open, devices).score }).onConflictDoNothing().run();
 }
 
 /** Network messages per minute for the last 24 complete hours: hourly msgCount summed over devices, / 60. */

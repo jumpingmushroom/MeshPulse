@@ -8,7 +8,7 @@ import { getSettings } from '../lib/server/settings';
 import { loadWifiSnapshot } from '../lib/server/wifi/snapshot';
 import { networkMsgPerMin } from '../lib/server/trends/rollup';
 import { isAddon } from '../lib/server/addon';
-import { batteriesDue, banner, counters, setupNotice, learning, peakQuiet, formatDuration, sortIssues, wifiApName } from '../lib/views';
+import { batteriesDue, banner, watched, counters, setupNotice, learning, peakQuiet, formatDuration, sortIssues, wifiApName } from '../lib/views';
 import type { PageServerLoad } from './$types';
 
 const H = 3_600_000;
@@ -24,7 +24,7 @@ export const load: PageServerLoad = () => {
 	const box = { ...SPARK, t0: now - 24 * H, t1: now, y0: 0, y1: Math.max(1, ...msgs.map((p) => p.v)) };
 	const { bridge } = state;
 	const info = bridge.info;
-	const watched = [...state.devices.values()].filter((d) => d.removedAt === null && d.type !== 'Coordinator');
+	const devs = watched(state);
 	const name = (ieee: string | null) => (ieee && state.devices.get(ieee)?.friendlyName) || undefined;
 	const due = batteriesDue(db.select({ ieee: baselines.ieee, days: baselines.value }).from(baselines).where(eq(baselines.metric, 'battery_days_left')).all(), state);
 	const first = db.select({ h: min(samplesHourly.hour) }).from(samplesHourly).get()?.h ?? null;
@@ -35,14 +35,14 @@ export const load: PageServerLoad = () => {
 		: wifiSnap.zigbeeChannel === null ? 'unknown' : 'ok';
 	return {
 		wifi: wifiSnap && { state: wifiState!, zigbeeChannel: wifiSnap.zigbeeChannel, overlap: wifiSnap.aps.filter((a) => a.overlaps).length },
-		...networkScore(open),
+		...networkScore(open, devs.length),
 		setup: setupNotice({ connected: state.monitor.connected, connectedAt: state.monitor.connectedAt, lastError: state.monitor.lastError,
 			bridgeSeen: bridge.state !== null || bridge.info !== null, mqttUrl: config.mqttUrl, baseTopic: config.baseTopic, now, startedAt: state.monitor.startedAt, addon: isAddon(), mqttUrlMissing: !process.env.MQTT_URL }),
 		banner: banner(list, bridge.state === null && bridge.info === null),
 		learning: learning(first, now),
 		peakQuiet: peakQuiet(msgs, config.tz),
-		offline: watched.filter((d) => d.availability === 'offline').length,
-		unknown: watched.filter((d) => d.availability !== 'online' && d.availability !== 'offline').length,
+		offline: devs.filter((d) => d.availability === 'offline').length,
+		unknown: devs.filter((d) => d.availability !== 'online' && d.availability !== 'offline').length,
 		batteriesDue: { count: due.length, soonest: due[0] ?? null },
 		topLevel: list.length,
 		spark: { w: SPARK.w, h: SPARK.h, d: msgs.length >= 2 ? buildSeries(msgs, box, 3 * H).line : '', summary: summarise('Messages per minute, 24 h', '/min', msgs) },
