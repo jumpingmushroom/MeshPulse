@@ -17,9 +17,14 @@
 	let js = $state(false);
 	let copied = $state('');
 	onMount(() => (js = true));
-	async function copy(key: string, text: string) {
-		await navigator.clipboard.writeText(text);
-		copied = key;
+	async function copy(key: string, text: string, btn: HTMLElement) {
+		try {
+			await navigator.clipboard.writeText(text);
+			copied = key;
+		} catch {
+			// no clipboard API on plain http: select the text for a manual copy
+			if (btn.previousElementSibling) getSelection()?.selectAllChildren(btn.previousElementSibling);
+		}
 	}
 	const due = $derived(data.batteriesDue);
 	const hms = (ms: number) => new Date(ms).toLocaleTimeString('en-GB', { timeZone: data.tz });
@@ -55,7 +60,7 @@
 			</div>
 			<div class="prereq-code">
 				<pre>{p.fix}</pre>
-				{#if js}<button class="btn btn-sm" type="button" onclick={() => copy(p.key, p.fix)}>{copied === p.key ? 'Copied' : 'Copy'}</button>{/if}
+				{#if js}<button class="btn btn-sm" type="button" onclick={(e) => copy(p.key, p.fix, e.currentTarget)}>{copied === p.key ? 'Copied' : 'Copy'}</button>{/if}
 			</div>
 			<div class="prereq-foot">This notice clears on its own once the setting is detected.</div>
 		</div>

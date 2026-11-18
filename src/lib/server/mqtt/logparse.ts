@@ -1,4 +1,4 @@
-export interface RouteError {
+interface RouteError {
 	kind: 'command_failed' | 'ping_failed';
 	code: string | null;
 	ieee: string | null;

@@ -1,6 +1,6 @@
 // Pure SVG path builders for the server-rendered charts (no chart library).
 export type Point = { t: number; v: number | null; lo?: number | null; hi?: number | null };
-export type Box = { w: number; h: number; t0: number; t1: number; y0: number; y1: number };
+type Box = { w: number; h: number; t0: number; t1: number; y0: number; y1: number };
 
 const ok = (n: number | null | undefined): n is number => typeof n === 'number' && Number.isFinite(n);
 const r = (n: number) => +n.toFixed(1);

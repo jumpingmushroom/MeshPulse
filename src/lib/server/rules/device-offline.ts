@@ -1,5 +1,5 @@
 import { baselineOf } from '../trends/history';
-import { inGrace, issueKey, type Finding, type RuleContext } from './types';
+import { inGrace, issueKey, resumedAt, type Finding, type RuleContext } from './types';
 
 const H = 3_600_000;
 
@@ -7,10 +7,8 @@ export function deviceOffline(ctx: RuleContext): Finding[] {
 	const { now, settings: s } = ctx;
 	const grace = inGrace(ctx);
 	// after a real silence or a Z2M restart, Z2M marks devices offline until it hears from them again
-	const { silenceEndedAt, silenceMs, restartedAt } = ctx.state.bridge;
 	// a later short gap overwrites silenceMs/silenceEndedAt: that can only end this hold early, never re-arm it
-	const resumedAt = silenceMs >= s.bridgeSilenceMin * 60_000 ? silenceEndedAt ?? 0 : 0;
-	const settling = now < Math.max(resumedAt, restartedAt ?? 0) + s.graceMin * 60_000;
+	const settling = now < Math.max(resumedAt(ctx), ctx.state.bridge.restartedAt ?? 0) + s.graceMin * 60_000;
 	const out: Finding[] = [];
 	for (const d of ctx.state.devices.values()) {
 		if (d.type === 'Coordinator') continue;
@@ -37,7 +35,7 @@ export function deviceOffline(ctx: RuleContext): Finding[] {
 			severity: 'warning',
 			summary: offline
 				? `${d.friendlyName} is offline`
-				: `${d.friendlyName} has been silent for ${Math.round((now - d.lastSeenAt!) / H)} h`,
+				: `${d.friendlyName} has been silent for ${Math.round((now - since!) / H)} h`,
 			action: d.type === 'Router' ? 'Check power to the router' : 'Check the battery and that the device is in range',
 			evidence: { availability: d.availability, offlineSince, lastSeenAt: d.lastSeenAt, typicalGapMs: d.typicalGapMs, thresholdMs: threshold }
 		});

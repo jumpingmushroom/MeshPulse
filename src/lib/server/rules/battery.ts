@@ -68,16 +68,18 @@ function instabilities(ctx: RuleContext, d: DeviceState): [string, string][] {
 }
 
 /** Percentage thresholds for `d`: NiMH reads low on an alkaline scale from the day it goes in, so tagged devices get their own. */
-export function batteryLevels(d: DeviceState, s: Settings) {
+function batteryLevels(d: DeviceState, s: Settings) {
 	return d.tags.includes('rechargeable')
 		? { low: s.rechargeableLowPct, critical: s.rechargeableCriticalPct, clear: s.rechargeableClearPct, causing: s.rechargeableLowPct }
 		: { low: s.batteryLowPct, critical: s.batteryCriticalPct, clear: s.batteryClearPct, causing: s.causingBatteryPct };
 }
 
+// voltage only means something for coin cells
+const isCoin = (d: DeviceState, s: Settings) => d.powerSource === 'Battery' && d.maxVoltage !== null && d.maxVoltage <= s.coinCellMaxV;
+
 /** battery.low's opening condition: the device's flag, the percentage, or a coin cell's voltage. The shopping list uses it too. */
 export function isBatteryLow(d: DeviceState, s: Settings): boolean {
-	const coin = d.powerSource === 'Battery' && d.maxVoltage !== null && d.maxVoltage <= s.coinCellMaxV;
-	const v = coin ? d.voltage : null;
+	const v = isCoin(d, s) ? d.voltage : null;
 	return d.batteryLow === true || (d.battery !== null && d.battery <= batteryLevels(d, s).low) || (v !== null && v <= s.voltageLow);
 }
 
@@ -87,8 +89,8 @@ export function batteryLow(ctx: RuleContext): Finding[] {
 	for (const d of ctx.state.devices.values()) {
 		const pct = d.battery;
 		const lv = batteryLevels(d, s);
-		const coin = d.powerSource === 'Battery' && d.maxVoltage !== null && d.maxVoltage <= s.coinCellMaxV;
-		const v = coin ? d.voltage : null; // voltage only means something for coin cells
+		const coin = isCoin(d, s);
+		const v = coin ? d.voltage : null;
 		const causing = d.powerSource === 'Battery' &&
 			(d.batteryLow === true || (pct !== null && pct <= lv.causing) || (v !== null && v <= s.voltageLow))
 			? instabilities(ctx, d) : [];

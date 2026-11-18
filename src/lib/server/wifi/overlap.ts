@@ -1,5 +1,4 @@
 import { wifiMHz, zigbeeMHz } from '../../wifi-freq';
-export { wifiMHz, zigbeeMHz };
 
 export const overlaps = (zigbeeChannel: number, wifiChannel: number, widthMHz: number) =>
 	Math.abs(zigbeeMHz(zigbeeChannel) - wifiMHz(wifiChannel)) < widthMHz / 2 + 1;

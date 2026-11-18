@@ -1,4 +1,8 @@
-export type BatteryType = { type: string; cells: number };
+type BatteryType = { type: string; cells: number };
+
+/** Battery-powered by the reported power source, or by any battery or voltage reading (some devices report no power source). */
+export const isBatteryPowered = (d: { powerSource: string | null; battery: number | null; voltage: number | null }) =>
+	d.powerSource === 'Battery' || d.battery !== null || d.voltage !== null;
 
 export const KNOWN_TYPES = ['CR2032', 'CR2450', 'CR2477', 'CR1632', 'CR123A', 'CR2', 'AAA', 'AA', '9V'] as const;
 

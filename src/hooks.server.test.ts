@@ -44,4 +44,9 @@ describe('handle', () => {
 		await expect(run('10.0.0.5').p).rejects.toMatchObject({ status: 303, location: '/login' });
 		expect(getSession).toHaveBeenCalled();
 	});
+	it('normal mode: HTTP sign-in is 404 (only the rate-limited /login action signs in)', async () => {
+		delete process.env.SUPERVISOR_TOKEN;
+		await expect(run('10.0.0.5', '/api/auth/sign-in/email').p).rejects.toMatchObject({ status: 404 });
+		expect((await run('10.0.0.5', '/api/auth/get-session').p).status).toBe(200);
+	});
 });

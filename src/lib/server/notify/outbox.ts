@@ -9,7 +9,7 @@ import { homeassistant } from './homeassistant';
 import { apprise } from './apprise';
 import { discord, MENTION_KINDS } from './discord';
 
-export const CHANNELS: Record<string, Channel> = { discord, apprise, homeassistant };
+const CHANNELS: Record<string, Channel> = { discord, apprise, homeassistant };
 
 const SPACING_MS = 2000;
 const BACKOFF_MS = [60_000, 300_000, 1_800_000];

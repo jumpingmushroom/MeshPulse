@@ -99,5 +99,11 @@ export function restartStarts(ctx: RuleContext): number[] {
 	return starts;
 }
 
+/** End of the latest real Z2M silence (at least `bridgeSilenceMin`), else 0: devices report at once after it. */
+export function resumedAt(ctx: RuleContext): number {
+	const { silenceEndedAt, silenceMs } = ctx.state.bridge;
+	return silenceMs >= ctx.settings.bridgeSilenceMin * 60_000 ? silenceEndedAt ?? 0 : 0;
+}
+
 /** ieees of the open issues of `rule` */
 export const openFor = (ctx: RuleContext, rule: string) => [...ctx.open].filter((k) => k.startsWith(`${rule}|`)).map((k) => k.slice(rule.length + 1));

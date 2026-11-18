@@ -69,6 +69,7 @@
 							<div><strong>{nThresh} setting{nThresh === 1 ? '' : 's'} need{nThresh === 1 ? 's' : ''} fixing.</strong> Nothing was saved; your other changes are kept below.</div></div>
 					{/if}
 					{#snippet rowView(r: Row)}
+						{@const help = `${r.parts.filter((p) => typeof p !== 'string').map((p) => (p as { key: string }).key)[0]}-help`}
 						<div class="stack" style="gap:4px">
 							<div style="font-weight:500">{r.label}</div>
 							<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px">
@@ -83,7 +84,7 @@
 													<label class="sr-only" for={p.key}>{p.name}</label>
 													<input class="input" id={p.key} name={p.key} type="number" step="any" min="0" required bind:value={tv[p.key]}
 														style="width:84px{dirty ? ';box-shadow:inset 0 0 0 1px var(--accent)' : ''}"
-														aria-invalid={errOf(p.key) ? 'true' : undefined} aria-describedby="{p.key}-help" />
+														aria-invalid={errOf(p.key) ? 'true' : undefined} aria-describedby={help} />
 													{#if p.unit}<span>{p.unit}</span>{/if}
 												</span>
 												{#if dirty}<button type="button" class="btn btn-ghost btn-sm" style="align-self:flex-start;padding:0 4px;min-height:0"
@@ -93,7 +94,7 @@
 									</span>
 								{/each}
 							</div>
-							<span class="field-help" id="{r.parts.filter((p) => typeof p !== 'string').map((p) => (p as { key: string }).key)[0]}-help">{r.help}</span>
+							<span class="field-help" id={help}>{r.help}</span>
 							{#each r.parts as p, i (i)}{#if typeof p !== 'string' && errOf(p.key)}<span class="field-error" role="alert"><svg class="i"><use href="#i-crit" /></svg>{errOf(p.key)}</span>{/if}{/each}
 						</div>
 					{/snippet}

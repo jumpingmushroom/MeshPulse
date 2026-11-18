@@ -115,10 +115,10 @@ export function interviewFailed(ctx: RuleContext): Finding[] {
 	// not restart-guarded: a failed interview is a real problem whenever it happens
 	const evs = ctx.events.filter((e) => e.kind === 'device_interview' && e.ieee !== null && (e.detail.status === 'failed' || e.detail.status === 'successful'));
 	const byIeee = byDevice(evs);
-	// an open issue whose failure aged out of 24 h holds: a success after it would have resolved it
+	// an open issue whose failure aged out of 24 h holds while the device is known: a success after it would have resolved it
 	for (const ieee of new Set([...byIeee.keys(), ...openFor(ctx, 'device.interview_failed')])) {
 		const last = byIeee.get(ieee)?.at(-1);
-		if (last && last.detail.status !== 'failed') continue;
+		if (last ? last.detail.status !== 'failed' : !ctx.state.devices.has(ieee)) continue;
 		const name = ctx.state.devices.get(ieee)?.friendlyName ?? (typeof last?.detail.friendly_name === 'string' ? last.detail.friendly_name : ieee);
 		out.push({
 			rule: 'device.interview_failed',

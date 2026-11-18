@@ -18,6 +18,8 @@ export const init: ServerInit = async () => {
 };
 
 const betterAuthHandle: Handle = async ({ event, resolve }) => {
+	// sign-in goes through the rate-limited /login action only; the HTTP endpoint would bypass loginLimiter
+	if (event.url.pathname.startsWith('/api/auth/sign-in/')) error(404);
 	const auth = getAuth();
 	const session = await auth.api.getSession({ headers: event.request.headers });
 	event.locals.user = session?.user ?? null;

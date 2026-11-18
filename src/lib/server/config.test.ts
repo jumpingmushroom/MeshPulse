@@ -15,6 +15,11 @@ describe('loadConfig', () => {
 		expect(c.mqttUrl).toBe('mqtt://mosquitto:1883');
 	});
 
+	it('falls back to Europe/Oslo for an invalid TZ', () => {
+		expect(loadConfig({ SECRET_KEY: 'x', TZ: 'Mars/Olympus' }).tz).toBe('Europe/Oslo');
+		expect(loadConfig({ SECRET_KEY: 'x', TZ: 'UTC' }).tz).toBe('UTC');
+	});
+
 	it('does not require SECRET_KEY', () => {
 		expect(loadConfig({ DATABASE_PATH: ':memory:' }).secretSource).toBe('memory');
 	});
