@@ -28,6 +28,11 @@
 		else acc.push(['', p]);
 		return acc;
 	}, []);
+	const ha = $derived(data.homeassistant);
+	const haMsg = $derived(msg('homeassistant'));
+	// after "Load notify services" the form result carries the list; otherwise the saved selection
+	const available = $derived(haMsg && 'available' in haMsg && haMsg.available ? haMsg.available : ha.services);
+	const chosen = $derived(haMsg && 'services' in haMsg && haMsg.services ? haMsg.services : ha.services);
 	const wf = $derived(msg('wifi')?.wifiValues); // after a failed save/test keep what was typed (never the password)
 	// editable copy of the saved areas; rows have a stable id so a rename keeps its APs. "Suggest" adds unsaved rows
 	// Initialised once: saving keeps what was typed (use:enhance does not reset), so other sections never wipe it
@@ -203,6 +208,47 @@
 						<button class="btn btn-primary">Save channel</button>
 						<button class="btn" formaction="?/testApprise" formnovalidate disabled={!data.apprise}>Send test</button>
 						{#if !data.apprise}<span class="field-help">Save a URL first to send a test.</span>{/if}
+					</div>
+				</form>
+
+				<form method="post" action="?/saveHomeAssistant" class="channel" use:enhance={keep}>
+					<div class="channel-head"><h3>Home Assistant</h3>
+						<label class="toggle"><input name="enabled" type="checkbox" checked={ha.enabled} /><span class="track"></span>Enabled</label></div>
+					<p class="field-help">Push to your phone through the Home Assistant app. {ha.addon ? 'Running as an add-on: no URL or token needed.' : 'Create a long-lived access token under your Home Assistant profile → Security.'}</p>
+					{#if !ha.addon}
+						<div class="field-grid">
+							<div class="field"><label for="ha-url">Home Assistant URL</label>
+								<input class="input" id="ha-url" name="url" type="url" autocomplete="off" value={ha.url} placeholder="http://homeassistant.local:8123" /></div>
+							<div class="field"><label for="ha-token">Long-lived access token</label>
+								<input class="input" id="ha-token" name="token" type="password" autocomplete="off" placeholder={ha.tokenSet ? 'Saved (leave empty to keep it)' : ''} />
+								<span class="field-help">Only ever sent to the URL it was saved with.</span></div>
+						</div>
+					{/if}
+					<div class="field">
+						<span class="field-label">Send to</span>
+						{#if available.length}
+							<div class="row" style="flex-wrap:wrap;gap:8px">
+								{#each available as s (s)}
+									<label class="chip"><input type="checkbox" name="services" value={s} checked={chosen.includes(s)} /><span class="box"><svg><use href="#i-check" /></svg></span>{s}</label>
+								{/each}
+							</div>
+						{:else}<span class="field-help">Load the notify services from Home Assistant, then pick your phone.</span>{/if}
+						<div><button class="btn btn-sm" formaction="?/loadHaServices" formnovalidate>Load notify services</button></div>
+					</div>
+					<div class="field-grid">
+						<div class="field"><label for="h-sev">Minimum severity</label>
+							<select class="select" id="h-sev" name="minSeverity" value={ha.minSeverity}>
+								<option value="info">Info</option><option value="warning">Warning</option><option value="critical">Critical</option>
+							</select></div>
+						<label class="toggle"><input name="weeklyDigest" type="checkbox" checked={ha.weeklyDigest} /><span class="track"></span>Weekly digest (Sunday 18:00)</label>
+					</div>
+					{#if haMsg?.error}<div class="form-error" role="alert"><svg class="i"><use href="#i-crit" /></svg><div>{haMsg.error}</div></div>{/if}
+					{#if haMsg?.saved}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Channel saved.</p>{/if}
+					{#if haMsg?.tested}<p class="test-result" role="status"><svg class="i"><use href="#i-ok" /></svg>Test notification sent.</p>{/if}
+					<div class="form-actions">
+						<button class="btn btn-primary">Save channel</button>
+						<button class="btn" formaction="?/testHomeAssistant" formnovalidate disabled={!ha.saved}>Send test</button>
+						{#if !ha.saved}<span class="field-help">Save the channel first to send a test.</span>{/if}
 					</div>
 				</form>
 			</section>
