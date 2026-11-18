@@ -57,6 +57,13 @@
       "when": 1792482505352,
       "tag": "0007_graceful_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793694460142,
+      "tag": "0008_opposite_lethal_legion",
+      "breakpoints": true
     }
   ]
 }

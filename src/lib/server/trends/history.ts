@@ -13,6 +13,7 @@ export interface HourlyRow {
 	batteryMin: number | null;
 	voltageMin: number | null;
 	msgCount: number;
+	msgPeak: number | null;
 }
 
 export interface History {

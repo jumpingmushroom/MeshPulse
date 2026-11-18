@@ -61,8 +61,8 @@ on announces, leaves or rates.
 | `device.leave` | `device_leave` or `leave_count_up` event | Warning | Device seen again (live message after the leave) |
 | `network.churn` | ≥ 5 different devices announce within 15 min | Warning | No announces for 1 h |
 | `device.interview_failed` | `device_interview` with status failed | Warning | A later successful interview |
-| `device.storm` | Device msg/min > 5 × its 7-day baseline AND > 20 msg/min, for 5 consecutive minutes; baseline needs ≥ 3 days | Warning; Critical if > 60 msg/min | < 2 × baseline for 15 min |
-| `device.dominant` | One device > 30% of all messages over 15 min (excluding `chatty`), network total ≥ 60 msg in that window | Warning | < 15% for 30 min |
+| `device.storm` | Device msg/min > 5 × its 7-day baseline AND > 2 × its usual peak (`msg_peak_per_min`: 99th percentile of each hour's busiest minute, once ≥ 3 days; added 2026-11-03) AND > 20 msg/min, for 5 consecutive minutes; baseline needs ≥ 3 days | Warning; Critical if > 60 msg/min | below max(2 × baseline, usual peak) for 15 min |
+| `device.dominant` | One device > 30% of all messages over 15 min (excluding `chatty`, and a device whose rate is within its usual peak), network total ≥ 60 msg in that window | Warning | < 15% for 30 min |
 | `network.storm` | Total msg/min > 4 × network baseline for 5 min; baseline ≥ 3 days | Critical; top 5 contributors in evidence | < 2 × baseline for 15 min |
 | `network.mass_offline` | ≥ 20% of routers, or ≥ 10 devices, went offline within 15 min (was 5; Z2M reports a power cut one router at a time over its 10 min availability timeout) | Critical | < 5% of routers offline and < 10 devices offline |
 | `battery.low` (extended) | Existing conditions; escalates to Critical "causing issues" when battery ≤ 35% (or coin cell ≤ 2.8 V) and in the last 48 h: churn, flapping, report gaps > 2 × typical, LQI drop > 25%, or route failures | Warning → Critical | As today (swap / > 40%), or 48 h without instability drops back to Warning |

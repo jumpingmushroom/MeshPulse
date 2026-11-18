@@ -7,7 +7,7 @@ import { evaluateRules, issueKey, type RuleContext } from './index';
 import { lqiDegrading, lqiWeak } from './lqi';
 
 const hour = (ago: number, lqiAvg: number | null): HourlyRow =>
-	({ hour: hourStart(NOW) - ago * H, lqiMin: lqiAvg, lqiAvg, lqiMax: lqiAvg, batteryMin: null, voltageMin: null, msgCount: 1 });
+	({ hour: hourStart(NOW) - ago * H, lqiMin: lqiAvg, lqiAvg, lqiMax: lqiAvg, batteryMin: null, voltageMin: null, msgCount: 1, msgPeak: null });
 /** `n` hours of data at `avg`, most recent first (1 h ago, 2 h ago, ...) */
 const hours = (n: number, avg: number, from = 1) => Array.from({ length: n }, (_, i) => hour(from + i, avg)).reverse();
 
