@@ -252,7 +252,10 @@ function onDevice(
 	}
 	if (typeof p.battery_low === 'boolean') d.batteryLow = p.battery_low;
 
-	if (!msg.retain) {
+	// an OTA update republishes the state with its progress every few seconds (about 8000 an hour on a Hue bulb):
+	// that is Z2M reporting, not device traffic, so it must not read as a storm or teach the baselines
+	const updating = isObj(p.update) && p.update.state === 'updating';
+	if (!msg.retain && !updating) {
 		const k = `${d.ieee}|${msg.ts - (msg.ts % 3_600_000)}`;
 		state.msgCounts.set(k, (state.msgCounts.get(k) ?? 0) + 1);
 		state.minutes.add(d.ieee, msg.ts);
