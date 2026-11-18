@@ -30,8 +30,7 @@ export const DEFAULT_SETTINGS = {
 	quietEnabled: true,
 	quietStart: '23:00',
 	quietEnd: '07:00',
-	reminderCriticalH: 6,
-	reminderWarningH: 24,
+	summaryTime: '09:00',
 	notifyDelayMin: 30,
 	lqiWeak: 30,
 	lqiWeakClear: 40,
@@ -114,7 +113,7 @@ export function saveFormSettings(db: Db, s: Settings): void {
 const PCT = ['batteryLowPct', 'batteryCriticalPct', 'batteryClearPct', 'rechargeableLowPct', 'rechargeableCriticalPct', 'rechargeableClearPct', 'rechargeableDropPct', 'lqiDegradePct', 'lqiRecoverPct', 'forecastTargetPct', 'massOfflineRouterPct', 'massOfflineClearPct', 'dominantPct', 'dominantClearPct', 'causingBatteryPct', 'wifiBusyPct', 'wifiClearPct'];
 const VOLTS = ['voltageLow', 'voltageCritical', 'voltageClear', 'coinCellMaxV'];
 // 0 would mean "always" (reminders, silence) or divide nothing (multiplier, window)
-const POSITIVE = ['silenceMultiplier', 'silenceLongGapFactor', 'flappingWindowH', 'reminderCriticalH', 'reminderWarningH', 'bridgeSilenceMin', 'mqttLostSec',
+const POSITIVE = ['silenceMultiplier', 'silenceLongGapFactor', 'flappingWindowH', 'bridgeSilenceMin', 'mqttLostSec',
 	'lqiWeak', 'lqiWeakClear', 'lqiMinHours', 'lqiDegradePct', 'lqiRecoverPct', 'baselineMinDays',
 	'routeFailWarn', 'routeFailCrit', 'routeFailClear', 'netRouteFactor', 'netRouteMin', 'netRouteClearFactor',
 	'forecastWarnDays', 'forecastClearDays', 'forecastMinDays', 'massOfflineRouterPct', 'massOfflineDevices', 'massOfflineWindowMin', 'massOfflineClearPct',
@@ -123,7 +122,7 @@ const POSITIVE = ['silenceMultiplier', 'silenceLongGapFactor', 'flappingWindowH'
 	'dominantPct', 'dominantClearPct', 'dominantWindowMin', 'dominantClearMin', 'dominantMinMsgs', 'netStormFactor', 'netStormClearFactor',
 	'backlogHigh', 'backlogClear', 'wifiBusyPct', 'wifiClearPct', 'causingWindowH', 'staleBatteryDays', 'rechargeableDropPct'];
 
-const LABEL: Record<string, string> = { quietStart: 'Quiet hours start', quietEnd: 'Quiet hours end', heartbeatUrl: 'Heartbeat URL',
+const LABEL: Record<string, string> = { quietStart: 'Quiet hours start', quietEnd: 'Quiet hours end', summaryTime: 'Daily summary time', heartbeatUrl: 'Heartbeat URL',
 	...Object.fromEntries(thresholdFields().map((x) => [x.key, x.name])) };
 
 export type SettingsError = { field: keyof Settings; message: string };

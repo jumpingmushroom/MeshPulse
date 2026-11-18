@@ -48,14 +48,12 @@ export const THRESHOLDS: Group[] = [
 		row('Battery causing issues', 'A low battery is named as the cause of related issues (rejoins, flapping, silence).',
 			'At or below', f('causingBatteryPct', 'Battery causing issues at', '%'), 'looking back', f('causingWindowH', 'Battery causing issues window', 'h'))
 	] },
-	{ title: 'Forecast and reminders', rows: [
+	{ title: 'Forecast and notifications', rows: [
 		row('Battery forecast', 'Shown in the interface only; never notifies.',
 			'Forecast to', f('forecastTargetPct', 'Battery forecast target', '%'), 'warn within', f('forecastWarnDays', 'Forecast warns within', 'days'),
 			'clears above', f('forecastClearDays', 'Forecast clears above', 'days')),
 		row('Notification delay', 'Warnings are sent only once they have been open this long; ones that clear sooner stay silent. Critical issues are sent at once. 0 sends at once.',
-			'Send warnings after', f('notifyDelayMin', 'Notification delay', 'min')),
-		row('Reminders', 'Repeat notifications for issues that stay open.',
-			'Critical every', f('reminderCriticalH', 'Remind critical every', 'h'), 'warnings every', f('reminderWarningH', 'Remind warning every', 'h'))
+			'Send warnings after', f('notifyDelayMin', 'Notification delay', 'min'))
 	], more: [
 		row('Forecast data', 'History required before forecasting.', 'Needs', f('forecastMinDays', 'Forecast needs', 'days of data'))
 	] },

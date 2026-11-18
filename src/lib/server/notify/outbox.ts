@@ -19,7 +19,7 @@ const MAX_ATTEMPTS = 4;
 const redact = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, '<url>');
 
 /** Bullet list that fits a Discord field value (1024 chars). */
-function bullets(lines: string[]): string {
+export function bullets(lines: string[]): string {
 	let out = '';
 	for (const [i, l] of lines.entries()) {
 		const more = `\n…and ${lines.length - i} more`;
@@ -37,7 +37,7 @@ export function enqueue(db: Db, issue: IssueRow, n: Notify,
 	const held = quiet && n.severity !== 'critical';
 	for (const ch of db.select().from(channels).where(eq(channels.enabled, true)).all()) {
 		if (RANK[n.severity] < RANK[ch.minSeverity]) continue;
-		const dedupeKey = `${issue.id}:${n.kind}:${n.severity}:${ch.id}` + (n.kind === 'reminder' ? `:${now}` : '');
+		const dedupeKey = `${issue.id}:${n.kind}:${n.severity}:${ch.id}`;
 		// a repeated key (e.g. escalate, de-escalate, escalate) is a legit no-op; throwing would roll back the engine run
 		db.insert(outbox).values({ channelId: ch.id, issueId: issue.id, kind: n.kind, severity: n.severity, message, dedupeKey,
 			status: held ? 'held' : 'pending', nextAttemptAt: held ? null : now, createdAt: now }).onConflictDoNothing().run();

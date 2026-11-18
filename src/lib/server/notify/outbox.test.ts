@@ -70,9 +70,6 @@ describe('outbox', () => {
 		// escalate → de-escalate → escalate repeats the key and must not throw
 		expect(() => enqueue(db, issue(1, 'critical'), n('critical', 'escalate'), { now: T + 1, quiet: false, device: null })).not.toThrow();
 		expect(rows(db)).toHaveLength(1);
-		enqueue(db, issue(1), n('warning', 'reminder'), { now: T, quiet: false, device: null });
-		enqueue(db, issue(1), n('warning', 'reminder'), { now: T + 1, quiet: false, device: null });
-		expect(rows(db).map((r) => r.dedupeKey).slice(1)).toEqual([`1:reminder:warning:1:${T}`, `1:reminder:warning:1:${T + 1}`]);
 	});
 
 	it('sends and marks sent', async () => {
